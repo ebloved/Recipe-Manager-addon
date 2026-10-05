@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recipe Manager</title>
+<style>
+  :root {
+    --bg: #fafbfc;
+    --surface: #ffffff;
+    --elevated: #f2f3f7;
+    --text: #1f2328;
+    --text-secondary: #5c6370;
+    --text-muted: #8b93a1;
+    --accent: #ff6b35;
+    --accent-soft: rgba(255,107,53,0.12);
+    --border: #e4e6eb;
+    --danger: #d64545;
+    --success: #2ea043;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --surface: #1b1f25;
+      --elevated: #232833;
+      --text: #e4e7ec;
+      --text-secondary: #a8b0bd;
+      --text-muted: #7a8594;
+      --accent-soft: rgba(255,107,53,0.18);
+      --border: #2b313c;
+      --danger: #ff6b6b;
+      --success: #4caf50;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header h1::before {
+    content: "🍳";
+    font-size: 20px;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    background: var(--elevated);
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .tab {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  @media (prefers-color-scheme: dark) {
+    .tab.active { background: var(--elevated); }
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px 40px;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .field input,
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .field textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 180px;
+    line-height: 1.5;
+  }
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 140px; }
+
+  button.btn {
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+  }
+  button.btn:hover:not(:disabled) { background: var(--border); }
+  button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.btn.primary:hover:not(:disabled) { opacity: 0.88; background: var(--accent); }
+  button.btn.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  button.btn.danger:hover:not(:disabled) {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--elevated);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .status {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.info { background: var(--accent-soft); color: var(--accent); }
+  .status.error { background: rgba(214,69,69,0.12); color: var(--danger); }
+  .status.success { background: rgba(46,160,67,0.12); color: var(--success); }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Recipe list */
+  .search-row { margin-bottom: 16px; }
+  .search-row input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+  .search-row input:focus { outline: none; border-color: var(--accent); }
+
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .recipe-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .recipe-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .recipe-thumb {
+    aspect-ratio: 4/3;
+    background: var(--elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 36px;
+  }
+  .recipe-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .recipe-body { padding: 12px 14px; }
+  .recipe-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .recipe-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .meta-chip {
+    background: var(--elevated);
+    border-radius: 6px;
+    padding: 2px 7px;
+  }
+  .meta-chip.tag { background: var(--accent-soft); color: var(--accent); }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+  }
+  .empty .icon { font-size: 48px; opacity: 0.4; }
+
+  /* Detail view */
+  .detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .detail-overlay.show { display: flex; }
+  .detail-panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    max-width: 800px;
+    width: 100%;
+    margin: auto;
+    padding: 24px;
+    position: relative;
+  }
+  .detail-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .detail-close:hover { background: var(--elevated); color: var(--text); }
+  .detail-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 40px 8px 0;
+    line-height: 1.25;
+  }
+  .detail-actions {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  /* Markdown rendering */
+  .md {
+    line-height: 1.65;
+    font-size: 14px;
+  }
+  .md h1 { font-size: 20px; margin: 20px 0 8px; }
+  .md h2 { font-size: 17px; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .md h3 { font-size: 15px; margin: 14px 0 6px; }
+  .md p { margin: 8px 0; }
+  .md ul, .md ol { padding-left: 22px; margin: 8px 0; }
+  .md li { margin: 3px 0; }
+  .md code {
+    background: var(--elevated);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .md pre {
+    background: var(--elevated);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 12px;
+  }
+  .md pre code { background: none; padding: 0; }
+  .md a { color: var(--accent); }
+  .md hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .md blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 8px 0;
+    padding: 4px 12px;
+    color: var(--text-secondary);
+    background: var(--elevated);
+    border-radius: 0 6px 6px 0;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Recipe Manager</h1>
+  <div class="tabs">
+    <button class="tab active" data-panel="youtube">YouTube</button>
+    <button class="tab" data-panel="add">Импорт</button>
+    <button class="tab" data-panel="recipes">Рецепты</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================================================ YouTube -->
+  <section class="panel active" id="panel-youtube">
+    <div class="hint">
+      Вставьте ссылку на YouTube Shorts (или обычное видео). Сервис скачает
+      субтитры и сгенерирует рецепт по шаблону.
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label for="yt-url">Ссылка на видео</label>
+        <input type="url" id="yt-url"
+               placeholder="https://www.youtube.com/shorts/...">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
+        <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
+      </div>
+      <div class="status" id="yt-status"></div>
+    </div>
+
+    <div class="card" id="yt-preview-card" style="display:none">
+      <div class="field">
+        <label>Сгенерированный Markdown</label>
+        <textarea id="yt-md" spellcheck="false"></textarea>
+      </div>
+      <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
+    </div>
+  </section>
+
+  <!-- ================================================ Add -->
+  <section class="panel" id="panel-add">
+    <div class="card">
+      <div class="field">
+        <label for="add-url">Импорт Markdown по ссылке</label>
+        <input type="url" id="add-url"
+               placeholder="https://raw.githubusercontent.com/user/repo/main/recipes/borsch.md">
+      </div>
+      <button class="btn primary" id="add-fetch">Загрузить и сохранить</button>
+      <div class="status" id="add-status"></div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label for="add-paste">Или вставьте Markdown вручную</label>
+        <textarea id="add-paste" spellcheck="false"
+                  placeholder="---
+title: Борщ
+tags: [суп, украинская]
+servings: 4
+---
+
+## Ингредиенты
+- Свёкла — 2 шт
+
+## Шаги
+1. Сварить бульон."></textarea>
+      </div>
+      <button class="btn primary" id="add-paste-save">Сохранить рецепт</button>
+      <div class="status" id="add-paste-status"></div>
+    </div>
+  </section>
+
+  <!-- ================================================ Recipes -->
+  <section class="panel" id="panel-recipes">
+    <div class="search-row">
+      <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
+    </div>
+    <div id="recipes-container">
+      <div class="loading"><span class="spinner"></span> Загрузка…</div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================================================ Recipe detail -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-panel">
+    <button class="detail-close" id="detail-close">×</button>
+    <h2 class="detail-title" id="detail-title"></h2>
+    <div class="detail-actions">
+      <button class="btn danger" id="detail-delete">🗑 Удалить</button>
+      <button class="btn" id="detail-edit-md">Показать Markdown</button>
+    </div>
+    <div class="md" id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// --- base path under ingress ----------------------------------------------
+const BASE = window.location.pathname.replace(/\/+$/, "") + "/";
+const api = (p) => BASE + p.replace(/^\/+/, "");
+
+// --- tiny state -----------------------------------------------------------
+const state = {
+  recipes: [],
+  currentJobId: null,
+  currentRecipe: null,
+  showRawMd: false,
+};
+
+// --- helpers --------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+
+function setStatus(el, text, kind = "info") {
+  el.textContent = text;
+  el.className = "status show " + kind;
+}
+function clearStatus(el) {
+  el.className = "status";
+  el.textContent = "";
+}
+
+// markdown → HTML: try marked from CDN, fallback to minimal renderer
+let markedReady = false;
+(function loadMarked() {
+  if (window.marked) { markedReady = true; return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/marked@12/marked.min.js";
+  s.onload = () => { markedReady = true; };
+  document.head.appendChild(s);
+})();
+
+function mdToHtml(md) {
+  if (markedReady && window.marked) {
+    try { return window.marked.parse(md); } catch (e) { /* fall through */ }
+  }
+  return minimalMd(md);
+}
+
+function minimalMd(md) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const lines = (md || "").split("\n");
+  const out = [];
+  let list = null;
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const line of lines) {
+    let m;
+    if ((m = line.match(/^###\s+(.+)/))) { closeList(); out.push(`<h3>${esc(m[1])}</h3>`); }
+    else if ((m = line.match(/^##\s+(.+)/))) { closeList(); out.push(`<h2>${esc(m[1])}</h2>`); }
+    else if ((m = line.match(/^#\s+(.+)/))) { closeList(); out.push(`<h1>${esc(m[1])}</h1>`); }
+    else if ((m = line.match(/^\s*[-*]\s+(.+)/))) {
+      if (list !== "ul") { closeList(); out.push("<ul>"); list = "ul"; }
+      out.push(`<li>${esc(m[1])}</li>`);
+    }
+    else if ((m = line.match(/^\s*\d+\.\s+(.+)/))) {
+      if (list !== "ol") { closeList(); out.push("<ol>"); list = "ol"; }
+      out.push(`<li>${esc(m[1])}</li>`);
+    }
+    else if (/^---+$/.test(line.trim())) { closeList(); out.push("<hr>"); }
+    else if (line.trim() === "") { closeList(); }
+    else { closeList(); out.push(`<p>${esc(line)}</p>`); }
+  }
+  closeList();
+  return out.join("");
+}
+
+// --- tabs -----------------------------------------------------------------
+document.querySelectorAll(".tab").forEach((t) => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
+    t.classList.add("active");
+    $("panel-" + t.dataset.panel).classList.add("active");
+    if (t.dataset.panel === "recipes") loadRecipes();
+  });
+});
+
+// --- YouTube flow ---------------------------------------------------------
+$("yt-download").addEventListener("click", async () => {
+  const url = $("yt-url").value.trim();
+  if (!url) return;
+  const status = $("yt-status");
+  const btn = $("yt-download");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Скачивание…';
+  setStatus(status, "Скачиваем субтитры через yt-dlp, это займёт 10–60 секунд…", "info");
+
+  try {
+    const fd = new FormData();
+    fd.append("url", url);
+    const resp = await fetch(api("api/download"), { method: "POST", body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
+
+    state.currentJobId = data.job_id;
+    $("yt-generate").disabled = false;
+    setStatus(status, `✓ Скачано ${data.count} файлов (job ${data.job_id}). Нажмите «Сгенерировать рецепт».`, "success");
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "1. Скачать субтитры";
+  }
+});
+
+$("yt-generate").addEventListener("click", async () => {
+  if (!state.currentJobId) return;
+  const status = $("yt-status");
+  const btn = $("yt-generate");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Генерация…';
+  setStatus(status, "Отправляем субтитры в Gemini…", "info");
+
+  try {
+    const fd = new FormData();
+    fd.append("job_id", state.currentJobId);
+    const resp = await fetch(api("api/generate-recipe"), { method: "POST", body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
+
+    $("yt-md").value = data.markdown;
+    $("yt-preview-card").style.display = "block";
+    setStatus(status, `✓ Рецепт сгенерирован моделью ${data.model}. Проверьте и сохраните.`, "success");
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "2. Сгенерировать рецепт";
+  }
+});
+
+$("yt-save").addEventListener("click", async () => {
+  const md = $("yt-md").value.trim();
+  if (!md) return;
+  const status = $("yt-status");
+  const btn = $("yt-save");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+  try {
+    const resp = await fetch(api("api/recipes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown_content: md }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
+    $("yt-preview-card").style.display = "none";
+    $("yt-md").value = "";
+    $("yt-url").value = "";
+    state.currentJobId = null;
+    $("yt-generate").disabled = true;
+    state.recipes = [];
+  } catch (err) {
+    setStatus(status, "Ошибка сохранения: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "💾 Сохранить в рецепты";
+  }
+});
+
+// --- Add panel ------------------------------------------------------------
+$("add-fetch").addEventListener("click", async () => {
+  const url = $("add-url").value.trim();
+  if (!url) return;
+  const status = $("add-status");
+  const btn = $("add-fetch");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Загрузка…';
+  clearStatus(status);
+  try {
+    const fd = new FormData();
+    fd.append("url", url);
+    const resp = await fetch(api("api/recipes/import-url"), { method: "POST", body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    setStatus(status, `✓ Импортирован рецепт «${data.recipe.name}».`, "success");
+    $("add-url").value = "";
+    state.recipes = [];
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Загрузить и сохранить";
+  }
+});
+
+$("add-paste-save").addEventListener("click", async () => {
+  const md = $("add-paste").value.trim();
+  if (!md) return;
+  const status = $("add-paste-status");
+  const btn = $("add-paste-save");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+  clearStatus(status);
+  try {
+    const resp = await fetch(api("api/recipes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown_content: md }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
+    $("add-paste").value = "";
+    state.recipes = [];
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Сохранить рецепт";
+  }
+});
+
+// --- Recipes list ---------------------------------------------------------
+async function loadRecipes() {
+  const container = $("recipes-container");
+  if (state.recipes.length) {
+    renderRecipes(state.recipes);
+    return;
+  }
+  container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
+  try {
+    const resp = await fetch(api("api/recipes"));
+    const data = await resp.json();
+    state.recipes = data.recipes || [];
+    renderRecipes(state.recipes);
+  } catch (err) {
+    container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить: ${err.message}</p></div>`;
+  }
+}
+
+let searchTimer = null;
+$("search").addEventListener("input", (e) => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  searchTimer = setTimeout(() => filterAndRender(q), 200);
+});
+
+function filterAndRender(q) {
+  if (!q) { renderRecipes(state.recipes); return; }
+  const lower = q.toLowerCase();
+  const filtered = state.recipes.filter((r) => {
+    if ((r.name || "").toLowerCase().includes(lower)) return true;
+    if ((r.description || "").toLowerCase().includes(lower)) return true;
+    for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
+      if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
+    }
+    for (const ing of r.ingredients || []) {
+      const name = typeof ing === "string" ? ing : ing.name;
+      if (name && String(name).toLowerCase().includes(lower)) return true;
+    }
+    return false;
+  });
+  renderRecipes(filtered);
+}
+
+function renderRecipes(recipes) {
+  const container = $("recipes-container");
+  if (!recipes.length) {
+    container.innerHTML = '<div class="empty"><div class="icon">📖</div><p>Рецептов пока нет.<br>Добавьте первый через вкладку «YouTube» или «Импорт».</p></div>';
+    return;
+  }
+  const grid = document.createElement("div");
+  grid.className = "recipe-grid";
+  for (const r of recipes) {
+    const card = document.createElement("div");
+    card.className = "recipe-card";
+    card.addEventListener("click", () => openDetail(r));
+
+    const thumb = document.createElement("div");
+    thumb.className = "recipe-thumb";
+    if (r.image_url) {
+      const img = document.createElement("img");
+      img.src = r.image_url;
+      img.alt = r.name || "";
+      img.loading = "lazy";
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = "🍽";
+    }
+    card.appendChild(thumb);
+
+    const body = document.createElement("div");
+    body.className = "recipe-body";
+
+    const name = document.createElement("h3");
+    name.className = "recipe-name";
+    name.textContent = r.name || "(без названия)";
+    body.appendChild(name);
+
+    const meta = document.createElement("div");
+    meta.className = "recipe-meta";
+    if (r.total_time || r.time) {
+      const chip = document.createElement("span");
+      chip.className = "meta-chip";
+      chip.textContent = "⏱ " + formatTime(r.total_time || r.time);
+      meta.appendChild(chip);
+    }
+    if (r.servings) {
+      const chip = document.createElement("span");
+      chip.className = "meta-chip";
+      chip.textContent = "👥 " + r.servings;
+      meta.appendChild(chip);
+    }
+    for (const t of (r.tags || []).slice(0, 3)) {
+      const chip = document.createElement("span");
+      chip.className = "meta-chip tag";
+      chip.textContent = t;
+      meta.appendChild(chip);
+    }
+    body.appendChild(meta);
+    card.appendChild(body);
+    grid.appendChild(card);
+  }
+  container.innerHTML = "";
+  container.appendChild(grid);
+}
+
+function formatTime(mins) {
+  if (!mins || isNaN(mins)) return "";
+  if (mins < 60) return mins + " мин";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h} ч ${m} мин` : `${h} ч`;
+}
+
+// --- Detail ---------------------------------------------------------------
+function openDetail(recipe) {
+  state.currentRecipe = recipe;
+  state.showRawMd = false;
+  $("detail-title").textContent = recipe.name || "(без названия)";
+  renderDetailBody();
+  $("detail-overlay").classList.add("show");
+}
+
+function renderDetailBody() {
+  const recipe = state.currentRecipe;
+  if (!recipe) return;
+  if (state.showRawMd) {
+    const lines = [];
+    if (recipe.description) lines.push(recipe.description, "");
+    if (recipe.ingredients?.length) {
+      lines.push("## Ингредиенты", "");
+      for (const ing of recipe.ingredients) {
+        if (typeof ing === "string") { lines.push("- " + ing); continue; }
+        const amt = [ing.amount, ing.unit].filter(Boolean).join(" ");
+        lines.push(`- ${ing.name || ""}${amt ? " — " + amt : ""}${ing.notes ? ` (${ing.notes})` : ""}`);
+      }
+      lines.push("");
+    }
+    if (recipe.instructions?.length) {
+      lines.push("## Шаги", "");
+      recipe.instructions.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+      lines.push("");
+    }
+    if (recipe.notes) lines.push("## Заметки", "", recipe.notes);
+    $("detail-body").innerHTML = mdToHtml(lines.join("\n"));
+  } else {
+    const md = buildRecipeMd(recipe);
+    $("detail-body").innerHTML = mdToHtml(md);
+  }
+}
+
+function buildRecipeMd(recipe) {
+  const out = [];
+  if (recipe.description) out.push(recipe.description, "");
+  if (recipe.ingredients?.length) {
+    out.push("## Ингредиенты", "");
+    for (const ing of recipe.ingredients) {
+      if (typeof ing === "string") { out.push("- " + ing); continue; }
+      const amt = [ing.amount, ing.unit].filter(Boolean).join(" ");
+      out.push(`- ${ing.name || ""}${amt ? " — " + amt : ""}${ing.notes ? ` (${ing.notes})` : ""}`);
+    }
+    out.push("");
+  }
+  if (recipe.instructions?.length) {
+    out.push("## Шаги", "");
+    recipe.instructions.forEach((s, i) => out.push(`${i + 1}. ${s}`));
+    out.push("");
+  }
+  if (recipe.notes) out.push("## Заметки", "", recipe.notes);
+  return out.join("\n");
+}
+
+$("detail-close").addEventListener("click", () => {
+  $("detail-overlay").classList.remove("show");
+  state.currentRecipe = null;
+});
+$("detail-overlay").addEventListener("click", (e) => {
+  if (e.target === $("detail-overlay")) {
+    $("detail-overlay").classList.remove("show");
+    state.currentRecipe = null;
+  }
+});
+$("detail-edit-md").addEventListener("click", () => {
+  state.showRawMd = !state.showRawMd;
+  $("detail-edit-md").textContent = state.showRawMd ? "Показать как карточку" : "Показать Markdown";
+  renderDetailBody();
+});
+$("detail-delete").addEventListener("click", async () => {
+  if (!state.currentRecipe) return;
+  if (!confirm(`Удалить рецепт «${state.currentRecipe.name}»?`)) return;
+  try {
+    const resp = await fetch(api(`api/recipes/${state.currentRecipe.id}`), { method: "DELETE" });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.detail || "delete failed");
+    }
+    state.recipes = state.recipes.filter((r) => r.id !== state.currentRecipe.id);
+    $("detail-overlay").classList.remove("show");
+    state.currentRecipe = null;
+    renderRecipes(state.recipes);
+  } catch (err) {
+    alert("Ошибка удаления: " + err.message);
+  }
+});
+</script>
+
+</body>
+</html>

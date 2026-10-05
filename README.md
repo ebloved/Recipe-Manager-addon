@@ -1,231 +1,246 @@
-# Recipe Manager for Home Assistant
+# Recipe Manager
 
-A Home Assistant custom integration that gives you a full recipe management system — store, search, scrape, and meal-plan your recipes, all inside Home Assistant.
+Аддон для Home Assistant, объединяющий два сценария работы с рецептами в одном месте:
 
-> **This is the backend integration.** To use it you also need the [Recipe Manager Card](https://github.com/thekiwismarthome/Recipe-Manager-Card) frontend, which is installed separately via HACS.
+- **YouTube Shorts → рецепт** — вставляете ссылку, аддон скачивает субтитры через `yt-dlp` и с помощью Google Gemini превращает их в структурированный рецепт в формате Markdown.
+- **Импорт Markdown** — добавляйте рецепты, хранящиеся в виде `.md`-файлов с YAML front matter, вставляя текст вручную или загружая их по прямой ссылке (например, с GitHub raw).
+- **Библиотека рецептов** — встроенный веб-интерфейс, работающий через HA ingress, с поиском и управлением всеми рецептами прямо из бокового меню Home Assistant.
 
----
-
-## Features
-
-- **Recipe library** — store unlimited recipes with ingredients, directions, nutrition facts, images, notes, tags, courses, categories and collections
-- **Web scraping** — import recipes directly from any major recipe website by pasting a URL
-- **Markdown import** — import recipes from `.md` files with YAML front matter, either by pasting text, loading a file, or fetching a raw URL (e.g. a GitHub link)
-- **Recipe Keeper import** — bulk-import your existing collection from a Recipe Keeper HTML export
-- **Meal planner** — plan breakfast, lunch, dinner and snacks across a weekly calendar
-- **Image management** — upload images from your device or download and cache remote images locally
-- **Shopping list** — add recipe ingredients to a shopping list (works with [Shopping List Manager Card](https://github.com/thekiwismarthome/shopping-list-manager-card))
-- **Real-time updates** — WebSocket event stream keeps every dashboard in sync instantly
-- **Fully local** — all data stored on your Home Assistant instance, no cloud required
+Всё работает локально: рецепты хранятся в `/data/recipes.json` внутри аддона, наружу уходят только запрос субтитров с YouTube и вызов Gemini API для генерации рецепта.
 
 ---
 
-## Requirements
+## Возможности
 
-- Home Assistant **2024.8.0** or newer
-- HACS installed ([hacs.xyz](https://hacs.xyz))
+- **Импорт из YouTube Shorts** — вставьте ссылку на Shorts (или обычное видео YouTube), скачайте автосубтитры и сгенерируйте рецепт в Markdown с YAML front matter.
+- **Структурирование через Gemini** — аддон отправляет транскрипт субтитров в Google Gemini вместе с шаблоном и получает обратно аккуратный структурированный рецепт.
+- **Импорт из Markdown** — импортируйте рецепты из `.md`-файлов, вставляя содержимое вручную или загружая по прямой ссылке.
+- **Встроенный веб-интерфейс** — работает через Home Assistant ingress и доступен из бокового меню. Поиск по названию, тегам, курсам, категориям и ингредиентам.
+- **Библиотека рецептов** — постоянное хранилище в `/data/recipes.json`, переживает перезапуски и обновления аддона.
+- **Мультиязычные субтитры** — настраиваемый язык субтитров (по умолчанию `ru.*`).
 
 ---
 
-## Installation
+## Установка
 
-### Step 1 — Add via HACS
+### Шаг 1 — Добавьте репозиторий в Home Assistant
 
-Click the button below to add this repository directly to HACS:
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thekiwismarthome&repository=Recipe-Manager&category=integration)
+[![Добавить репозиторий в Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/dnvorobev/recipe-manager-addon)
 
 <details>
-<summary>Manual HACS steps</summary>
+<summary>Ручные шаги</summary>
 
-1. Open HACS in your Home Assistant sidebar
-2. Click **Integrations**
-3. Click the three-dot menu (top right) → **Custom repositories**
-4. Paste `https://github.com/thekiwismarthome/Recipe-Manager` and select category **Integration**
-5. Click **Add**, then search for **Recipe Manager** and click **Download**
+1. Откройте **Настройки → Аддоны → Магазин аддонов**.
+2. Нажмите меню из трёх точек (справа сверху) → **Репозитории**.
+3. Вставьте `https://github.com/dnvorobev/recipe-manager-addon` и нажмите
+   **Добавить**.
+4. Закройте диалог и обновите страницу магазина аддонов.
 
 </details>
 
-### Step 2 — Restart Home Assistant
+### Шаг 2 — Установите аддон
 
-Go to **Settings → System → Restart** and wait for HA to come back up.
+1. В магазине аддонов найдите **Recipe Manager** и откройте его.
+2. Перейдите на вкладку **Info** и нажмите **Установить**.
+3. Дождитесь сборки и запуска аддона (на первой установке может занять
+   2–5 минут).
 
-### Step 3 — Add the Integration
+### Шаг 3 — Настройте
 
-Click the button below to add the integration to your Home Assistant:
+Откройте вкладку **Configuration** и заполните как минимум API-ключ Gemini:
 
-[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=recipe_manager)
+| Опция | Обязательно | Описание |
+|---|---|---|
+| `gemini_api_key` | ✅ | API-ключ Google Gemini. Получить можно на [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey). |
+| `gemini_models` | | Список моделей через запятую — по порядку попыток. По умолчанию `gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash`. |
+| `gemini_proxy` | | Необязательный HTTP(S)-прокси для запросов к Gemini. |
+| `sub_langs` | | Предпочитаемый язык субтитров для `yt-dlp`. По умолчанию `ru.*`. Для английского — `en.*`, для любого — `.*`. |
+| `cookies_file` | | Необязательный путь к файлу `cookies.txt` (для видео с возрастными ограничениями или приватных). Файл должен быть внутри контейнера аддона. |
+| `log_level` | | Уровень логирования uvicorn: `trace`, `debug`, `info`, `notice`, `warning`, `error`, `fatal`. По умолчанию `info`. |
 
-<details>
-<summary>Manual steps</summary>
+Нажмите **Сохранить**, затем на вкладке **Info** нажмите **Запустить**.
 
-1. Go to **Settings → Devices & Services → Add Integration**
-2. Search for **Recipe Manager** and click it
-3. Follow the setup wizard (no credentials needed — it runs fully locally)
+### Шаг 4 — Откройте веб-интерфейс
 
-</details>
-
-### Step 4 — Install the Card
-
-Install the [Recipe Manager Card](https://github.com/thekiwismarthome/Recipe-Manager-Card) to get the full UI. See that repo for card installation instructions.
-
----
-
-## Adding the Card to Your Dashboard
-
-Once both are installed:
-
-1. Go to any dashboard and enter **Edit mode**
-2. Click **Add Card** → search for **Custom: Recipe Manager Card**
-3. Add it and save
+После запуска аддона нажмите **Открыть Web UI** на вкладке Info — или
+найдите **Recipe Manager** в боковом меню Home Assistant.
 
 ---
 
-## Importing Recipes
+## Использование
 
-### From a website
+### Импорт рецепта из YouTube Shorts
 
-Paste the URL of a recipe page into the **From URL** tab of the *New Recipe* dialog and click **Fetch**. Recipe Manager extracts the recipe automatically from over 1000 supported sites, with a JSON-LD fallback for the rest.
+1. Откройте вкладку **YouTube**.
+2. Вставьте ссылку на Shorts (или обычное видео YouTube) в поле ввода.
+3. Нажмите **1. Скачать субтитры**. Аддон запустит `yt-dlp` для скачивания
+   автосубтитров. Это может занять 10–60 секунд в зависимости от видео.
+4. Нажмите **2. Сгенерировать рецепт**. Субтитры отправятся в Gemini,
+   который вернёт структурированный Markdown-рецепт. Результат появится
+   в поле предпросмотра ниже.
+5. Проверьте сгенерированный Markdown, при необходимости отредактируйте
+   и нажмите **Сохранить в рецепты**.
 
-### From Recipe Keeper
+Рецепт окажется в вашей библиотеке и будет доступен для поиска на вкладке
+**Рецепты**.
 
-Export your recipes from the Recipe Keeper app (*Menu → Export → Recipe Keeper File*), then upload the resulting `.zip` in the **Import** tab of the *New Recipe* dialog.
+### Импорт рецепта из Markdown
 
-### From Markdown
+1. Откройте вкладку **Импорт**.
+2. Выберите один из вариантов:
+   - Вставьте прямую ссылку на `.md`-файл (например, GitHub raw) и нажмите
+     **Загрузить и сохранить**, либо
+   - Вставьте содержимое Markdown прямо в текстовое поле и нажмите
+     **Сохранить рецепт**.
 
-The **Markdown** tab of the *New Recipe* dialog accepts recipes stored as Markdown files with YAML front matter — useful when you generate recipes with an LLM, keep them in a Git repository, or export them from a notes app.
+Парсер понимает YAML front matter, а при его отсутствии — разбирает секции
+`## Ингредиенты` / `## Шаги` из тела файла.
 
-Two modes are available:
-
-- **Paste** — paste the recipe text directly or load a `.md` file from disk.
-- **URL** — fetch a Markdown file from any direct link, e.g. a raw GitHub URL:
-  `https://raw.githubusercontent.com/<user>/<repo>/main/recipes/borsch.md`
-
-Optionally tick **Download image from front matter locally** to have Recipe Manager fetch the image referenced in `image_url` and store it in `/config/www/images/recipe_manager/`.
-
-#### File format
-
-The file consists of two parts: **YAML front matter** (optional but recommended) and a **Markdown body**. The front matter holds metadata used for search and filtering, while the body holds the human-readable recipe.
+#### Формат Markdown-файла
 
 ~~~markdown
 ---
-title: Borsch with beef
-description: Hearty Ukrainian borsch with beef and sour cream.
-tags: [soup, ukrainian, winter, beef]
-courses: [soup, main]
-categories: [ukrainian cuisine, home cooking]
-collections: [for winter, festive table]
-cuisine: ukrainian
+title: Борщ с говядиной
+description: Наваристый украинский борщ с говядиной и сметаной.
+tags: [суп, украинская, зима, мясо]
+courses: [суп, основное]
+categories: [украинская кухня, домашняя еда]
+cuisine: украинская
 servings: 4
-servings_text: 4 servings
 prep_time: 20
 cook_time: 100
 time: 120
 source_url: https://example.com/borsch
 image_url: https://example.com/images/borsch.jpg
 rating: 5
-is_favourite: true
 ingredients:
-  - name: Beef on the bone
+  - name: Говядина на кости
     amount: 500
-    unit: g
-  - name: Beetroot
+    unit: г
+  - name: Свёкла
     amount: 2
-    unit: pcs
-  - name: Cabbage
-    amount: 300
-    unit: g
+    unit: шт
 ---
 
-## Ingredients
+## Ингредиенты
 
-- Beef on the bone — 500 g
-- Beetroot — 2 pcs
-- Cabbage — 300 g
+- Говядина на кости — 500 г
+- Свёкла — 2 шт
 
-## Steps
+## Шаги
 
-1. Cover the beef with cold water and bring to a boil. Skim the foam and
-   simmer for **1 hour 30 minutes** with a bay leaf and a whole onion.
-2. Take out the meat, separate it from the bone, and cut into pieces.
-3. Shred the beetroot, carrot, and onion. Fry the onion and carrot until
-   golden, about **5 minutes**.
-4. Add the beetroot and tomato paste, simmer for **10 minutes**.
-5. Add the diced potato to the boiling broth and cook for **10 minutes**.
-6. Add the shredded cabbage and cook for another **5 minutes**.
-7. Add the fried vegetables and meat, season, and simmer for **10 minutes**.
-8. Add the minced garlic, remove from heat, and let it rest for **20 minutes**.
-
-## Notes
-
-- Serve with sour cream and fresh herbs.
-- Borsch tastes even better the next day.
+1. Залейте говядину холодной водой и доведите до кипения. Варите
+   **1 час 30 минут**.
+2. Достаньте мясо, отделите от кости и нарежьте кусочками.
 ~~~
 
-#### Front matter fields
+Поддерживаемые поля front matter:
 
-| Field | Type | Purpose |
+| Поле | Тип | Назначение |
 |---|---|---|
-| `title` | string | Recipe name. **Required** unless the body starts with `# Heading`. |
-| `description` | string | Short description shown in the recipe card. |
-| `tags` | list of strings | Primary search and filter key. |
-| `courses` | list of strings | Course category (soup, main, dessert…). |
-| `categories` | list of strings | Additional categorisation. |
-| `collections` | list of strings | User-defined collections (e.g. "for winter"). |
-| `cuisine` | string | Cuisine of the world. |
-| `category` | string | Single category label. |
-| `servings` | integer | Number of servings. |
-| `servings_text` | string | Free-form servings label (e.g. "4 servings"). |
-| `prep_time` | integer (minutes) | Preparation time. |
-| `cook_time` | integer (minutes) | Cooking time. |
-| `time` / `total_time` | integer (minutes) | Total time. |
-| `source_url` | string | Link to the original source. |
-| `image_url` | string | Link to the recipe photo. |
-| `rating` | integer 1–5 | Personal rating. |
-| `is_favourite` | boolean | Favourite flag. |
-| `ingredients` | list | Either list of strings or list of `{name, amount, unit, notes}` objects. |
-| `instructions` | list of strings | Optional. If omitted, steps are parsed from the body. |
-| `nutrition` | dict | Nutritional info (`calories`, `protein`, `fat`, `carbohydrates`, `fiber`, `sugar`, `sodium`). |
-| `notes` | string | Free-form notes. |
+| `title` | string | Название рецепта. **Обязательно**, если тело не начинается с `# Заголовок`. |
+| `description` | string | Краткое описание. |
+| `tags` | список строк | Основной ключ поиска. |
+| `courses` | список строк | Курс блюда. |
+| `categories` | список строк | Дополнительная категоризация. |
+| `collections` | список строк | Пользовательские коллекции. |
+| `cuisine` | string | Кухня мира. |
+| `servings` | integer | Количество порций. |
+| `servings_text` | string | Свободная подпись к порциям. |
+| `prep_time` | integer (минуты) | Время подготовки. |
+| `cook_time` | integer (минуты) | Время готовки. |
+| `time` / `total_time` | integer (минуты) | Общее время. |
+| `source_url` | string | Ссылка на первоисточник. |
+| `image_url` | string | Ссылка на фото рецепта. |
+| `rating` | integer 1–5 | Личная оценка. |
+| `ingredients` | список | Либо список строк, либо список объектов `{name, amount, unit, notes}`. |
+| `instructions` | список строк | Необязательно. Если нет — шаги берутся из тела файла. |
+| `nutrition` | dict | Пищевая ценность. |
+| `notes` | string | Свободные заметки. |
 
-#### Body parsing
+### Просмотр и поиск рецептов
 
-If a field is not present in the front matter, Recipe Manager falls back to parsing the body:
-
-- **Title** — the first `# Heading` if `title` is missing.
-- **Ingredients** — bullet list under `## Ingredients` / `## Ингредиенты`.
-- **Instructions** — numbered or bulleted list under `## Steps`, `## Directions`, `## Method`, `## Шаги`, `## Приготовление`.
-
-Instructions can mention durations in plain text ("cook for 15 minutes", "simmer 1 hour 30 minutes") — the recipe card automatically turns them into tap-to-start timers.
+1. Откройте вкладку **Рецепты**.
+2. Пользуйтесь полем поиска сверху — оно фильтрует по названию, тегам,
+   курсам, категориям и ингредиентам.
+3. Кликните по карточке рецепта, чтобы открыть его подробно. Оттуда можно
+   удалить рецепт или переключиться на отображение «сырого» Markdown.
 
 ---
 
-## Updating
+## Хранение данных
 
-Updates are managed through HACS. When a new version is available you will see a notification in the HACS panel. Click **Update** then restart Home Assistant.
+Рецепты хранятся в `/data/recipes.json` внутри контейнера аддона.
+Папка `/data` постоянная — она переживает перезапуски, обновления и
+переустановки аддона. Для резервной копии рецептов используйте штатные
+**Резервные копии** Home Assistant (папка `/data` аддона включается
+автоматически) либо скопируйте файл вручную.
 
 ---
 
-## Troubleshooting
+## Как это работает
 
-| Problem | Solution |
+Аддон запускает небольшой сервер FastAPI внутри своего контейнера.
+Home Assistant проксирует его через ingress, поэтому веб-интерфейс доступен
+по пути `/api/hassio_ingress/<token>/` — без настройки дополнительных
+портов и reverse-proxy.
+
+**Эндпоинты:**
+
+| Эндпоинт | Назначение |
 |---|---|
-| Integration not found after install | Make sure you restarted Home Assistant |
-| Recipe scraping fails | The site may block bots — try a different recipe site |
-| Markdown import fails | Ensure the file has valid YAML front matter. If importing from a URL, make sure it points to a **raw** Markdown file (GitHub raw links start with `raw.githubusercontent.com`) |
-| Markdown import: "python-frontmatter is required" | Home Assistant failed to install the dependency. Remove the `config/deps/` folder and restart HA |
-| Images not loading | Check that `/config/www/images/recipe_manager/` exists and is writable |
-| Card not appearing | Make sure Recipe Manager Card is also installed via HACS |
+| `POST /api/download` | Скачивание субтитров для видео YouTube. |
+| `POST /api/generate-recipe` | Отправка субтитров в Gemini, получение Markdown. |
+| `GET /api/recipes` | Список всех рецептов (поддерживает `?q=` для поиска). |
+| `GET /api/recipes/{id}` | Получение одного рецепта. |
+| `POST /api/recipes` | Создание рецепта из Markdown или явных полей. |
+| `POST /api/recipes/import-url` | Загрузка Markdown-файла по ссылке и его сохранение. |
+| `PATCH /api/recipes/{id}` | Обновление рецепта. |
+| `DELETE /api/recipes/{id}` | Удаление рецепта. |
+| `GET /api/tags` | Список всех уникальных тегов. |
+| `GET /api/health` | Проверка работоспособности. |
 
 ---
 
-## Related
+## Требования
 
-- [Recipe Manager Card](https://github.com/thekiwismarthome/Recipe-Manager-Card) — the Lovelace frontend UI
-- [Shopping List Manager Card](https://github.com/thekiwismarthome/shopping-list-manager-card) — optional shopping list integration
+- Home Assistant OS или Supervised (аддоны недоступны на Container и Core).
+- API-ключ Google Gemini ([получить бесплатно](https://aistudio.google.com/app/apikey)).
+- Доступ в интернет из контейнера аддона — для скачивания субтитров
+  YouTube и вызовов Gemini API.
 
 ---
 
-## License
+## Решение проблем
 
-MIT License — see [LICENSE](LICENSE)
+| Проблема | Решение |
+|---|---|
+| `GEMINI_API_KEY not set` | Откройте вкладку Configuration аддона, вставьте ключ, сохраните и перезапустите аддон. |
+| Скачивание субтитров не удаётся | Проверьте логи аддона. У некоторых видео нет автосубтитров — попробуйте другое видео. |
+| Gemini отвечает «all models unavailable» | Возможно, вы упёрлись в лимит бесплатного тарифа. Подождите несколько минут или добавьте прокси. |
+| Web UI возвращает 404 | Убедитесь, что аддон запущен, а `ingress_port` в `config.yaml` совпадает с портом в `run.sh` (по умолчанию `8099`). |
+| Рецепты пропали после обновления | Такого не должно быть. Проверьте файл `/data/recipes.json` внутри контейнера. Если файла нет — восстановите из резервной копии HA. |
+
+### Как посмотреть логи аддона
+
+**Настройки → Аддоны → Recipe Manager → вкладка «Log»**. Ошибки от
+`yt-dlp`, `httpx` и FastAPI появляются там же.
+
+---
+
+## Связанные проекты
+
+Аддон объединяет логику из двух источников:
+
+- **Recipe Manager integration** — парсер Markdown и модель данных рецепта
+  взяты из кастомной интеграции [Recipe Manager](https://github.com/thekiwismarthome/Recipe-Manager)
+  авторства [@thekiwismarthome](https://github.com/thekiwismarthome).
+- **YT Subs → Recipe add-on** — загрузчик субтитров YouTube и промпт для
+  Gemini взяты из [ha-yt-subs-recipe-addon](https://github.com/ebloved/ha-yt-subs-recipe-addon)
+  авторства [@ebloved](https://github.com/ebloved).
+
+---
+
+## Лицензия
+
+MIT License — см. [LICENSE](LICENSE)
