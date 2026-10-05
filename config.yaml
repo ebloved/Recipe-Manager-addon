@@ -1,14 +1,11 @@
 name: "Recipe Manager"
-version: "1.0.4"
+version: "1.0.5"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
 arch:
   - aarch64
   - amd64
-  - armv7
-  - armhf
-  - i386
 
 # --- Ingress --------------------------------------------------------------
 
