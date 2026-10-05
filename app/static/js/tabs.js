@@ -32,6 +32,7 @@
     if (name === "recipes") RM.recipes.load();
     if (name === "planner") RM.planner.load();
     if (name === "shopping") RM.shopping.load();
+    if (name === "sync") RM.sync.load();
   }
 
   function switchToRecipes() { activateTab("recipes"); }

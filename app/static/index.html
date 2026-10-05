@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=8">
+<link rel="stylesheet" href="static/css/style.css?v=9">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -15,13 +15,14 @@
     <button class="tab active" data-panel="recipes">Рецепты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
+    <button class="tab" data-panel="sync">☁️ Синхронизация</button>
     <button class="tab" data-panel="youtube">YouTube</button>
     <button class="tab" data-panel="import">Импорт</button>
   </div>
 </header>
 
 <main>
-  <!-- ============================================================= Recipes -->
+  <!-- Recipes -->
   <section class="panel active" id="panel-recipes">
     <div class="panel-inner">
       <div class="search-row">
@@ -33,7 +34,7 @@
     </div>
   </section>
 
-  <!-- ============================================================= Planner -->
+  <!-- Planner -->
   <section class="panel" id="panel-planner">
     <div class="planner-wrap">
       <div class="planner-header">
@@ -48,7 +49,7 @@
     </div>
   </section>
 
-  <!-- ============================================================= Shopping -->
+  <!-- Shopping -->
   <section class="panel" id="panel-shopping">
     <div class="panel-inner">
       <div class="shopping-toolbar">
@@ -67,14 +68,33 @@
           </label>
         </div>
       </div>
-
       <div id="shopping-container">
         <div class="loading"><span class="spinner"></span> Загрузка…</div>
       </div>
     </div>
   </section>
 
-  <!-- ============================================================= YouTube -->
+  <!-- Sync -->
+  <section class="panel" id="panel-sync">
+    <div class="panel-inner">
+      <div class="card">
+        <div class="hint">
+          Синхронизация рецептов с репозиторием GitHub. Настройки задаются
+          в Configuration аддона (репозиторий, токен, ветка, путь к файлу).
+        </div>
+        <div class="sync-status" id="sync-status">
+          <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="sync-pull">⬇️ Забрать из GitHub</button>
+          <button class="btn primary" id="sync-push">⬆️ Отправить в GitHub</button>
+        </div>
+        <div class="status" id="sync-msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- YouTube -->
   <section class="panel" id="panel-youtube">
     <div class="panel-inner">
       <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
@@ -99,7 +119,7 @@
     </div>
   </section>
 
-  <!-- ============================================================= Import -->
+  <!-- Import -->
   <section class="panel" id="panel-import">
     <div class="panel-inner">
       <div class="sub-tabs">
@@ -201,7 +221,7 @@ servings: 4
   </div>
 </div>
 
-<!-- Shopping: barcode lookup modal -->
+<!-- Barcode modal -->
 <div class="barcode-overlay" id="barcode-overlay">
   <div class="barcode-panel">
     <div class="barcode-header">
@@ -209,29 +229,30 @@ servings: 4
       <button class="plan-picker-close" id="barcode-close">×</button>
     </div>
     <div class="barcode-body">
-        <div class="field">
+      <div class="field">
         <label for="barcode-input">Штрих-код (GTIN)</label>
         <div class="barcode-row">
-            <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
-            <button class="btn" id="barcode-scan" title="Сканировать камерой">📷</button>
-            <button class="btn primary" id="barcode-search">Найти</button>
+          <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
+          <button class="btn" id="barcode-scan" title="Сканировать камерой">📷</button>
+          <button class="btn primary" id="barcode-search">Найти</button>
         </div>
         <div class="barcode-scanner" id="barcode-scanner" style="display:none">
-            <video id="barcode-video" autoplay playsinline muted></video>
-            <div class="barcode-scanner-overlay">
-                <div class="barcode-scan-hint" id="barcode-scan-hint">Наведите камеру на штрих-код</div>
-                <div class="barcode-scan-frame"></div>
-                <div class="barcode-scan-status" id="barcode-scan-status"></div>
-                <button class="btn" id="barcode-scan-stop">Остановить</button>
-            </div>
+          <video id="barcode-video" autoplay playsinline muted></video>
+          <div class="barcode-scanner-overlay">
+            <div class="barcode-scan-hint" id="barcode-scan-hint">Наведите камеру на штрих-код</div>
+            <div class="barcode-scan-frame"></div>
+            <div class="barcode-scan-status" id="barcode-scan-status"></div>
+            <button class="btn" id="barcode-scan-stop">Остановить</button>
+          </div>
         </div>
-      <div class="status" id="barcode-status"></div>
-      <div id="barcode-result"></div>
+        <div class="status" id="barcode-status"></div>
+        <div id="barcode-result"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Shopping: add-from-recipe modal -->
+<!-- Add-from-recipe modal -->
 <div class="recipe-shop-overlay" id="recipe-shop-overlay">
   <div class="recipe-shop-panel">
     <div class="barcode-header">
@@ -255,18 +276,19 @@ servings: 4
 <!-- Editor overlay -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js"></script>
-<script src="static/js/api.js"></script>
-<script src="static/js/state.js"></script>
-<script src="static/js/tabs.js"></script>
-<script src="static/js/youtube.js"></script>
-<script src="static/js/imports.js"></script>
-<script src="static/js/recipes.js?v=8"></script>
-<script src="static/js/detail.js?v=8"></script>
-<script src="static/js/editor.js"></script>
-<script src="static/js/plan-picker.js"></script>
-<script src="static/js/planner.js"></script>
-<script src="static/js/shopping.js?v=8"></script>
-<script src="static/js/app.js"></script>
+<script src="static/js/utils.js?v=9"></script>
+<script src="static/js/api.js?v=9"></script>
+<script src="static/js/state.js?v=9"></script>
+<script src="static/js/tabs.js?v=9"></script>
+<script src="static/js/youtube.js?v=9"></script>
+<script src="static/js/imports.js?v=9"></script>
+<script src="static/js/recipes.js?v=9"></script>
+<script src="static/js/detail.js?v=9"></script>
+<script src="static/js/editor.js?v=9"></script>
+<script src="static/js/plan-picker.js?v=9"></script>
+<script src="static/js/planner.js?v=9"></script>
+<script src="static/js/shopping.js?v=9"></script>
+<script src="static/js/sync.js?v=9"></script>
+<script src="static/js/app.js?v=9"></script>
 </body>
 </html>

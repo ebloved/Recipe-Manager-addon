@@ -10,6 +10,7 @@
     RM.planPicker.setup();
     RM.planner.setup();
     RM.shopping.setup();
+    RM.sync.setup();
 
     RM.recipes.load();
   }
