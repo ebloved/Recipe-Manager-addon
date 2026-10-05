@@ -50,7 +50,3 @@ map:
     read_only: false
   - type: ssl
     read_only: false
-
-# --- UI hints -------------------------------------------------------------
-
-image: "ghcr.io/ebloved/recipe-manager-addon-{arch}"
