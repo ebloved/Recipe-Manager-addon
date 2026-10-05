@@ -7,8 +7,12 @@
   state.shoppingItems = [];
   state.shoppingOnlyActive = false;
   state.recipeShopState = null;
-  let scanStream = null;
-  let scanRaf = null;
+
+  // Сканер
+  let nativeStream = null;
+  let nativeRaf = null;
+  let html5Scanner = null;
+  let detectedLock = false;
 
   // ====================================================================
   // Setup
@@ -25,8 +29,6 @@
     });
 
     // Barcode modal
-    $("barcode-scan").addEventListener("click", onBarcodeScan);
-    $("barcode-scan-stop").addEventListener("click", stopScan);
     $("shopping-lookup-open").addEventListener("click", openBarcode);
     $("barcode-close").addEventListener("click", closeBarcode);
     $("barcode-overlay").addEventListener("click", (e) => {
@@ -36,6 +38,8 @@
     $("barcode-input").addEventListener("keydown", (e) => {
       if (e.key === "Enter") onBarcodeSearch();
     });
+    $("barcode-scan").addEventListener("click", onBarcodeScan);
+    $("barcode-scan-stop").addEventListener("click", stopScan);
 
     // Add-from-recipe modal
     $("recipe-shop-close").addEventListener("click", closeRecipeShop);
@@ -185,7 +189,7 @@
   }
 
   // ====================================================================
-  // Barcode lookup
+  // Barcode modal
   // ====================================================================
   function openBarcode() {
     stopScan();
@@ -207,11 +211,12 @@
     const status = $("barcode-status");
     const btn = $("barcode-search");
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>';
-    clearStatus(status);
+    btn.innerHTML = '<span class="spinner"></span> Ищу…';
+    setStatus(status, `Ищу товар ${barcode}…`, "info");
     $("barcode-result").innerHTML = "";
     try {
       const data = await postJSON("api/shopping/lookup", { barcode });
+      clearStatus(status);
       renderBarcodeResult(data.product);
     } catch (err) {
       setStatus(status, err.message, "error");
@@ -267,6 +272,169 @@
     } catch (err) {
       alert("Ошибка: " + err.message);
     }
+  }
+
+  // ====================================================================
+  // Barcode scanner (camera)
+  // ====================================================================
+  async function onBarcodeScan() {
+    const status = $("barcode-status");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus(status, "Браузер не даёт доступ к камере. Нужен HTTPS.", "error");
+      return;
+    }
+    clearStatus(status);
+
+    if ("BarcodeDetector" in window) {
+      await startNativeScanner(status);
+    } else if (typeof Html5Qrcode !== "undefined") {
+      await startHtml5Scanner(status);
+    } else {
+      setStatus(status, "Библиотека сканирования не загрузилась. Введите код вручную.", "error");
+    }
+  }
+
+  // --- Native (BarcodeDetector) -------------------------------------
+  async function startNativeScanner(status) {
+    const video = $("barcode-video");
+    const wrapper = $("barcode-scanner");
+    resetScanUI();
+    try {
+      nativeStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      video.srcObject = nativeStream;
+      await video.play();
+      wrapper.style.display = "block";
+
+      const detector = new BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39"],
+      });
+
+      const tick = async () => {
+        if (!nativeStream) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) {
+            const value = (codes[0].rawValue || "").trim();
+            if (value && !detectedLock) {
+              onCodeDetected(value);
+              return;
+            }
+          }
+        } catch (_) { /* ignore frame errors */ }
+        nativeRaf = requestAnimationFrame(tick);
+      };
+      nativeRaf = requestAnimationFrame(tick);
+    } catch (err) {
+      setStatus(status, "Не удалось открыть камеру: " + (err.message || err), "error");
+      stopScan();
+    }
+  }
+
+  // --- html5-qrcode (iOS / Firefox) ---------------------------------
+  async function startHtml5Scanner(status) {
+    const wrapper = $("barcode-scanner");
+    resetScanUI();
+    $("barcode-video").style.display = "none";
+    wrapper.style.display = "block";
+
+    let container = $("html5qr-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "html5qr-container";
+      container.style.width = "100%";
+      container.style.height = "100%";
+      wrapper.insertBefore(container, wrapper.firstChild);
+    }
+
+    try {
+      html5Scanner = new Html5Qrcode("html5qr-container");
+      await html5Scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 280, height: 180 },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+          ],
+        },
+        (decodedText) => {
+          const value = (decodedText || "").trim();
+          if (value && !detectedLock) onCodeDetected(value);
+        },
+        () => { /* ignore per-frame errors */ }
+      );
+    } catch (err) {
+      setStatus(status, "Не удалось открыть камеру: " + (err.message || err), "error");
+      stopScan();
+    }
+  }
+
+  // --- Обработка распознавания --------------------------------------
+  function onCodeDetected(value) {
+    detectedLock = true;
+    stopCamera();
+    flashDetected(value);
+    setTimeout(() => {
+      stopScan();
+      $("barcode-input").value = value;
+      onBarcodeSearch();
+    }, 550);
+  }
+
+  function flashDetected(value) {
+    const frame = document.querySelector(".barcode-scan-frame");
+    const status = $("barcode-scan-status");
+    const hint = $("barcode-scan-hint");
+    if (frame) frame.classList.add("detected");
+    if (hint) hint.style.display = "none";
+    if (status) {
+      status.textContent = "✓ Распознано: " + value;
+      status.classList.add("show");
+    }
+  }
+
+  // --- Остановка только камеры (оверлей остаётся на месте) ----------
+  function stopCamera() {
+    if (nativeRaf) { cancelAnimationFrame(nativeRaf); nativeRaf = null; }
+    if (nativeStream) {
+      nativeStream.getTracks().forEach((t) => t.stop());
+      nativeStream = null;
+    }
+    if (html5Scanner) {
+      try { html5Scanner.stop().then(() => html5Scanner.clear()); }
+      catch (_) { /* ignore */ }
+      html5Scanner = null;
+    }
+  }
+
+  // --- Полная остановка + скрытие оверлея ---------------------------
+  function stopScan() {
+    stopCamera();
+    const wrapper = $("barcode-scanner");
+    const video = $("barcode-video");
+    const container = $("html5qr-container");
+    if (wrapper) wrapper.style.display = "none";
+    if (video) { video.srcObject = null; video.style.display = "block"; }
+    if (container) container.innerHTML = "";
+    resetScanUI();
+    detectedLock = false;
+  }
+
+  function resetScanUI() {
+    const frame = document.querySelector(".barcode-scan-frame");
+    const status = $("barcode-scan-status");
+    const hint = $("barcode-scan-hint");
+    if (frame) frame.classList.remove("detected");
+    if (status) { status.classList.remove("show"); status.textContent = ""; }
+    if (hint) hint.style.display = "";
   }
 
   // ====================================================================
@@ -397,163 +565,29 @@
       btn.textContent = "Добавить";
     }
   }
-    async function addIngredient(ing, recipe, multiplier) {
-        const name = (ing.name || "").trim();
-        if (!name) return;
-        const amount = ing.amount ? scaleAmount(ing.amount, multiplier || 1) : null;
-        try {
-        const data = await postJSON("api/shopping", {
-            name,
-            amount,
-            unit: ing.unit || null,
-            note: ing.notes || null,
-            recipe_id: recipe?.id || null,
-            recipe_name: recipe?.name || null,
-            source: "recipe",
-        });
-        state.shoppingItems.push(data.item);
-        } catch (err) {
-        alert("Ошибка: " + err.message);
-        }
-    }
-    // ====================================================================
-  // Barcode scanner (camera) — нативный BarcodeDetector или html5-qrcode
+
   // ====================================================================
-  let nativeStream = null;
-  let nativeRaf = null;
-  let html5Scanner = null;
-
-  async function onBarcodeScan() {
-    const status = $("barcode-status");
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus(status, "Браузер не даёт доступ к камере. Нужен HTTPS.", "error");
-      return;
-    }
-    clearStatus(status);
-
-    if ("BarcodeDetector" in window) {
-      // Android / Chrome — быстрый нативный путь
-      await startNativeScanner(status);
-    } else if (typeof Html5Qrcode !== "undefined") {
-      // iOS Safari и другие — html5-qrcode
-      await startHtml5Scanner(status);
-    } else {
-      setStatus(status, "Библиотека сканирования не загрузилась. Введите код вручную.", "error");
-    }
-  }
-
-  // --- Native (BarcodeDetector) -------------------------------------
-  async function startNativeScanner(status) {
-    const video = $("barcode-video");
-    const wrapper = $("barcode-scanner");
+  // Быстрое добавление одного ингредиента из detail-view
+  // ====================================================================
+  async function addIngredient(ing, recipe, multiplier) {
+    const name = (ing.name || "").trim();
+    if (!name) return;
+    const amount = ing.amount ? scaleAmount(ing.amount, multiplier || 1) : null;
     try {
-      nativeStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
+      const data = await postJSON("api/shopping", {
+        name,
+        amount,
+        unit: ing.unit || null,
+        note: ing.notes || null,
+        recipe_id: recipe?.id || null,
+        recipe_name: recipe?.name || null,
+        source: "recipe",
       });
-      video.srcObject = nativeStream;
-      await video.play();
-      wrapper.style.display = "block";
-
-      const detector = new BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39"],
-      });
-
-      const tick = async () => {
-        if (!nativeStream) return;
-        try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            const value = (codes[0].rawValue || "").trim();
-            if (value) {
-              stopScan();
-              $("barcode-input").value = value;
-              onBarcodeSearch();
-              return;
-            }
-          }
-        } catch (_) { /* ignore frame errors */ }
-        nativeRaf = requestAnimationFrame(tick);
-      };
-      nativeRaf = requestAnimationFrame(tick);
+      state.shoppingItems.push(data.item);
     } catch (err) {
-      setStatus(status, "Не удалось открыть камеру: " + (err.message || err), "error");
-      stopScan();
+      alert("Ошибка: " + err.message);
     }
   }
 
-  // --- html5-qrcode (iOS) -------------------------------------------
-  async function startHtml5Scanner(status) {
-    const wrapper = $("barcode-scanner");
-    // Скрываем video-элемент (html5-qrcode создаёт свой контейнер)
-    $("barcode-video").style.display = "none";
-
-    wrapper.style.display = "block";
-    // Вставляем div, который html5-qrcode будет использовать как viewport
-    let container = $("html5qr-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "html5qr-container";
-      container.style.width = "100%";
-      container.style.height = "100%";
-      wrapper.insertBefore(container, wrapper.firstChild);
-    }
-
-    try {
-      html5Scanner = new Html5Qrcode("html5qr-container");
-      await html5Scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 280, height: 180 },
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-          ],
-        },
-        (decodedText) => {
-          const value = (decodedText || "").trim();
-          if (!value) return;
-          stopScan();
-          $("barcode-input").value = value;
-          onBarcodeSearch();
-        },
-        () => { /* ignore per-frame errors */ }
-      );
-    } catch (err) {
-      setStatus(status, "Не удалось открыть камеру: " + (err.message || err), "error");
-      stopScan();
-    }
-  }
-
-  // --- Остановка любого сканера -------------------------------------
-  function stopScan() {
-    // native
-    if (nativeRaf) {
-      cancelAnimationFrame(nativeRaf);
-      nativeRaf = null;
-    }
-    if (nativeStream) {
-      nativeStream.getTracks().forEach((t) => t.stop());
-      nativeStream = null;
-    }
-    // html5-qrcode
-    if (html5Scanner) {
-      try { html5Scanner.stop().then(() => html5Scanner.clear()); }
-      catch (_) { /* ignore */ }
-      html5Scanner = null;
-    }
-    // UI
-    const wrapper = $("barcode-scanner");
-    const video = $("barcode-video");
-    const container = $("html5qr-container");
-    if (wrapper) wrapper.style.display = "none";
-    if (video) { video.srcObject = null; video.style.display = "block"; }
-    if (container) container.innerHTML = "";
-  }
-RM.shopping = { setup, load, render, openRecipeShop, addIngredient };
+  RM.shopping = { setup, load, render, openRecipeShop, addIngredient };
 })(window.RM);

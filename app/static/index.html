@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=4">
+<link rel="stylesheet" href="static/css/style.css?v=5">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -219,10 +219,11 @@ servings: 4
         <div class="barcode-scanner" id="barcode-scanner" style="display:none">
             <video id="barcode-video" autoplay playsinline muted></video>
             <div class="barcode-scanner-overlay">
-            <div class="barcode-scan-frame"></div>
-            <button class="btn" id="barcode-scan-stop">Остановить</button>
+                <div class="barcode-scan-hint" id="barcode-scan-hint">Наведите камеру на штрих-код</div>
+                <div class="barcode-scan-frame"></div>
+                <div class="barcode-scan-status" id="barcode-scan-status"></div>
+                <button class="btn" id="barcode-scan-stop">Остановить</button>
             </div>
-        </div>
         </div>
       <div class="status" id="barcode-status"></div>
       <div id="barcode-result"></div>
@@ -265,7 +266,7 @@ servings: 4
 <script src="static/js/editor.js"></script>
 <script src="static/js/plan-picker.js"></script>
 <script src="static/js/planner.js"></script>
-<script src="static/js/shopping.js"></script>
+<script src="static/js/shopping.js?v=5"></script>
 <script src="static/js/app.js"></script>
 </body>
 </html>

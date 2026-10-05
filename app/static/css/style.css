@@ -803,3 +803,44 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   height: 100% !important;
   object-fit: cover !important;
 }
+
+.barcode-scan-hint {
+  color: #fff;
+  font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.5);
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.barcode-scan-status {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  background: rgba(46,160,67,0.92);
+  padding: 8px 16px;
+  border-radius: 20px;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.18s, transform 0.18s;
+  pointer-events: none;
+}
+.barcode-scan-status.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.barcode-scan-frame.detected {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.25), 0 0 0 4px rgba(34,197,94,0.45);
+  animation: scan-flash 0.45s ease;
+}
+.barcode-scan-frame.detected::before {
+  background: #22c55e;
+  animation: none;
+}
+@keyframes scan-flash {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
