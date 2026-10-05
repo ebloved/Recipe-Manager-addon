@@ -15,9 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-from config import STATIC_DIR
 from routes import api_router
 from stores import meal_plan_store, recipe_store
 
@@ -51,4 +49,3 @@ async def ingress_middleware(request: Request, call_next):
 
 
 app.include_router(api_router)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
