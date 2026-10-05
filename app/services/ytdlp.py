@@ -12,6 +12,7 @@ async def run_ytdlp(url: str, job_id: str) -> dict:
     outtmpl = str(DOWNLOAD_DIR / f"{job_id}_%(title)s.%(ext)s")
     cmd = [
         "yt-dlp", "--skip-download",
+        "--js-runtimes", "node",
         "--write-auto-subs", "--write-subs",
         "--sub-langs", SUB_LANGS,
         "--sub-format", "vtt/srt/best",
@@ -33,6 +34,7 @@ async def run_ytdlp(url: str, job_id: str) -> dict:
     _, stderr = await proc.communicate()
     stderr_text = stderr.decode(errors="replace")
     print(f"[yt-dlp job={job_id}] rc={proc.returncode}")
+    print(f"[yt-dlp job={job_id}] stderr:\n{stderr_text}")
 
     files = sorted(DOWNLOAD_DIR.glob(f"{job_id}_*"))
     return {
