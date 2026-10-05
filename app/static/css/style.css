@@ -844,3 +844,61 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   50%  { transform: scale(1.06); }
   100% { transform: scale(1); }
 }
+
+.shop-qty {
+  background: var(--elevated);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+.shop-qty:hover { background: var(--accent-soft); border-color: var(--accent); }
+.shop-qty.empty { color: var(--text-muted); font-weight: 400; }
+
+.shop-qty-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.shop-qty-input {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.shop-qty-amount { width: 60px; text-align: center; }
+.shop-qty-unit { width: 50px; text-align: center; }
+.shop-qty-input:focus { outline: none; }
+.shop-qty-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+.shop-qty-btn.save { color: var(--success); border-color: var(--success); }
+.shop-qty-btn.save:hover { background: var(--success); color: #fff; }
+.shop-qty-btn.cancel:hover { background: var(--border); color: var(--text); }
+
+.recipe-card.no-thumb .recipe-body {
+  padding-right: 52px;   /* место под кнопку 📅 в правом верхнем углу */
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}

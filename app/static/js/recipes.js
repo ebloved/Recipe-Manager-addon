@@ -65,19 +65,18 @@
 
   function cardFor(r) {
     const card = document.createElement("div");
-    card.className = "recipe-card";
+    card.className = "recipe-card" + (r.image_url ? "" : " no-thumb");
     card.addEventListener("click", () => RM.detail.open(r));
 
-    const thumb = document.createElement("div");
-    thumb.className = "recipe-thumb";
     if (r.image_url) {
+      const thumb = document.createElement("div");
+      thumb.className = "recipe-thumb";
       const img = document.createElement("img");
       img.src = r.image_url;
       img.alt = r.name || "";
       img.loading = "lazy";
       thumb.appendChild(img);
-    } else {
-      thumb.textContent = "🍽";
+      card.appendChild(thumb);
     }
 
     const planBtn = document.createElement("button");
@@ -88,8 +87,7 @@
       e.stopPropagation();
       RM.planPicker.open(r);
     });
-    thumb.appendChild(planBtn);
-    card.appendChild(thumb);
+    card.appendChild(planBtn);
 
     const body = document.createElement("div");
     body.className = "recipe-body";

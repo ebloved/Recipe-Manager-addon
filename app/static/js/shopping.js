@@ -97,7 +97,7 @@
   }
 
   function rowFor(item) {
-    const amount = [item.amount, item.unit].filter(Boolean).join(" ");
+    const amountStr = [item.amount, item.unit].filter(Boolean).join(" ");
     const image = item.image_url
       ? `<img class="shop-thumb" src="${escHtml(item.image_url)}" alt="">`
       : `<div class="shop-thumb shop-thumb-placeholder">🛒</div>`;
@@ -116,7 +116,9 @@
       <div class="shop-info">
         <div class="shop-name">${escHtml(item.name)}</div>
         <div class="shop-meta">
-          ${amount ? `<span class="shop-amount">${escHtml(amount)}</span>` : ""}
+          <button class="shop-qty ${amountStr ? "" : "empty"}" data-qty="${escHtml(item.id)}" title="Изменить количество">
+            ${amountStr ? escHtml(amountStr) : "+ кол-во"}
+          </button>
           ${brand}
           ${source}
         </div>
@@ -132,6 +134,9 @@
     });
     document.querySelectorAll("[data-remove]").forEach((btn) => {
       btn.addEventListener("click", () => onDelete(btn.dataset.remove));
+    });
+    document.querySelectorAll("[data-qty]").forEach((btn) => {
+      btn.addEventListener("click", () => onEditQty(btn.dataset.qty));
     });
   }
 
@@ -186,6 +191,66 @@
     } catch (err) {
       alert("Ошибка: " + err.message);
     }
+  }
+
+  // --- Inline qty edit ---
+  async function onEditQty(id) {
+    const item = state.shoppingItems.find((i) => i.id === id);
+    if (!item) return;
+    const row = document.querySelector(`.shop-row[data-id="${id}"]`);
+    if (!row) return;
+    const meta = row.querySelector(".shop-meta");
+    const btn = row.querySelector(".shop-qty");
+    if (!meta || !btn || meta.querySelector(".shop-qty-editor")) return;
+
+    btn.style.display = "none";
+
+    const wrap = document.createElement("span");
+    wrap.className = "shop-qty-editor";
+    wrap.innerHTML = `
+      <input type="text" class="shop-qty-input shop-qty-amount" value="${escHtml(item.amount || "")}" placeholder="кол-во" inputmode="decimal">
+      <input type="text" class="shop-qty-input shop-qty-unit" value="${escHtml(item.unit || "")}" placeholder="ед.">
+      <button class="shop-qty-btn save" title="Сохранить">✓</button>
+      <button class="shop-qty-btn cancel" title="Отмена">×</button>
+    `;
+    meta.insertBefore(wrap, btn.nextSibling);
+
+    const amtInput = wrap.querySelector(".shop-qty-amount");
+    const unitInput = wrap.querySelector(".shop-qty-unit");
+    amtInput.focus();
+    amtInput.select();
+
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      if (!save) { render(); return; }
+      const amount = amtInput.value.trim() || null;
+      const unit = unitInput.value.trim() || null;
+      try {
+        const data = await patchJSON(`api/shopping/${id}`, { amount, unit });
+        const idx = state.shoppingItems.findIndex((i) => i.id === id);
+        if (idx >= 0) state.shoppingItems[idx] = data.item;
+        render();
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+        render();
+      }
+    };
+
+    wrap.querySelector(".shop-qty-btn.save").addEventListener("click", (e) => {
+      e.stopPropagation(); finish(true);
+    });
+    wrap.querySelector(".shop-qty-btn.cancel").addEventListener("click", (e) => {
+      e.stopPropagation(); finish(false);
+    });
+    [amtInput, unitInput].forEach((el) => {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); finish(true); }
+        if (e.key === "Escape") { e.preventDefault(); finish(false); }
+      });
+      el.addEventListener("click", (e) => e.stopPropagation());
+    });
   }
 
   // ====================================================================
@@ -309,7 +374,10 @@
       wrapper.style.display = "block";
 
       const detector = new BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39"],
+        formats: [
+          "ean_13", "ean_8", "upc_a", "upc_e",
+          "code_128", "code_39", "qr_code",
+        ],
       });
 
       const tick = async () => {
@@ -363,6 +431,7 @@
             Html5QrcodeSupportedFormats.UPC_E,
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.QR_CODE,
           ],
         },
         (decodedText) => {
