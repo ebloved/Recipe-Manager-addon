@@ -1073,3 +1073,69 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   flex-direction: column;
   justify-content: center;
 }
+
+/* ================================================================
+   Planner: totals row
+   ================================================================ */
+.planner-totals-label {
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.planner-totals-cell {
+  background: var(--elevated);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-left: 3px solid var(--accent);
+  min-height: 80px;
+}
+
+.planner-totals-cell.empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border-left-color: var(--border);
+  font-size: 14px;
+}
+
+.planner-totals-cell.today {
+  border-left-color: var(--danger);
+}
+
+.ptc-kcal {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.15;
+}
+.ptc-kcal span {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+.ptc-kcal.high { color: #f59e0b; }
+.ptc-kcal.over { color: var(--danger); }
+
+.ptc-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.ptc-macros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.ptc-macro.protein { color: var(--protein); }
+.ptc-macro.fat { color: var(--fat); }
+.ptc-macro.carbs { color: var(--carbs); }

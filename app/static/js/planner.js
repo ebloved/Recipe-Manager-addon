@@ -1,6 +1,8 @@
 "use strict";
 (function (RM) {
-  const { $, escHtml, toISO, getMonday, addDays, weekTitle, isToday, WEEKDAYS_SHORT } = RM.utils;
+  const {
+    $, escHtml, toISO, getMonday, addDays, weekTitle, isToday, WEEKDAYS_SHORT,
+  } = RM.utils;
   const { getJSON, del } = RM.api;
   const state = RM.state;
 
@@ -36,6 +38,82 @@
     render();
   }
 
+  // --- Подсчёт итогов по дням -----------------------------------------
+  function computeDayTotals(monday) {
+    const days = {};
+    for (let i = 0; i < 7; i++) {
+      const iso = toISO(addDays(monday, i));
+      days[iso] = { calories: 0, protein: 0, fat: 0, carbohydrates: 0, count: 0 };
+    }
+
+    for (const e of state.plannerEntries) {
+      const day = days[e.date];
+      if (!day) continue;
+
+      const n = e.recipe_nutrition || {};
+      const rServ = parseFloat(e.recipe_servings) || 1;
+      const eServ = parseFloat(e.servings) || rServ;
+      const factor = rServ > 0 ? eServ / rServ : 1;
+
+      const cal = (parseFloat(n.calories) || 0) * factor;
+      const prot = (parseFloat(n.protein) || 0) * factor;
+      const fat = (parseFloat(n.fat) || 0) * factor;
+      const carbs = (parseFloat(n.carbohydrates) || 0) * factor;
+
+      day.calories += cal;
+      day.protein += prot;
+      day.fat += fat;
+      day.carbohydrates += carbs;
+
+      if (cal > 0 || prot > 0 || fat > 0 || carbs > 0) day.count++;
+    }
+
+    return days;
+  }
+
+  function renderTotalsRow(monday, totals) {
+    let hasAny = false;
+    for (const k in totals) {
+      if (totals[k].count > 0) { hasAny = true; break; }
+    }
+    if (!hasAny) return "";
+
+    const rda = RM.RDA;
+
+    let html = `<div class="planner-meal-label planner-totals-label">🥗<br>Итого</div>`;
+
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(monday, i);
+      const iso = toISO(d);
+      const t = totals[iso];
+
+      if (!t || t.count === 0) {
+        html += `<div class="planner-totals-cell empty">—</div>`;
+        continue;
+      }
+
+      const calPct = rda.calories ? Math.round((t.calories / rda.calories) * 100) : 0;
+      const pPct = rda.protein ? Math.round((t.protein / rda.protein) * 100) : 0;
+      const fPct = rda.fat ? Math.round((t.fat / rda.fat) * 100) : 0;
+      const cPct = rda.carbohydrates ? Math.round((t.carbohydrates / rda.carbohydrates) * 100) : 0;
+
+      const calClass = calPct > 120 ? "over" : calPct > 100 ? "high" : "";
+
+      html += `<div class="planner-totals-cell ${isToday(iso) ? "today" : ""}">
+        <div class="ptc-kcal ${calClass}">${Math.round(t.calories)} <span>ккал</span></div>
+        <div class="ptc-sub">${calPct}% нормы · ${t.count} ${t.count === 1 ? "блюдо" : "блюд"}</div>
+        <div class="ptc-macros">
+          <span class="ptc-macro protein" title="Белки: ${Math.round(t.protein)} г">Б ${pPct}%</span>
+          <span class="ptc-macro fat" title="Жиры: ${Math.round(t.fat)} г">Ж ${fPct}%</span>
+          <span class="ptc-macro carbs" title="Углеводы: ${Math.round(t.carbohydrates)} г">У ${cPct}%</span>
+        </div>
+      </div>`;
+    }
+
+    return html;
+  }
+
+  // --- Отрисовка сетки -------------------------------------------------
   function render() {
     const monday = state.plannerWeekStart;
     const entries = state.plannerEntries;
@@ -73,6 +151,10 @@
       }
     }
 
+    // Итоговая строка (калории + БЖУ % за день)
+    const totals = computeDayTotals(monday);
+    html += renderTotalsRow(monday, totals);
+
     container.innerHTML = html;
 
     // Клик по записи — открыть рецепт
@@ -84,7 +166,6 @@
         if (recipe) {
           RM.detail.open(recipe);
         } else {
-          // Подгружаем рецепт и открываем
           RM.api.getJSON(`api/recipes/${recipeId}`)
             .then((d) => RM.detail.open(d.recipe))
             .catch(() => {});
@@ -107,10 +188,9 @@
       });
     });
 
-    // Клик по пустой ячейке — открыть picker с произвольным рецептом (не реализовано)
+    // Клик по пустой ячейке
     container.querySelectorAll(".planner-cell.empty").forEach((cell) => {
       cell.addEventListener("click", () => {
-        // Можно открыть поиск рецепта — пока заглушка
         alert("Чтобы добавить рецепт, откройте его карточку или нажмите 📅");
       });
     });

@@ -14,6 +14,7 @@ _ALLOWED_MEALS = {"breakfast", "lunch", "snack", "dinner"}
 
 @router.get("")
 async def list_meal_plan(start: str, end: str):
+    """Возвращает записи плана за период + данные рецепта для отображения."""
     entries = meal_plan_store.get_range(start, end)
     result = []
     for e in entries:
@@ -22,6 +23,8 @@ async def list_meal_plan(start: str, end: str):
             **e,
             "recipe_name": recipe.get("name") if recipe else None,
             "recipe_image": recipe.get("image_url") if recipe else None,
+            "recipe_nutrition": recipe.get("nutrition") if recipe else None,
+            "recipe_servings": recipe.get("servings") if recipe else None,
         })
     return {"entries": result, "count": len(result)}
 
