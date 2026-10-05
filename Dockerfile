@@ -28,8 +28,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir curl_cffi
-
+    && pip install --no-cache-dir curl_cffi \
+    && python -c "import frontmatter; print('frontmatter OK:', frontmatter.__version__)" \
+    && python -c "import fastapi, uvicorn, bs4, recipe_scrapers, httpx; print('all deps OK')"
 COPY app/ /app/
 
 RUN mkdir -p /downloads /data
