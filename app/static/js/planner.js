@@ -39,6 +39,7 @@
   }
 
   // --- Подсчёт итогов по дням -----------------------------------------
+  // nutrition в рецепте — на 1 порцию. Калораж блюда = nutrition × запланированных порций.
   function computeDayTotals(monday) {
     const days = {};
     for (let i = 0; i < 7; i++) {
@@ -51,14 +52,12 @@
       if (!day) continue;
 
       const n = e.recipe_nutrition || {};
-      const rServ = parseFloat(e.recipe_servings) || 1;
-      const eServ = parseFloat(e.servings) || rServ;
-      const factor = rServ > 0 ? eServ / rServ : 1;
+      const servings = parseFloat(e.servings) || 1;
 
-      const cal = (parseFloat(n.calories) || 0) * factor;
-      const prot = (parseFloat(n.protein) || 0) * factor;
-      const fat = (parseFloat(n.fat) || 0) * factor;
-      const carbs = (parseFloat(n.carbohydrates) || 0) * factor;
+      const cal = (parseFloat(n.calories) || 0) * servings;
+      const prot = (parseFloat(n.protein) || 0) * servings;
+      const fat = (parseFloat(n.fat) || 0) * servings;
+      const carbs = (parseFloat(n.carbohydrates) || 0) * servings;
 
       day.calories += cal;
       day.protein += prot;
@@ -113,7 +112,6 @@
     return html;
   }
 
-  // --- Отрисовка сетки -------------------------------------------------
   function render() {
     const monday = state.plannerWeekStart;
     const entries = state.plannerEntries;
@@ -147,11 +145,11 @@
             <button class="pe-remove" data-remove-id="${escHtml(e.id)}" title="Убрать">×</button>
           </div>`;
         }
+        html += `<button class="planner-add-btn" data-date="${iso}" data-meal="${meal}" title="Добавить рецепт">+</button>`;
         html += `</div>`;
       }
     }
 
-    // Итоговая строка (калории + БЖУ % за день)
     const totals = computeDayTotals(monday);
     html += renderTotalsRow(monday, totals);
 
@@ -188,10 +186,24 @@
       });
     });
 
-    // Клик по пустой ячейке
+    // Кнопка "+" в ячейке
+    container.querySelectorAll(".planner-add-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!RM.recipePicker) {
+          alert("Модуль выбора рецептов не загружен. Обновите страницу (Ctrl+Shift+R).");
+          return;
+        }
+        RM.recipePicker.open(btn.dataset.date, btn.dataset.meal);
+      });
+    });
+
+    // Клик по пустой ячейке — тоже открывает пикер
     container.querySelectorAll(".planner-cell.empty").forEach((cell) => {
-      cell.addEventListener("click", () => {
-        alert("Чтобы добавить рецепт, откройте его карточку или нажмите 📅");
+      cell.addEventListener("click", (e) => {
+        if (e.target.closest(".planner-add-btn")) return;
+        if (!RM.recipePicker) return;
+        RM.recipePicker.open(cell.dataset.date, cell.dataset.meal);
       });
     });
   }
