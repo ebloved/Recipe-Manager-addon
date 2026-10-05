@@ -702,5 +702,13 @@ async def index():
     async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
         return await f.read()
 
+@app.get("/editor.js", include_in_schema=False)
+async def serve_editor_js():
+    return FileResponse(STATIC_DIR / "editor.js", media_type="application/javascript")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(STATIC_DIR / "index.html", media_type="image/x-icon") if False else JSONResponse({}, status_code=204)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
