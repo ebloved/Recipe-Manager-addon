@@ -552,3 +552,178 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   font-size: 12px; color: var(--text-secondary);
   margin-top: 4px; line-height: 1.4;
 }
+
+/* ================================================================
+   Shopping
+   ================================================================ */
+.shopping-toolbar {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 16px;
+}
+.shopping-search {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.shopping-search input {
+  flex: 1; min-width: 120px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 10px 12px;
+  font-size: 14px; font-family: inherit;
+}
+.shopping-search input:focus { outline: none; border-color: var(--accent); }
+.shopping-actions {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.shopping-filter {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+  margin-left: auto;
+}
+.shopping-filter input { cursor: pointer; }
+
+.shopping-list { display: flex; flex-direction: column; gap: 6px; }
+.shopping-divider {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-muted);
+  padding: 14px 0 6px;
+}
+
+.shop-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px;
+  transition: opacity 0.15s, background 0.15s;
+}
+.shop-row.checked { opacity: 0.55; background: var(--elevated); }
+.shop-row.checked .shop-name { text-decoration: line-through; }
+
+.shop-check { flex-shrink: 0; cursor: pointer; }
+.shop-check input {
+  width: 20px; height: 20px; cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.shop-thumb {
+  width: 44px; height: 44px; border-radius: 8px;
+  object-fit: cover; flex-shrink: 0;
+  background: var(--elevated);
+}
+.shop-thumb-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--text-muted);
+}
+
+.shop-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.shop-name {
+  font-size: 15px; font-weight: 500; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.shop-meta {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.shop-amount { font-weight: 600; color: var(--accent); }
+.shop-brand { color: var(--text-secondary); }
+.shop-source { font-style: italic; opacity: 0.8; }
+.shop-note {
+  font-size: 12px; color: var(--text-muted);
+  font-style: italic;
+}
+
+.shop-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 20px; line-height: 1;
+  padding: 0 4px; flex-shrink: 0; transition: color 0.15s;
+}
+.shop-remove:hover { color: var(--danger); }
+
+/* Barcode modal */
+.barcode-overlay, .recipe-shop-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.55);
+  display: none; align-items: flex-start; justify-content: center;
+  overflow-y: auto; padding: 20px;
+}
+.barcode-overlay.show, .recipe-shop-overlay.show { display: flex; }
+.barcode-panel, .recipe-shop-panel {
+  background: var(--surface); color: var(--text);
+  border-radius: 14px; max-width: 520px; width: 100%;
+  margin: auto; padding: 22px 24px;
+}
+.recipe-shop-panel { max-width: 620px; }
+.barcode-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.barcode-header h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.barcode-body { display: flex; flex-direction: column; gap: 14px; }
+.barcode-row { display: flex; gap: 8px; }
+
+.bc-card {
+  display: flex; gap: 14px; padding: 14px;
+  background: var(--elevated); border-radius: 12px;
+  align-items: center;
+}
+.bc-thumb {
+  width: 80px; height: 80px; border-radius: 10px;
+  overflow: hidden; flex-shrink: 0;
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+}
+.bc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bc-thumb-placeholder { font-size: 32px; opacity: 0.4; }
+.bc-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bc-name { font-size: 15px; font-weight: 600; }
+.bc-brand { font-size: 13px; color: var(--text-secondary); }
+.bc-cat { font-size: 12px; color: var(--text-muted); }
+.bc-source { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.bc-add-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.bc-add-row input {
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 8px 10px;
+  font-size: 14px; font-family: inherit;
+}
+
+/* Recipe shop modal */
+.recipe-shop-body {
+  max-height: 60vh; overflow-y: auto;
+  padding: 4px 2px;
+}
+.recipe-shop-scale {
+  font-size: 12px; color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.recipe-shop-list { list-style: none; padding: 0; margin: 0; }
+.recipe-shop-list .rs-heading {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 10px 0 4px;
+}
+.recipe-shop-list .rs-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.recipe-shop-list .rs-item:last-child { border-bottom: none; }
+.recipe-shop-list .rs-item label {
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; font-size: 14px;
+}
+.recipe-shop-list .rs-item input[type="checkbox"] {
+  width: 18px; height: 18px; cursor: pointer;
+  accent-color: var(--accent); flex-shrink: 0;
+}
+.rs-name { flex: 1; }
+.rs-amount { color: var(--accent); font-weight: 600; font-size: 13px; }
+
+.recipe-shop-summary {
+  margin-top: 12px; font-size: 12px; color: var(--text-secondary);
+  text-align: right;
+}
+.recipe-shop-footer {
+  display: flex; gap: 8px; justify-content: space-between;
+  align-items: center; margin-top: 18px;
+  padding-top: 14px; border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.recipe-shop-footer > div { display: flex; gap: 8px; flex-wrap: wrap; }

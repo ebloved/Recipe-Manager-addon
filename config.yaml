@@ -1,13 +1,12 @@
 name: "Recipe Manager"
-version: "1.1.2"
+version: "1.1.3"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
 arch:
   - aarch64
   - amd64
-
-# --- Ingress --------------------------------------------------------------
+  - armv7
 
 ingress: true
 ingress_port: 8099
@@ -15,14 +14,10 @@ panel_icon: "mdi:chef-hat"
 panel_title: "Recipes"
 panel_admin: false
 
-# --- Runtime --------------------------------------------------------------
-
 startup: "application"
 boot: "auto"
 init: false
 host_network: false
-
-# --- Options / schema -----------------------------------------------------
 
 options:
   gemini_api_key: ""
@@ -31,6 +26,8 @@ options:
   sub_langs: "ru.*"
   cookies_file: ""
   log_level: "info"
+  catalog_source: "auto"
+  catalog_api_key: ""
 
 schema:
   gemini_api_key: "password"
@@ -39,8 +36,8 @@ schema:
   sub_langs: "str"
   cookies_file: "str?"
   log_level: "list(trace|debug|info|notice|warning|error|fatal)"
-
-# --- Persistent storage ---------------------------------------------------
+  catalog_source: "list(auto|openfoodfacts|national)"
+  catalog_api_key: "password?"
 
 map:
   - type: share

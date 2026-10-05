@@ -121,6 +121,10 @@
             <span class="ico">📅</span>
             <span>В план</span>
           </button>
+          <button class="toolbar-btn" id="tbtn-shop">
+            <span class="ico">🛒</span>
+            <span>В покупки</span>
+          </button>
           <button class="toolbar-btn" id="tbtn-edit">
             <span class="ico">✏️</span>
             <span>Правка</span>
@@ -169,6 +173,9 @@
     $("tbtn-delete").addEventListener("click", () => onDelete(r));
     $("tbtn-fav").addEventListener("click", () => onToggleFav(r));
     $("tbtn-plan").addEventListener("click", () => RM.planPicker.open(r));
+    $("tbtn-shop").addEventListener("click", () => {
+      RM.shopping.openRecipeShop(r, state.servingMult);
+      });
     $("tbtn-edit").addEventListener("click", () => {
       RM.editor.open(r, (updated) => {
         state.currentRecipe = { ...r, ...updated };

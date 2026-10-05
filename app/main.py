@@ -1,14 +1,4 @@
-"""Recipe Manager — FastAPI backend для HA add-on.
-
-Здесь только:
-- создание app
-- lifespan (загрузка store'ов)
-- middleware (CORS + ingress)
-- include_router
-- mount static
-
-Вся логика — в модулях routes/, services/, stores/.
-"""
+"""Recipe Manager — FastAPI backend для HA add-on."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -17,15 +7,17 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes import api_router
-from stores import meal_plan_store, recipe_store
+from stores import meal_plan_store, recipe_store, shopping_store
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await recipe_store.load()
     await meal_plan_store.load()
+    await shopping_store.load()
     print(f"[recipes] loaded {len(recipe_store.recipes)} recipes")
     print(f"[meal-plan] loaded {len(meal_plan_store.entries)} entries")
+    print(f"[shopping] loaded {len(shopping_store.items)} items")
     yield
 
 

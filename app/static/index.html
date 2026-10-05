@@ -13,13 +13,14 @@
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
+    <button class="tab" data-panel="shopping">🛒 Покупки</button>
     <button class="tab" data-panel="youtube">YouTube</button>
     <button class="tab" data-panel="import">Импорт</button>
   </div>
 </header>
 
 <main>
-  <!-- =================================================== Recipes -->
+  <!-- ============================================================= Recipes -->
   <section class="panel active" id="panel-recipes">
     <div class="panel-inner">
       <div class="search-row">
@@ -31,7 +32,7 @@
     </div>
   </section>
 
-  <!-- =================================================== Planner -->
+  <!-- ============================================================= Planner -->
   <section class="panel" id="panel-planner">
     <div class="planner-wrap">
       <div class="planner-header">
@@ -46,7 +47,33 @@
     </div>
   </section>
 
-  <!-- =================================================== YouTube -->
+  <!-- ============================================================= Shopping -->
+  <section class="panel" id="panel-shopping">
+    <div class="panel-inner">
+      <div class="shopping-toolbar">
+        <div class="shopping-search">
+          <input type="text" id="shopping-new-name" placeholder="Добавить товар…">
+          <input type="text" id="shopping-new-amount" placeholder="Кол-во" style="max-width:90px">
+          <input type="text" id="shopping-new-unit" placeholder="ед." style="max-width:70px">
+          <button class="btn primary" id="shopping-add">+ Добавить</button>
+        </div>
+        <div class="shopping-actions">
+          <button class="btn" id="shopping-lookup-open">📷 По штрих-коду</button>
+          <button class="btn" id="shopping-clear-checked">Очистить купленные</button>
+          <label class="shopping-filter">
+            <input type="checkbox" id="shopping-only-active">
+            Только активные
+          </label>
+        </div>
+      </div>
+
+      <div id="shopping-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= YouTube -->
   <section class="panel" id="panel-youtube">
     <div class="panel-inner">
       <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
@@ -71,7 +98,7 @@
     </div>
   </section>
 
-  <!-- =================================================== Import -->
+  <!-- ============================================================= Import -->
   <section class="panel" id="panel-import">
     <div class="panel-inner">
       <div class="sub-tabs">
@@ -173,10 +200,51 @@ servings: 4
   </div>
 </div>
 
+<!-- Shopping: barcode lookup modal -->
+<div class="barcode-overlay" id="barcode-overlay">
+  <div class="barcode-panel">
+    <div class="barcode-header">
+      <h3>Поиск по штрих-коду</h3>
+      <button class="plan-picker-close" id="barcode-close">×</button>
+    </div>
+    <div class="barcode-body">
+      <div class="field">
+        <label for="barcode-input">Штрих-код (GTIN)</label>
+        <div class="barcode-row">
+          <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
+          <button class="btn primary" id="barcode-search">Найти</button>
+        </div>
+      </div>
+      <div class="status" id="barcode-status"></div>
+      <div id="barcode-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Shopping: add-from-recipe modal -->
+<div class="recipe-shop-overlay" id="recipe-shop-overlay">
+  <div class="recipe-shop-panel">
+    <div class="barcode-header">
+      <h3 id="recipe-shop-title">Добавить ингредиенты</h3>
+      <button class="plan-picker-close" id="recipe-shop-close">×</button>
+    </div>
+    <div class="recipe-shop-body" id="recipe-shop-body"></div>
+    <div class="recipe-shop-footer">
+      <div>
+        <button class="btn" id="recipe-shop-all">Выбрать все</button>
+        <button class="btn" id="recipe-shop-none">Снять все</button>
+      </div>
+      <div class="editor-footer-right">
+        <button class="btn" id="recipe-shop-cancel">Отмена</button>
+        <button class="btn primary" id="recipe-shop-add">Добавить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Editor overlay -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<!-- Скрипты — порядок важен -->
 <script src="static/js/utils.js"></script>
 <script src="static/js/api.js"></script>
 <script src="static/js/state.js"></script>
@@ -188,6 +256,7 @@ servings: 4
 <script src="static/js/editor.js"></script>
 <script src="static/js/plan-picker.js"></script>
 <script src="static/js/planner.js"></script>
+<script src="static/js/shopping.js"></script>
 <script src="static/js/app.js"></script>
 </body>
 </html>

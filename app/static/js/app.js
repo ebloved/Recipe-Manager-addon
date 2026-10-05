@@ -9,8 +9,8 @@
     RM.detail.setup();
     RM.planPicker.setup();
     RM.planner.setup();
+    RM.shopping.setup();
 
-    // Загружаем рецепты сразу — они на первой вкладке
     RM.recipes.load();
   }
 

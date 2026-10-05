@@ -5,14 +5,7 @@
   function setupTopTabs() {
     document.querySelectorAll(".tab").forEach((t) => {
       t.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-        document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
-        t.classList.add("active");
-        $("panel-" + t.dataset.panel).classList.add("active");
-
-        const panel = t.dataset.panel;
-        if (panel === "recipes") RM.recipes.load();
-        if (panel === "planner") RM.planner.load();
+        activateTab(t.dataset.panel);
       });
     });
   }
@@ -28,12 +21,20 @@
     });
   }
 
-  function switchToRecipes() {
+  function activateTab(name) {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
     document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
-    document.querySelector('.tab[data-panel="recipes"]').classList.add("active");
-    $("panel-recipes").classList.add("active");
+    const tab = document.querySelector(`.tab[data-panel="${name}"]`);
+    const panel = $("panel-" + name);
+    if (tab) tab.classList.add("active");
+    if (panel) panel.classList.add("active");
+
+    if (name === "recipes") RM.recipes.load();
+    if (name === "planner") RM.planner.load();
+    if (name === "shopping") RM.shopping.load();
   }
 
-  RM.tabs = { setupTopTabs, setupSubTabs, switchToRecipes };
+  function switchToRecipes() { activateTab("recipes"); }
+
+  RM.tabs = { setupTopTabs, setupSubTabs, activateTab, switchToRecipes, switchTo: activateTab };
 })(window.RM);
