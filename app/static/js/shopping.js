@@ -391,6 +391,24 @@
       btn.textContent = "Добавить";
     }
   }
-
-  RM.shopping = { setup, load, render, openRecipeShop };
+    async function addIngredient(ing, recipe, multiplier) {
+        const name = (ing.name || "").trim();
+        if (!name) return;
+        const amount = ing.amount ? scaleAmount(ing.amount, multiplier || 1) : null;
+        try {
+        const data = await postJSON("api/shopping", {
+            name,
+            amount,
+            unit: ing.unit || null,
+            note: ing.notes || null,
+            recipe_id: recipe?.id || null,
+            recipe_name: recipe?.name || null,
+            source: "recipe",
+        });
+        state.shoppingItems.push(data.item);
+        } catch (err) {
+        alert("Ошибка: " + err.message);
+        }
+    }
+  RM.shopping = { setup, load, render, openRecipeShop, addIngredient };
 })(window.RM);

@@ -727,3 +727,17 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   flex-wrap: wrap;
 }
 .recipe-shop-footer > div { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ing-cart-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; line-height: 1;
+  padding: 2px 6px; margin-left: 6px;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ing-cart-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

@@ -29,6 +29,7 @@
     render();
     $("detail-overlay").classList.add("show");
   }
+
   function close() {
     $("detail-overlay").classList.remove("show");
     state.currentRecipe = null;
@@ -101,7 +102,7 @@
 
     const ingredientsHtml = ingredients.length
       ? `<ul class="ingredients-list">
-          ${ingredients.map((ing) => renderIngredientRow(ing)).join("")}
+          ${ingredients.map((ing, idx) => renderIngredientRow(ing, idx)).join("")}
         </ul>`
       : `<p style="color:var(--text-secondary);font-size:14px;">Ингредиенты не указаны.</p>`;
 
@@ -175,7 +176,7 @@
     $("tbtn-plan").addEventListener("click", () => RM.planPicker.open(r));
     $("tbtn-shop").addEventListener("click", () => {
       RM.shopping.openRecipeShop(r, state.servingMult);
-      });
+    });
     $("tbtn-edit").addEventListener("click", () => {
       RM.editor.open(r, (updated) => {
         state.currentRecipe = { ...r, ...updated };
@@ -223,9 +224,29 @@
         RM.recipes.filterAndRender(val);
       });
     });
+
+    // Event delegation на список ингредиентов — работает и после перерисовки при смене порций
+    const ingList = panel.querySelector(".ingredients-list");
+    if (ingList) {
+      ingList.addEventListener("click", (e) => {
+        const btn = e.target.closest(".ing-cart-btn");
+        if (!btn) return;
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.ingIdx, 10);
+        const ings = (r.ingredients || []).map((ing) =>
+          typeof ing === "string" ? { name: ing } : ing
+        );
+        const ing = ings[idx];
+        if (ing) {
+          RM.shopping.addIngredient(ing, r, state.servingMult);
+          btn.textContent = "✓";
+          setTimeout(() => { btn.textContent = "🛒"; }, 900);
+        }
+      });
+    }
   }
 
-  function renderIngredientRow(ing) {
+  function renderIngredientRow(ing, idx) {
     if (ing.is_heading || (ing.name || "").startsWith("#")) {
       const text = (ing.name || "").replace(/^#\s*/, "");
       return `<li class="ing-heading">${escHtml(text)}</li>`;
@@ -238,6 +259,7 @@
       <span class="ing-name">${escHtml(ing.name || "")}${
         ing.notes ? ` <span class="ing-notes">(${escHtml(ing.notes)})</span>` : ""
       }</span>
+      <button class="ing-cart-btn" data-ing-idx="${idx}" title="Добавить в покупки">🛒</button>
     </li>`;
   }
 
@@ -257,7 +279,7 @@
     const ingredients = (r.ingredients || []).map((ing) =>
       typeof ing === "string" ? { name: ing } : ing
     );
-    list.innerHTML = ingredients.map(renderIngredientRow).join("");
+    list.innerHTML = ingredients.map((ing, idx) => renderIngredientRow(ing, idx)).join("");
   }
 
   function updateStepDisplay() {
