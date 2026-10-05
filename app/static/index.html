@@ -4,430 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<style>
-  :root {
-    --bg: #fafbfc; --surface: #ffffff; --elevated: #f2f3f7;
-    --text: #1f2328; --text-secondary: #5c6370; --text-muted: #8b93a1;
-    --accent: #ff6b35; --accent-soft: rgba(255,107,53,0.12);
-    --border: #e4e6eb; --danger: #d64545; --success: #2ea043;
-    --carbs: #f59e0b; --fat: #3b82f6; --protein: #22c55e;
-    --radius: 12px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14161a; --surface: #1b1f25; --elevated: #232833;
-      --text: #e4e7ec; --text-secondary: #a8b0bd; --text-muted: #7a8594;
-      --accent-soft: rgba(255,107,53,0.18); --border: #2b313c;
-      --danger: #ff6b6b; --success: #4caf50;
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 15px; line-height: 1.5;
-    display: flex; flex-direction: column;
-  }
-  header {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
-    flex-shrink: 0; flex-wrap: wrap;
-  }
-  header h1 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  header h1::before { content: "🍳"; font-size: 20px; }
-  .tabs {
-    display: flex; gap: 4px; margin-left: auto;
-    background: var(--elevated); border-radius: 10px; padding: 3px;
-  }
-  .tab {
-    background: none; border: none; color: var(--text-secondary);
-    padding: 7px 14px; border-radius: 7px; cursor: pointer;
-    font-size: 13px; font-weight: 500; transition: all 0.15s;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active { background: var(--surface); color: var(--accent); font-weight: 600; }
-  @media (prefers-color-scheme: dark) { .tab.active { background: var(--elevated); } }
-
-  .sub-tabs {
-    display: flex; gap: 4px; margin-bottom: 16px;
-    background: var(--elevated); border-radius: 10px; padding: 3px;
-    width: fit-content;
-  }
-  .sub-tab {
-    background: none; border: none; color: var(--text-secondary);
-    padding: 6px 12px; border-radius: 7px; cursor: pointer;
-    font-size: 13px; font-weight: 500; transition: all 0.15s;
-  }
-  .sub-tab:hover { color: var(--text); }
-  .sub-tab.active { background: var(--surface); color: var(--accent); font-weight: 600; }
-
-  main {
-    flex: 1; overflow-y: auto; padding: 20px 16px 40px;
-    max-width: 900px; width: 100%; margin: 0 auto;
-  }
-  .panel { display: none; }
-  .panel.active { display: block; }
-
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
-  }
-  .field { margin-bottom: 14px; }
-  .field:last-child { margin-bottom: 0; }
-  .field label {
-    display: block; font-size: 12px; font-weight: 600;
-    color: var(--text-secondary); text-transform: uppercase;
-    letter-spacing: 0.04em; margin-bottom: 6px;
-  }
-  .field input, .field textarea, .field select {
-    width: 100%; background: var(--elevated);
-    border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 10px 12px; font-size: 14px;
-    font-family: inherit; transition: border-color 0.15s;
-  }
-  .field textarea {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 13px; resize: vertical; min-height: 120px; line-height: 1.5;
-  }
-  .field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .row > * { flex: 1; min-width: 140px; }
-  .row.tight > * { min-width: 0; }
-  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-
-  button.btn {
-    background: var(--elevated); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text);
-    padding: 10px 16px; font-size: 14px; font-weight: 500;
-    cursor: pointer; display: inline-flex; align-items: center;
-    gap: 6px; transition: all 0.15s;
-  }
-  button.btn:hover:not(:disabled) { background: var(--border); }
-  button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.btn.primary:hover:not(:disabled) { opacity: 0.88; background: var(--accent); }
-  button.btn.danger { color: var(--danger); border-color: var(--danger); }
-  button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
-
-  .hint {
-    font-size: 13px; color: var(--text-secondary);
-    background: var(--elevated); border-radius: 8px;
-    padding: 10px 12px; margin-bottom: 14px;
-    border-left: 3px solid var(--accent);
-  }
-  .status {
-    padding: 10px 12px; border-radius: 8px; margin-top: 12px;
-    font-size: 13px; display: none;
-  }
-  .status.show { display: block; }
-  .status.info { background: var(--accent-soft); color: var(--accent); }
-  .status.error { background: rgba(214,69,69,0.12); color: var(--danger); }
-  .status.success { background: rgba(46,160,67,0.12); color: var(--success); }
-
-  .spinner {
-    display: inline-block; width: 14px; height: 14px;
-    border: 2px solid currentColor; border-right-color: transparent;
-    border-radius: 50%; animation: spin 0.7s linear infinite;
-    vertical-align: -2px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .search-row { margin-bottom: 16px; }
-  .search-row input {
-    width: 100%; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 10px;
-    color: var(--text); padding: 12px 14px; font-size: 15px;
-  }
-  .search-row input:focus { outline: none; border-color: var(--accent); }
-
-  .recipe-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-  }
-  .recipe-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); overflow: hidden;
-    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-  .recipe-thumb {
-    aspect-ratio: 4/3; background: var(--elevated);
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden; color: var(--text-muted); font-size: 36px;
-  }
-  .recipe-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .recipe-body { padding: 12px 14px; }
-  .recipe-name {
-    font-size: 15px; font-weight: 600; margin: 0 0 6px; color: var(--text);
-    overflow: hidden; text-overflow: ellipsis;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  }
-  .recipe-meta {
-    display: flex; flex-wrap: wrap; gap: 4px;
-    font-size: 11px; color: var(--text-secondary);
-  }
-  .meta-chip { background: var(--elevated); border-radius: 6px; padding: 2px 7px; }
-  .meta-chip.tag { background: var(--accent-soft); color: var(--accent); }
-
-  .empty { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
-  .empty .icon { font-size: 48px; opacity: 0.4; }
-
-  /* ============================================================
-     Detail overlay
-     ============================================================ */
-  .detail-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-    z-index: 100; display: none; align-items: flex-start;
-    justify-content: center; padding: 20px; overflow-y: auto;
-  }
-  .detail-overlay.show { display: flex; }
-  .detail-panel {
-    background: var(--surface); border-radius: var(--radius);
-    max-width: 900px; width: 100%; margin: auto;
-    padding: 28px; position: relative;
-  }
-  .detail-close {
-    position: absolute; top: 12px; right: 12px;
-    background: none; border: none; color: var(--text-secondary);
-    font-size: 24px; cursor: pointer; padding: 4px 12px; border-radius: 6px;
-    line-height: 1;
-  }
-  .detail-close:hover { background: var(--elevated); color: var(--text); }
-
-  .detail-head { text-align: center; margin-bottom: 20px; }
-  .detail-title {
-    font-size: 26px; font-weight: 700; margin: 0 40px 8px;
-    line-height: 1.2;
-  }
-  .detail-description {
-    color: var(--text-secondary); font-size: 14px;
-    max-width: 640px; margin: 0 auto 14px;
-    line-height: 1.6;
-  }
-
-  .detail-toolbar {
-    display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
-  .toolbar-btn {
-    background: none; border: none; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    color: var(--text-secondary); font-size: 11px; font-weight: 600;
-    padding: 6px 10px; border-radius: 10px; transition: all 0.15s;
-  }
-  .toolbar-btn:hover { background: var(--elevated); color: var(--accent); }
-  .toolbar-btn .ico {
-    width: 42px; height: 42px; border-radius: 50%;
-    background: var(--elevated);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-  }
-  .toolbar-btn.fav-active .ico { background: rgba(214,69,69,0.15); }
-  .toolbar-btn.fav-active { color: var(--danger); }
-  .toolbar-btn.danger:hover { color: var(--danger); }
-
-  .photo-toggle {
-    display: block; margin: 0 auto 16px;
-    background: none; border: 1px dashed var(--border);
-    border-radius: 10px; padding: 8px 16px; cursor: pointer;
-    color: var(--text-secondary); font-size: 13px;
-  }
-  .photo-toggle:hover { border-color: var(--accent); color: var(--accent); }
-  .photo-box {
-    display: none; margin-bottom: 20px;
-    border-radius: 12px; overflow: hidden;
-  }
-  .photo-box.show { display: block; }
-  .photo-box img { width: 100%; height: auto; display: block; }
-
-  .meta-chips {
-    display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
-    margin-bottom: 14px;
-  }
-  .meta-chip-large {
-    background: var(--elevated); border: 1px solid var(--border);
-    border-radius: 20px; padding: 6px 14px; font-size: 13px;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-
-  .chips-area {
-    display: flex; flex-direction: column; gap: 6px;
-    margin-bottom: 20px; align-items: flex-start;
-  }
-  .chips-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-  .chips-label {
-    font-size: 11px; font-weight: 700; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.05em;
-    min-width: 80px;
-  }
-  .chip {
-    border-radius: 20px; padding: 3px 12px; font-size: 12px;
-    border: none; cursor: pointer; transition: filter 0.15s;
-  }
-  .chip:hover { filter: brightness(1.15); }
-  .chip.course     { background: rgba(88,166,255,0.15);  color: #58a6ff; }
-  .chip.category   { background: rgba(63,185,80,0.15);   color: #3fb950; }
-  .chip.collection { background: rgba(210,153,34,0.15);  color: #d2a01e; }
-  .chip.tag        { background: var(--accent-soft);     color: var(--accent); }
-
-  /* Two-column layout */
-  .detail-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 20px;
-    align-items: start;
-  }
-  @media (max-width: 720px) {
-    .detail-grid { grid-template-columns: 1fr; }
-  }
-  .detail-col { display: flex; flex-direction: column; gap: 14px; }
-
-  .section-card {
-    background: var(--elevated); border-radius: 12px;
-    padding: 14px 16px;
-  }
-  .section-card .section-title {
-    font-size: 12px; font-weight: 700;
-    color: var(--text-muted); text-transform: uppercase;
-    letter-spacing: 0.06em; margin-bottom: 10px;
-  }
-
-  /* Serving scaler */
-  .scaler-row {
-    display: flex; align-items: center; gap: 8px; justify-content: space-between;
-    padding: 8px 0;
-  }
-  .scaler {
-    display: flex; align-items: center; gap: 6px;
-  }
-  .scaler-btn {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 50%; width: 32px; height: 32px;
-    cursor: pointer; color: var(--text-secondary);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; padding: 0; transition: all 0.15s;
-  }
-  .scaler-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-  .scaler-val {
-    min-width: 42px; text-align: center; font-weight: 600;
-    font-size: 14px;
-  }
-
-  /* Ingredients */
-  .ingredients-list { list-style: none; padding: 0; margin: 0; }
-  .ing-item {
-    display: flex; gap: 10px; padding: 8px 0;
-    border-bottom: 1px solid var(--border); font-size: 14px;
-    align-items: baseline;
-  }
-  .ing-item:last-child { border-bottom: none; }
-  .ing-amount {
-    min-width: 70px; font-weight: 700; color: var(--accent);
-    flex-shrink: 0; font-size: 13px;
-  }
-  .ing-name { flex: 1; }
-  .ing-notes {
-    font-style: italic; color: var(--text-secondary);
-    font-size: 13px;
-  }
-  .ing-heading {
-    font-size: 11px; font-weight: 700; color: var(--accent);
-    text-transform: uppercase; letter-spacing: 0.06em;
-    padding: 10px 0 4px;
-  }
-
-  /* Nutrition ring */
-  .nutr-block { display: flex; gap: 18px; align-items: center; }
-  .nutr-ring-wrap { flex-shrink: 0; }
-  .nutr-ring-wrap svg { display: block; }
-  .nutr-ring-text-main {
-    font-size: 16px; font-weight: 700; fill: var(--text);
-  }
-  .nutr-ring-text-sub {
-    font-size: 9px; fill: var(--text-secondary);
-  }
-  .nutr-macros { flex: 1; display: flex; gap: 14px; justify-content: space-around; }
-  .nutr-macro { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .nutr-macro-val { font-size: 16px; font-weight: 700; }
-  .nutr-macro-label { font-size: 11px; color: var(--text-secondary); }
-  .nutr-macro-pct { font-size: 10px; font-weight: 600; }
-  .nutr-serving-note {
-    text-align: center; font-size: 11px; color: var(--text-muted);
-    margin-top: 8px;
-  }
-
-  /* RDA */
-  .rda-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-  .rda-row {
-    display: grid; grid-template-columns: 1fr auto auto;
-    column-gap: 8px; row-gap: 4px; font-size: 12px;
-  }
-  .rda-label { color: var(--text-secondary); }
-  .rda-val { color: var(--text); font-weight: 600; white-space: nowrap; }
-  .rda-pct {
-    color: var(--text-muted); min-width: 38px;
-    text-align: right; white-space: nowrap;
-  }
-  .rda-bar-wrap {
-    grid-column: 1 / -1;
-    background: var(--border); border-radius: 2px;
-    height: 4px; overflow: hidden;
-  }
-  .rda-bar {
-    height: 100%; background: var(--accent);
-    border-radius: 2px; transition: width 0.3s;
-  }
-  .rda-bar.over { background: var(--danger); }
-
-  /* Steps */
-  .steps-list { list-style: none; padding: 0; margin: 0; }
-  .step-item {
-    display: flex; gap: 12px; padding: 10px 0;
-    font-size: 14px; align-items: flex-start;
-    border-bottom: 1px solid var(--border);
-  }
-  .step-item:last-child { border-bottom: none; }
-  .step-num {
-    width: 30px; height: 30px; min-width: 30px;
-    background: var(--accent); color: #fff;
-    border-radius: 50%; display: flex;
-    align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; cursor: pointer;
-    user-select: none; transition: all 0.15s;
-  }
-  .step-num:hover { opacity: 0.8; }
-  .step-num.done {
-    background: transparent;
-    border: 2px solid var(--border);
-    color: var(--text-muted);
-  }
-  .step-item.done .step-text {
-    opacity: 0.45; text-decoration: line-through;
-  }
-  .step-text { flex: 1; line-height: 1.65; }
-
-  /* Notes */
-  .notes-box {
-    font-size: 14px; line-height: 1.6;
-    background: rgba(245,166,35,0.08);
-    border-left: 3px solid #f5a623;
-    padding: 10px 14px; border-radius: 0 8px 8px 0;
-    white-space: pre-wrap;
-  }
-
-  .file-drop {
-    display: block; border: 2px dashed var(--border); border-radius: 10px;
-    padding: 20px; text-align: center; cursor: pointer;
-    transition: border-color 0.15s; color: var(--text-secondary);
-    font-size: 14px; margin-bottom: 10px;
-  }
-  .file-drop:hover { border-color: var(--accent); color: var(--accent); }
-  .file-drop input { display: none; }
-
-  .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
-</style>
+<link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
 
@@ -435,93 +12,113 @@
   <h1>Recipe Manager</h1>
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
+    <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="youtube">YouTube</button>
     <button class="tab" data-panel="import">Импорт</button>
   </div>
 </header>
 
 <main>
-  <!-- Рецепты -->
+  <!-- =================================================== Recipes -->
   <section class="panel active" id="panel-recipes">
-    <div class="search-row">
-      <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
-    </div>
-    <div id="recipes-container">
-      <div class="loading"><span class="spinner"></span> Загрузка…</div>
+    <div class="panel-inner">
+      <div class="search-row">
+        <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
+      </div>
+      <div id="recipes-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
     </div>
   </section>
 
-  <!-- YouTube -->
+  <!-- =================================================== Planner -->
+  <section class="panel" id="panel-planner">
+    <div class="planner-wrap">
+      <div class="planner-header">
+        <button class="nav-btn" id="planner-prev">←</button>
+        <div class="planner-title" id="planner-title">…</div>
+        <button class="nav-btn" id="planner-next">→</button>
+        <button class="btn" id="planner-today">Сегодня</button>
+      </div>
+      <div class="planner-scroll">
+        <div class="planner-grid" id="planner-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================== YouTube -->
   <section class="panel" id="panel-youtube">
-    <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
-    <div class="card">
-      <div class="field">
-        <label for="yt-url">Ссылка на видео</label>
-        <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
+    <div class="panel-inner">
+      <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
+      <div class="card">
+        <div class="field">
+          <label for="yt-url">Ссылка на видео</label>
+          <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
+        </div>
+        <div class="row">
+          <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
+          <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
+        </div>
+        <div class="status" id="yt-status"></div>
       </div>
-      <div class="row">
-        <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
-        <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
+      <div class="card" id="yt-preview-card" style="display:none">
+        <div class="field">
+          <label>Сгенерированный Markdown</label>
+          <textarea id="yt-md" spellcheck="false"></textarea>
+        </div>
+        <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
       </div>
-      <div class="status" id="yt-status"></div>
-    </div>
-    <div class="card" id="yt-preview-card" style="display:none">
-      <div class="field">
-        <label>Сгенерированный Markdown</label>
-        <textarea id="yt-md" spellcheck="false"></textarea>
-      </div>
-      <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
     </div>
   </section>
 
-  <!-- Импорт -->
+  <!-- =================================================== Import -->
   <section class="panel" id="panel-import">
-    <div class="sub-tabs">
-      <button class="sub-tab active" data-subpanel="scrape">🌐 Со сайта</button>
-      <button class="sub-tab" data-subpanel="markdown">📝 Markdown</button>
-      <button class="sub-tab" data-subpanel="manual">✏️ Вручную</button>
-    </div>
-
-    <div class="subpanel active" id="subpanel-scrape">
-      <div class="card">
-        <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
-        <div class="field">
-          <label for="scrape-url">URL рецепта</label>
-          <input type="url" id="scrape-url" placeholder="https://www.example.com/recipes/borsch">
-        </div>
-        <button class="btn primary" id="scrape-fetch">Загрузить</button>
-        <div class="status" id="scrape-status"></div>
-      </div>
-    </div>
-
-    <div class="subpanel" id="subpanel-markdown">
-      <div class="card">
-        <div class="field">
-          <label for="md-url">Ссылка на .md файл</label>
-          <input type="url" id="md-url" placeholder="https://raw.githubusercontent.com/...">
-        </div>
-        <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
-        <div class="status" id="md-url-status"></div>
+    <div class="panel-inner">
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-subpanel="scrape">🌐 Со сайта</button>
+        <button class="sub-tab" data-subpanel="markdown">📝 Markdown</button>
+        <button class="sub-tab" data-subpanel="manual">✏️ Вручную</button>
       </div>
 
-      <div class="card">
-        <div class="field">
-          <label>Загрузить .md файл с устройства</label>
-          <label class="file-drop" for="md-file">
-            📎 Выбрать файл .md
-            <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
-          </label>
-          <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+      <div class="subpanel active" id="subpanel-scrape">
+        <div class="card">
+          <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
+          <div class="field">
+            <label for="scrape-url">URL рецепта</label>
+            <input type="url" id="scrape-url" placeholder="https://www.example.com/recipes/borsch">
+          </div>
+          <button class="btn primary" id="scrape-fetch">Загрузить</button>
+          <div class="status" id="scrape-status"></div>
         </div>
-        <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
-        <div class="status" id="md-file-status"></div>
       </div>
 
-      <div class="card">
-        <div class="field">
-          <label for="md-paste">Или вставьте Markdown вручную</label>
-          <textarea id="md-paste" spellcheck="false"
-                    placeholder="---
+      <div class="subpanel" id="subpanel-markdown">
+        <div class="card">
+          <div class="field">
+            <label for="md-url">Ссылка на .md файл</label>
+            <input type="url" id="md-url" placeholder="https://raw.githubusercontent.com/...">
+          </div>
+          <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
+          <div class="status" id="md-url-status"></div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <label>Загрузить .md файл с устройства</label>
+            <label class="file-drop" for="md-file">
+              📎 Выбрать файл .md
+              <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
+            </label>
+            <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+          </div>
+          <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
+          <div class="status" id="md-file-status"></div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <label for="md-paste">Или вставьте Markdown вручную</label>
+            <textarea id="md-paste" spellcheck="false" placeholder="---
 title: Борщ
 tags: [суп, украинская]
 servings: 4
@@ -532,16 +129,17 @@ servings: 4
 
 ## Шаги
 1. Сварить бульон."></textarea>
+          </div>
+          <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
+          <div class="status" id="md-paste-status"></div>
         </div>
-        <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
-        <div class="status" id="md-paste-status"></div>
       </div>
-    </div>
 
-    <div class="subpanel" id="subpanel-manual">
-      <div class="card">
-        <div class="hint">Откройте полноценный редактор для создания рецепта вручную.</div>
-        <button class="btn primary" id="manual-open-editor">✏️ Открыть редактор</button>
+      <div class="subpanel" id="subpanel-manual">
+        <div class="card">
+          <div class="hint">Откройте полноценный редактор для создания рецепта вручную.</div>
+          <button class="btn primary" id="manual-open-editor">✏️ Открыть редактор</button>
+        </div>
       </div>
     </div>
   </section>
@@ -552,759 +150,44 @@ servings: 4
   <div class="detail-panel" id="detail-panel"></div>
 </div>
 
-<script src="editor.js"></script>
-<script>
-"use strict";
-
-const BASE = window.location.pathname.replace(/\/+$/, "") + "/";
-const api = (p) => BASE + p.replace(/^\/+/, "");
-const $ = (id) => document.getElementById(id);
-
-const state = {
-  recipes: [],
-  currentJobId: null,
-  currentRecipe: null,
-  servingMult: 1,
-  completedSteps: new Set(),
-};
-
-function escHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function setStatus(el, text, kind = "info") {
-  el.textContent = text;
-  el.className = "status show " + kind;
-}
-function clearStatus(el) { el.className = "status"; el.textContent = ""; }
-
-// --- Tabs ---
-document.querySelectorAll(".tab").forEach((t) => {
-  t.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
-    t.classList.add("active");
-    $("panel-" + t.dataset.panel).classList.add("active");
-    if (t.dataset.panel === "recipes") loadRecipes();
-  });
-});
-document.querySelectorAll(".sub-tab").forEach((t) => {
-  t.addEventListener("click", () => {
-    document.querySelectorAll(".sub-tab").forEach((x) => x.classList.remove("active"));
-    document.querySelectorAll(".subpanel").forEach((x) => x.classList.remove("active"));
-    t.classList.add("active");
-    $("subpanel-" + t.dataset.subpanel).classList.add("active");
-  });
-});
-
-// =====================================================================
-// YouTube flow
-// =====================================================================
-$("yt-download").addEventListener("click", async () => {
-  const url = $("yt-url").value.trim();
-  if (!url) return;
-  const status = $("yt-status"); const btn = $("yt-download");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Скачивание…';
-  setStatus(status, "Скачиваем субтитры через yt-dlp…", "info");
-  try {
-    const fd = new FormData(); fd.append("url", url);
-    const resp = await fetch(api("api/download"), { method: "POST", body: fd });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
-    state.currentJobId = data.job_id;
-    $("yt-generate").disabled = false;
-    setStatus(status, `✓ Скачано ${data.count} файлов. Нажмите «Сгенерировать».`, "success");
-  } catch (err) { setStatus(status, "Ошибка: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "1. Скачать субтитры"; }
-});
-
-$("yt-generate").addEventListener("click", async () => {
-  if (!state.currentJobId) return;
-  const status = $("yt-status"); const btn = $("yt-generate");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Генерация…';
-  setStatus(status, "Отправляем субтитры в Gemini…", "info");
-  try {
-    const fd = new FormData(); fd.append("job_id", state.currentJobId);
-    const resp = await fetch(api("api/generate-recipe"), { method: "POST", body: fd });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
-    $("yt-md").value = data.markdown;
-    $("yt-preview-card").style.display = "block";
-    setStatus(status, `✓ Сгенерировано моделью ${data.model}.`, "success");
-  } catch (err) { setStatus(status, "Ошибка: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "2. Сгенерировать рецепт"; }
-});
-
-$("yt-save").addEventListener("click", async () => {
-  const md = $("yt-md").value.trim();
-  if (!md) return;
-  const status = $("yt-status"); const btn = $("yt-save");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Сохранение…';
-  try {
-    const resp = await fetch(api("api/recipes"), {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown_content: md }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
-    $("yt-preview-card").style.display = "none";
-    $("yt-md").value = ""; $("yt-url").value = "";
-    state.currentJobId = null; $("yt-generate").disabled = true;
-    state.recipes = [];
-  } catch (err) { setStatus(status, "Ошибка сохранения: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "💾 Сохранить в рецепты"; }
-});
-
-// =====================================================================
-// Scrape URL
-// =====================================================================
-$("scrape-fetch").addEventListener("click", async () => {
-  const url = $("scrape-url").value.trim();
-  if (!url) return;
-  const status = $("scrape-status"); const btn = $("scrape-fetch");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Загрузка…';
-  clearStatus(status);
-  try {
-    const fd = new FormData(); fd.append("url", url);
-    const resp = await fetch(api("api/scrape"), { method: "POST", body: fd });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    const r = data.recipe;
-    // Открываем редактор с заполненными данными; при сохранении создаём рецепт
-    window.openRecipeEditor(null, (saved) => {
-      state.recipes = [];
-      loadRecipes();
-    }, {
-      name: r.name, description: r.description,
-      source_url: r.source_url, image_url: r.image_url,
-      servings: r.servings, servings_text: r.servings_text,
-      prep_time: r.prep_time, cook_time: r.cook_time, total_time: r.total_time,
-      tags: r.tags || [], courses: r.courses || [],
-      categories: r.categories || [], collections: r.collections || [],
-      cuisine: r.cuisine,
-      ingredients: (r.ingredients || []).map((s) =>
-        typeof s === "string" ? { name: s } : s),
-      instructions: r.instructions || [],
-    });
-    setStatus(status, `✓ Загружено «${r.name}». Проверьте в редакторе.`, "success");
-  } catch (err) { setStatus(status, "Ошибка: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "Загрузить"; }
-});
-
-// =====================================================================
-// Markdown import
-// =====================================================================
-$("md-fetch").addEventListener("click", async () => {
-  const url = $("md-url").value.trim();
-  if (!url) return;
-  const status = $("md-url-status"); const btn = $("md-fetch");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Загрузка…';
-  clearStatus(status);
-  try {
-    const fd = new FormData(); fd.append("url", url);
-    const resp = await fetch(api("api/recipes/import-url"), { method: "POST", body: fd });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    setStatus(status, `✓ Импортирован «${data.recipe.name}».`, "success");
-    $("md-url").value = ""; state.recipes = [];
-  } catch (err) { setStatus(status, "Ошибка: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "Загрузить и сохранить"; }
-});
-
-let pendingMdFileContent = null;
-$("md-file").addEventListener("change", (e) => {
-  const file = e.target.files?.[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    pendingMdFileContent = ev.target.result || "";
-    $("md-file-name").textContent = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-    $("md-file-save").disabled = !pendingMdFileContent.trim();
-  };
-  reader.readAsText(file, "utf-8");
-});
-$("md-file-save").addEventListener("click", async () => {
-  if (!pendingMdFileContent) return;
-  const status = $("md-file-status"); const btn = $("md-file-save");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Сохранение…';
-  clearStatus(status);
-  try {
-    const resp = await fetch(api("api/recipes"), {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown_content: pendingMdFileContent }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
-    pendingMdFileContent = null;
-    $("md-file").value = ""; $("md-file-name").textContent = "";
-    btn.disabled = true; state.recipes = [];
-  } catch (err) {
-    setStatus(status, "Ошибка: " + err.message, "error");
-    btn.disabled = false;
-  } finally { btn.textContent = "Сохранить файл"; }
-});
-
-$("md-paste-save").addEventListener("click", async () => {
-  const md = $("md-paste").value.trim(); if (!md) return;
-  const status = $("md-paste-status"); const btn = $("md-paste-save");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Сохранение…';
-  clearStatus(status);
-  try {
-    const resp = await fetch(api("api/recipes"), {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown_content: md }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
-    $("md-paste").value = ""; state.recipes = [];
-  } catch (err) { setStatus(status, "Ошибка: " + err.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "Сохранить рецепт"; }
-});
-
-// Открыть редактор «с нуля» из вкладки «Вручную»
-$("manual-open-editor").addEventListener("click", () => {
-  window.openRecipeEditor(null, () => {
-    state.recipes = [];
-    loadRecipes();
-    // переключаемся на вкладку «Рецепты»
-    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
-    document.querySelector('.tab[data-panel="recipes"]').classList.add("active");
-    $("panel-recipes").classList.add("active");
-  });
-});
-
-// =====================================================================
-// Recipes list
-// =====================================================================
-async function loadRecipes() {
-  const container = $("recipes-container");
-  if (state.recipes.length) { renderRecipes(state.recipes); return; }
-  container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
-  try {
-    const resp = await fetch(api("api/recipes"));
-    const data = await resp.json();
-    state.recipes = data.recipes || [];
-    renderRecipes(state.recipes);
-  } catch (err) {
-    container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить: ${escHtml(err.message)}</p></div>`;
-  }
-}
-
-let searchTimer = null;
-$("search").addEventListener("input", (e) => {
-  clearTimeout(searchTimer);
-  const q = e.target.value.trim();
-  searchTimer = setTimeout(() => filterAndRender(q), 200);
-});
-
-function filterAndRender(q) {
-  if (!q) { renderRecipes(state.recipes); return; }
-  const lower = q.toLowerCase();
-  const filtered = state.recipes.filter((r) => {
-    if ((r.name || "").toLowerCase().includes(lower)) return true;
-    if ((r.description || "").toLowerCase().includes(lower)) return true;
-    for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
-      if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
-    }
-    for (const ing of r.ingredients || []) {
-      const name = typeof ing === "string" ? ing : ing.name;
-      if (name && String(name).toLowerCase().includes(lower)) return true;
-    }
-    return false;
-  });
-  renderRecipes(filtered);
-}
-
-function renderRecipes(recipes) {
-  const container = $("recipes-container");
-  if (!recipes.length) {
-    container.innerHTML = '<div class="empty"><div class="icon">📖</div><p>Рецептов пока нет.</p></div>';
-    return;
-  }
-  const grid = document.createElement("div");
-  grid.className = "recipe-grid";
-  for (const r of recipes) {
-    const card = document.createElement("div");
-    card.className = "recipe-card";
-    card.addEventListener("click", () => openDetail(r));
-
-    const thumb = document.createElement("div");
-    thumb.className = "recipe-thumb";
-    if (r.image_url) {
-      const img = document.createElement("img");
-      img.src = r.image_url; img.alt = r.name || ""; img.loading = "lazy";
-      thumb.appendChild(img);
-    } else { thumb.textContent = "🍽"; }
-    card.appendChild(thumb);
-
-    const body = document.createElement("div");
-    body.className = "recipe-body";
-    const name = document.createElement("h3");
-    name.className = "recipe-name";
-    name.textContent = r.name || "(без названия)";
-    body.appendChild(name);
-
-    const meta = document.createElement("div");
-    meta.className = "recipe-meta";
-    const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
-    if (t) {
-      const chip = document.createElement("span");
-      chip.className = "meta-chip";
-      chip.textContent = "⏱ " + formatTime(t);
-      meta.appendChild(chip);
-    }
-    if (r.servings) {
-      const chip = document.createElement("span");
-      chip.className = "meta-chip";
-      chip.textContent = "👥 " + r.servings;
-      meta.appendChild(chip);
-    }
-    for (const tag of (r.tags || []).slice(0, 3)) {
-      const chip = document.createElement("span");
-      chip.className = "meta-chip tag";
-      chip.textContent = tag;
-      meta.appendChild(chip);
-    }
-    body.appendChild(meta);
-    card.appendChild(body);
-    grid.appendChild(card);
-  }
-  container.innerHTML = "";
-  container.appendChild(grid);
-}
-
-function formatTime(mins) {
-  if (!mins || isNaN(mins)) return "";
-  if (mins < 60) return mins + " мин";
-  const h = Math.floor(mins / 60); const m = mins % 60;
-  return m ? `${h} ч ${m} мин` : `${h} ч`;
-}
-
-// =====================================================================
-// Detail view
-// =====================================================================
-function openDetail(recipe) {
-  state.currentRecipe = recipe;
-  state.servingMult = 1;
-  state.completedSteps = new Set();
-  renderDetail();
-  $("detail-overlay").classList.add("show");
-}
-function closeDetail() {
-  $("detail-overlay").classList.remove("show");
-  state.currentRecipe = null;
-}
-$("detail-overlay").addEventListener("click", (e) => {
-  if (e.target === $("detail-overlay")) closeDetail();
-});
-
-const RDA = {
-  calories:      { label: "Калории",            unit: "kcal", value: 2000 },
-  fat:           { label: "Жиры",               unit: "г",    value: 65 },
-  saturated_fat: { label: "Насыщенные жиры",    unit: "г",    value: 20 },
-  cholesterol:   { label: "Холестерин",         unit: "мг",   value: 300 },
-  sodium:        { label: "Натрий",             unit: "мг",   value: 2300 },
-  carbohydrates: { label: "Углеводы",           unit: "г",    value: 300 },
-  fiber:         { label: "Клетчатка",          unit: "г",    value: 28 },
-  sugar:         { label: "Сахара",             unit: "г",    value: 50 },
-  protein:       { label: "Белок",              unit: "г",    value: 50 },
-};
-
-function renderDetail() {
-  const r = state.currentRecipe;
-  if (!r) return;
-  const panel = $("detail-panel");
-
-  // Парсим ингредиенты в нормальный формат
-  const ingredients = (r.ingredients || []).map((ing) => {
-    if (typeof ing === "string") return { name: ing, amount: null, unit: null, notes: null };
-    return ing;
-  });
-
-  // Мета-чипы
-  const metaChips = [];
-  if (r.servings_text || r.servings) {
-    metaChips.push(`<span class="meta-chip-large">👥 ${escHtml(r.servings_text || r.servings)}</span>`);
-  }
-  if (r.prep_time) {
-    metaChips.push(`<span class="meta-chip-large">⏱ ${formatTime(r.prep_time)}</span>`);
-  }
-  if (r.cook_time) {
-    metaChips.push(`<span class="meta-chip-large">🔥 ${formatTime(r.cook_time)}</span>`);
-  }
-  const totalTime = r.total_time || r.time;
-  if (totalTime && totalTime !== (r.prep_time||0)+(r.cook_time||0)) {
-    metaChips.push(`<span class="meta-chip-large">⏲ ${formatTime(totalTime)}</span>`);
-  }
-
-  // Чипы категорий
-  const chipsRows = [];
-  if ((r.courses || []).length) {
-    chipsRows.push(`<div class="chips-row">
-      <span class="chips-label">Курс:</span>
-      ${r.courses.map((c) => `<button class="chip course" data-filter="course:${escHtml(c)}">${escHtml(c)}</button>`).join("")}
-    </div>`);
-  }
-  if ((r.categories || []).length) {
-    chipsRows.push(`<div class="chips-row">
-      <span class="chips-label">Категория:</span>
-      ${r.categories.map((c) => `<button class="chip category" data-filter="category:${escHtml(c)}">${escHtml(c)}</button>`).join("")}
-    </div>`);
-  }
-  if ((r.collections || []).length) {
-    chipsRows.push(`<div class="chips-row">
-      <span class="chips-label">Коллекция:</span>
-      ${r.collections.map((c) => `<button class="chip collection" data-filter="collection:${escHtml(c)}">${escHtml(c)}</button>`).join("")}
-    </div>`);
-  }
-
-  const photoBlock = r.image_url
-    ? `<button class="photo-toggle" id="photo-toggle">📷 Показать фото</button>
-       <div class="photo-box" id="photo-box"><img src="${escHtml(r.image_url)}" alt="${escHtml(r.name)}"></div>`
-    : "";
-
-  // Nutrition
-  const hasNutrition = r.nutrition && Object.values(r.nutrition).some((v) => v != null && v !== "");
-  const nutritionBlock = hasNutrition ? renderNutritionSection(r) : "";
-  const rdaBlock = hasNutrition ? renderRDASection(r) : "";
-
-  // Шаги
-  const stepsHtml = (r.instructions || []).length
-    ? `<ol class="steps-list">
-        ${(r.instructions || []).map((s, i) => `
-          <li class="step-item" data-step-idx="${i}">
-            <div class="step-num" data-toggle-step="${i}">${i + 1}</div>
-            <div class="step-text">${renderStepText(s)}</div>
-          </li>
-        `).join("")}
-      </ol>`
-    : `<p style="color:var(--text-secondary);font-size:14px;">Шаги не указаны.</p>`;
-
-  // Notes
-  const notesHtml = r.notes
-    ? `<div class="section-card">
-        <div class="section-title">📝 Заметки</div>
-        <div class="notes-box">⚠️ ${escHtml(r.notes)}</div>
-      </div>`
-    : "";
-
-  // Ингредиенты
-  const ingredientsHtml = ingredients.length
-    ? `<ul class="ingredients-list">
-        ${ingredients.map((ing) => renderIngredientRow(ing, r)).join("")}
-      </ul>`
-    : `<p style="color:var(--text-secondary);font-size:14px;">Ингредиенты не указаны.</p>`;
-
-  panel.innerHTML = `
-    <button class="detail-close" id="detail-close">×</button>
-
-    <div class="detail-head">
-      <h2 class="detail-title">${escHtml(r.name || "")}</h2>
-      ${r.description ? `<div class="detail-description">${escHtml(r.description)}</div>` : ""}
-
-      <div class="detail-toolbar">
-        <button class="toolbar-btn ${r.is_favourite ? "fav-active" : ""}" id="tbtn-fav">
-          <span class="ico">${r.is_favourite ? "❤️" : "🤍"}</span>
-          <span>Избранное</span>
-        </button>
-        <button class="toolbar-btn" id="tbtn-edit">
-          <span class="ico">✏️</span><span>Правка</span>
-        </button>
-        <button class="toolbar-btn danger" id="tbtn-delete">
-          <span class="ico">🗑️</span><span>Удалить</span>
-        </button>
-      </div>
-
-      ${photoBlock}
-
-      ${metaChips.length ? `<div class="meta-chips">${metaChips.join("")}</div>` : ""}
-
-      ${chipsRows.length ? `<div class="chips-area">${chipsRows.join("")}</div>` : ""}
+<!-- Plan picker modal -->
+<div class="plan-picker-overlay" id="plan-picker">
+  <div class="plan-picker-panel">
+    <div class="plan-picker-header">
+      <h3 id="plan-picker-title">Добавить в план</h3>
+      <button class="plan-picker-close" id="plan-picker-close">×</button>
     </div>
-
-    <div class="detail-grid">
-      <div class="detail-col">
-        <div class="section-card">
-          <div class="scaler-row">
-            <div class="scaler">
-              <button class="scaler-btn" id="scale-minus">−</button>
-              <span class="scaler-val" id="scale-val">×1</span>
-              <button class="scaler-btn" id="scale-plus">+</button>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">порции</span>
-          </div>
-        </div>
-
-        <div class="section-card">
-          <div class="section-title">🥕 Ингредиенты</div>
-          ${ingredientsHtml}
-        </div>
-
-        ${hasNutrition ? `<div class="section-card">${nutritionBlock}${rdaBlock}</div>` : ""}
-      </div>
-
-      <div class="detail-col">
-        <div class="section-card">
-          <div class="section-title">📋 Шаги приготовления</div>
-          ${stepsHtml}
-        </div>
-        ${notesHtml}
-      </div>
+    <div class="plan-picker-week">
+      <button class="nav-btn" id="plan-picker-prev">←</button>
+      <div class="planner-title" id="plan-picker-week-title">…</div>
+      <button class="nav-btn" id="plan-picker-next">→</button>
     </div>
-  `;
-
-  // --- Events ---
-  $("detail-close").addEventListener("click", closeDetail);
-  $("tbtn-delete").addEventListener("click", () => onDeleteClick(r));
-  $("tbtn-fav").addEventListener("click", () => onToggleFav(r));
-  $("tbtn-edit").addEventListener("click", () => {
-    window.openRecipeEditor(r, (updated) => {
-      state.currentRecipe = { ...r, ...updated };
-      // Обновляем и в списке
-      const idx = state.recipes.findIndex((x) => x.id === r.id);
-      if (idx >= 0) state.recipes[idx] = state.currentRecipe;
-      renderDetail();
-      renderRecipes(state.recipes);
-    });
-  });
-
-  const photoToggle = $("photo-toggle");
-  if (photoToggle) {
-    photoToggle.addEventListener("click", () => {
-      const box = $("photo-box");
-      box.classList.toggle("show");
-      photoToggle.textContent = box.classList.contains("show") ? "📷 Скрыть фото" : "📷 Показать фото";
-    });
-  }
-
-  $("scale-minus").addEventListener("click", () => {
-    if (state.servingMult <= 0.25) return;
-    state.servingMult = Math.max(0.25, state.servingMult - 0.25);
-    updateServingDisplay();
-  });
-  $("scale-plus").addEventListener("click", () => {
-    state.servingMult += 0.25;
-    updateServingDisplay();
-  });
-
-  panel.querySelectorAll("[data-toggle-step]").forEach((el) => {
-    el.addEventListener("click", () => {
-      const idx = parseInt(el.dataset.toggleStep, 10);
-      if (state.completedSteps.has(idx)) state.completedSteps.delete(idx);
-      else state.completedSteps.add(idx);
-      updateStepDisplay();
-    });
-  });
-
-  panel.querySelectorAll("[data-filter]").forEach((el) => {
-    el.addEventListener("click", () => {
-      const [kind, val] = el.dataset.filter.split(":");
-      closeDetail();
-      // Открываем вкладку рецептов и ищем по этому значению
-      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-      document.querySelectorAll(".panel").forEach((x) => x.classList.remove("active"));
-      document.querySelector('.tab[data-panel="recipes"]').classList.add("active");
-      $("panel-recipes").classList.add("active");
-      $("search").value = val;
-      filterAndRender(val);
-    });
-  });
-}
-
-function renderIngredientRow(ing, recipe) {
-  if (ing.is_heading || (ing.name || "").startsWith("#")) {
-    const text = (ing.name || "").replace(/^#\s*/, "");
-    return `<li class="ing-heading">${escHtml(text)}</li>`;
-  }
-  const amount = scaleAmount(ing.amount, state.servingMult);
-  const unit = ing.unit || "";
-  const amountStr = [amount, unit].filter(Boolean).join(" ");
-  return `<li class="ing-item">
-    <span class="ing-amount">${escHtml(amountStr || "—")}</span>
-    <span class="ing-name">${escHtml(ing.name || "")}${
-      ing.notes ? ` <span class="ing-notes">(${escHtml(ing.notes)})</span>` : ""
-    }</span>
-  </li>`;
-}
-
-function renderStepText(text) {
-  // Простой inline-markdown: **bold**, *italic*, ссылки
-  return escHtml(text)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>");
-}
-
-function scaleAmount(amount, mult) {
-  if (!amount || mult === 1) return amount ?? "";
-  const m = String(amount).match(/^(\d+(?:[.,]\d+)?)(.*)$/);
-  if (!m) return amount;
-  const num = parseFloat(m[1].replace(",", ".")) * mult;
-  if (isNaN(num)) return amount;
-  const formatted = Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.?0+$/, "");
-  return formatted + (m[2] || "");
-}
-
-function updateServingDisplay() {
-  const el = $("scale-val");
-  if (el) el.textContent = "×" + state.servingMult;
-  // Перерисовываем список ингредиентов
-  const r = state.currentRecipe;
-  if (!r) return;
-  const list = document.querySelector(".ingredients-list");
-  if (!list) return;
-  const ingredients = (r.ingredients || []).map((ing) =>
-    typeof ing === "string" ? { name: ing } : ing
-  );
-  list.innerHTML = ingredients.map((ing) => renderIngredientRow(ing, r)).join("");
-}
-
-function updateStepDisplay() {
-  document.querySelectorAll(".step-item").forEach((el) => {
-    const idx = parseInt(el.dataset.stepIdx, 10);
-    const num = el.querySelector(".step-num");
-    if (state.completedSteps.has(idx)) {
-      el.classList.add("done"); num.classList.add("done");
-      num.textContent = "✓";
-    } else {
-      el.classList.remove("done"); num.classList.remove("done");
-      num.textContent = idx + 1;
-    }
-  });
-}
-
-// --- Nutrition ring ---
-function renderNutritionSection(r) {
-  const n = r.nutrition || {};
-  const carbs = parseFloat(n.carbohydrates) || 0;
-  const fat = parseFloat(n.fat) || 0;
-  const protein = parseFloat(n.protein) || 0;
-  const calories = parseFloat(n.calories) || 0;
-
-  const calCarbs = carbs * 4;
-  const calFat = fat * 9;
-  const calProtein = protein * 4;
-  const totalCal = calCarbs + calFat + calProtein;
-
-  const r0 = 42;
-  const C = 2 * Math.PI * r0;
-  const gap = 6;
-  const lenCarbs = totalCal > 0 ? Math.max(0, (calCarbs / totalCal) * C - gap) : 0;
-  const lenFat   = totalCal > 0 ? Math.max(0, (calFat   / totalCal) * C - gap) : 0;
-  const lenProt  = totalCal > 0 ? Math.max(0, (calProtein/ totalCal) * C - gap) : 0;
-
-  const startCarbs = -90;
-  const startFat = startCarbs + (totalCal > 0 ? (calCarbs / totalCal) * 360 : 0);
-  const startProt = startFat + (totalCal > 0 ? (calFat / totalCal) * 360 : 0);
-
-  const displayCal = calories > 0 ? Math.round(calories) : (totalCal > 0 ? Math.round(totalCal) : "—");
-
-  return `
-    <div class="section-title">🥗 Пищевая ценность</div>
-    <div class="nutr-block">
-      <div class="nutr-ring-wrap">
-        <svg width="90" height="90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="${r0}" fill="none" stroke="var(--border)" stroke-width="7"/>
-          <circle cx="50" cy="50" r="${r0}" fill="none"
-            stroke="var(--carbs)" stroke-width="7" stroke-linecap="round"
-            stroke-dasharray="${lenCarbs} ${C}"
-            transform="rotate(${startCarbs} 50 50)"
-            opacity="${lenCarbs > 0 ? 1 : 0}"/>
-          <circle cx="50" cy="50" r="${r0}" fill="none"
-            stroke="var(--fat)" stroke-width="7" stroke-linecap="round"
-            stroke-dasharray="${lenFat} ${C}"
-            transform="rotate(${startFat} 50 50)"
-            opacity="${lenFat > 0 ? 1 : 0}"/>
-          <circle cx="50" cy="50" r="${r0}" fill="none"
-            stroke="var(--protein)" stroke-width="7" stroke-linecap="round"
-            stroke-dasharray="${lenProt} ${C}"
-            transform="rotate(${startProt} 50 50)"
-            opacity="${lenProt > 0 ? 1 : 0}"/>
-          <text x="50" y="48" text-anchor="middle" class="nutr-ring-text-main">${displayCal}</text>
-          <text x="50" y="62" text-anchor="middle" class="nutr-ring-text-sub">kcal</text>
-        </svg>
-      </div>
-      <div class="nutr-macros">
-        ${macroCol("Углеводы", carbs, calCarbs, totalCal, "var(--carbs)")}
-        ${macroCol("Жиры", fat, calFat, totalCal, "var(--fat)")}
-        ${macroCol("Белок", protein, calProtein, totalCal, "var(--protein)")}
-      </div>
+    <div class="plan-picker-servings">
+      <span>Порций:</span>
+      <input type="number" id="plan-picker-servings" min="1" value="2">
     </div>
-    ${r.servings_text ? `<div class="nutr-serving-note">на ${escHtml(r.servings_text)}</div>` : ""}
-  `;
-}
+    <div class="planner-scroll">
+      <div class="planner-grid plan-picker-grid" id="plan-picker-grid"></div>
+    </div>
+    <div class="plan-picker-hint">Кликните по ячейке, чтобы добавить рецепт на этот приём пищи.</div>
+  </div>
+</div>
 
-function macroCol(label, grams, cal, totalCal, color) {
-  const pct = totalCal > 0 ? Math.round((cal / totalCal) * 100) : 0;
-  const val = grams > 0 ? `${grams} г` : "—";
-  return `<div class="nutr-macro">
-    <span class="nutr-macro-val" style="color:${color}">${val}</span>
-    <span class="nutr-macro-label">${label}</span>
-    ${pct > 0 ? `<span class="nutr-macro-pct" style="color:${color}">${pct}% cal</span>` : ""}
-  </div>`;
-}
+<!-- Editor overlay -->
+<div class="editor-overlay" id="editor-overlay"></div>
 
-function renderRDASection(r) {
-  const n = r.nutrition || {};
-  const order = ["calories","fat","saturated_fat","cholesterol","sodium","carbohydrates","fiber","sugar","protein"];
-  const rows = [];
-  for (const key of order) {
-    const v = parseFloat(n[key]);
-    if (!v || isNaN(v)) continue;
-    const rda = RDA[key];
-    if (!rda) continue;
-    const pct = Math.min(Math.round((v / rda.value) * 100), 999);
-    rows.push(`<div class="rda-row">
-      <span class="rda-label">${rda.label}</span>
-      <span class="rda-val">${v} ${rda.unit}</span>
-      <span class="rda-pct">${pct}%</span>
-      <div class="rda-bar-wrap"><div class="rda-bar ${pct > 100 ? "over" : ""}" style="width:${Math.min(pct,100)}%"></div></div>
-    </div>`);
-  }
-  if (!rows.length) return "";
-  return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-    <div class="section-title" style="margin-bottom:8px;">📊 Дневная норма</div>
-    <div class="rda-list">${rows.join("")}</div>
-  </div>`;
-}
-
-// --- Actions ---
-async function onDeleteClick(r) {
-  if (!confirm(`Удалить рецепт «${r.name}»?`)) return;
-  try {
-    const resp = await fetch(api(`api/recipes/${r.id}`), { method: "DELETE" });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(data.detail || "delete failed");
-    }
-    state.recipes = state.recipes.filter((x) => x.id !== r.id);
-    closeDetail();
-    renderRecipes(state.recipes);
-  } catch (err) { alert("Ошибка удаления: " + err.message); }
-}
-
-async function onToggleFav(r) {
-  try {
-    const resp = await fetch(api(`api/recipes/${r.id}`), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_favourite: !r.is_favourite }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || "patch failed");
-    state.currentRecipe = data.recipe;
-    const idx = state.recipes.findIndex((x) => x.id === r.id);
-    if (idx >= 0) state.recipes[idx] = data.recipe;
-    renderDetail();
-    renderRecipes(state.recipes);
-  } catch (err) { alert("Ошибка: " + err.message); }
-}
-
-// --- Init ---
-loadRecipes();
-</script>
+<!-- Скрипты — порядок важен -->
+<script src="static/js/utils.js"></script>
+<script src="static/js/api.js"></script>
+<script src="static/js/state.js"></script>
+<script src="static/js/tabs.js"></script>
+<script src="static/js/youtube.js"></script>
+<script src="static/js/imports.js"></script>
+<script src="static/js/recipes.js"></script>
+<script src="static/js/detail.js"></script>
+<script src="static/js/editor.js"></script>
+<script src="static/js/plan-picker.js"></script>
+<script src="static/js/planner.js"></script>
+<script src="static/js/app.js"></script>
 </body>
 </html>
