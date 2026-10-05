@@ -39,9 +39,12 @@ COOKIES_FILE = os.environ.get("COOKIES_FILE") or None
 
 # --- Product lookup (shopping) ----------------------------------------------
 
-# "auto" | "openfoodfacts" | "national"
-CATALOG_SOURCE = os.environ.get("CATALOG_SOURCE", "auto").strip().lower()
-CATALOG_API_KEY = os.environ.get("CATALOG_API_KEY", "")
-
 OFF_USER_AGENT = "HomeAssistant-RecipeManager/1.0 (add-on)"
-NATIONAL_CATALOG_URL = "https://апи.национальный-каталог.рф/v3/product"
+
+# --- GitHub sync ------------------------------------------------------------
+
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "").strip()          # "user/repo"
+GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME", "").strip()  # для сообщений коммитов
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main").strip() or "main"
+GITHUB_PATH = os.environ.get("GITHUB_PATH", "data/recipes.json").strip() or "data/recipes.json"

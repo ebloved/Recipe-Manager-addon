@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.1.8"
+version: "1.2.0"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -26,6 +26,11 @@ options:
   sub_langs: "ru.*"
   cookies_file: ""
   log_level: "info"
+  github_repo: ""
+  github_username: ""
+  github_token: ""
+  github_branch: "main"
+  github_path: "data/recipes.json"
 
 schema:
   gemini_api_key: "password"
@@ -34,6 +39,11 @@ schema:
   sub_langs: "str"
   cookies_file: "str?"
   log_level: "list(trace|debug|info|notice|warning|error|fatal)"
+  github_repo: "str?"
+  github_username: "str?"
+  github_token: "password?"
+  github_branch: "str?"
+  github_path: "str?"
 
 map:
   - type: share

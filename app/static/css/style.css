@@ -916,3 +916,160 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+/* ================================================================
+   GitHub sync
+   ================================================================ */
+.sync-status {
+  background: var(--elevated);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+}
+.sync-info { display: flex; flex-direction: column; gap: 6px; }
+.sync-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 13px;
+}
+.sync-row span { color: var(--text-secondary); }
+.sync-row b { color: var(--text); font-weight: 600; }
+.sync-row code {
+  background: var(--surface); padding: 1px 6px; border-radius: 4px;
+  font-size: 12px;
+}
+
+/* ================================================================
+   Editor: header actions + md view
+   ================================================================ */
+.editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.editor-btn {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.editor-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.editor-md-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.editor-md-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--elevated);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  line-height: 1.5;
+}
+.editor-md-hint code {
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.editor-md-textarea {
+  width: 100%;
+  min-height: 380px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+}
+.editor-md-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.editor-md-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ================================================================
+   Shopping: qty group
+   ================================================================ */
+.shop-qty-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.shop-qty-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.shop-qty-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.shop-qty-value {
+  width: 48px;
+  text-align: center;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.shop-qty-value:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.shop-qty-unit {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.shop-qty-unit:focus { outline: none; border-color: var(--accent); }
+
+/* ================================================================
+   Recipe card: скрывать пустой фрейм фото
+   ================================================================ */
+.recipe-card.no-thumb .recipe-body {
+  padding-right: 52px;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
