@@ -4,18 +4,6 @@
   const { patchJSON, del } = RM.api;
   const state = RM.state;
 
-  const RDA = {
-    calories:      { label: "Калории",         unit: "kcal", value: 2000 },
-    fat:           { label: "Жиры",            unit: "г",    value: 65 },
-    saturated_fat: { label: "Насыщенные жиры", unit: "г",    value: 20 },
-    cholesterol:   { label: "Холестерин",      unit: "мг",   value: 300 },
-    sodium:        { label: "Натрий",          unit: "мг",   value: 2300 },
-    carbohydrates: { label: "Углеводы",        unit: "г",    value: 300 },
-    fiber:         { label: "Клетчатка",       unit: "г",    value: 28 },
-    sugar:         { label: "Сахара",          unit: "г",    value: 50 },
-    protein:       { label: "Белок",           unit: "г",    value: 50 },
-  };
-
   function setup() {
     $("detail-overlay").addEventListener("click", (e) => {
       if (e.target === $("detail-overlay")) close();
@@ -171,7 +159,6 @@
       </div>
     `;
 
-    // --- Events ---
     $("detail-close").addEventListener("click", close);
     $("tbtn-delete").addEventListener("click", () => onDelete(r));
     $("tbtn-fav").addEventListener("click", () => onToggleFav(r));
@@ -227,7 +214,6 @@
       });
     });
 
-    // Event delegation на список ингредиентов
     const ingList = panel.querySelector(".ingredients-list");
     if (ingList) {
       ingList.addEventListener("click", (e) => {
@@ -300,7 +286,7 @@
     });
   }
 
-  // --- Nutrition ring ---
+  // --- Nutrition ring (значения — на 1 порцию) ---
   function renderNutrition(r) {
     const n = r.nutrition || {};
     const carbs = parseFloat(n.carbohydrates) || 0;
@@ -357,7 +343,7 @@
           ${macroCol("Белок", protein, calProtein, totalCal, "var(--protein)")}
         </div>
       </div>
-      ${r.servings_text ? `<div class="nutr-serving-note">на ${escHtml(r.servings_text)}</div>` : ""}
+      <div class="nutr-serving-note">на 1 порцию</div>
     `;
   }
 
@@ -378,7 +364,7 @@
     for (const key of order) {
       const v = parseFloat(n[key]);
       if (!v || isNaN(v)) continue;
-      const rda = RDA[key];
+      const rda = RDA_LOOKUP[key];
       if (!rda) continue;
       const pct = Math.min(Math.round((v / rda.value) * 100), 999);
       rows.push(`<div class="rda-row">
@@ -390,10 +376,22 @@
     }
     if (!rows.length) return "";
     return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-      <div class="section-title" style="margin-bottom:8px;">📊 Дневная норма</div>
+      <div class="section-title" style="margin-bottom:8px;">📊 Дневная норма (на 1 порцию)</div>
       <div class="rda-list">${rows.join("")}</div>
     </div>`;
   }
+
+  const RDA_LOOKUP = {
+    calories:      { label: "Калории",         unit: "kcal", value: 2000 },
+    fat:           { label: "Жиры",            unit: "г",    value: 65 },
+    saturated_fat: { label: "Насыщенные жиры", unit: "г",    value: 20 },
+    cholesterol:   { label: "Холестерин",      unit: "мг",   value: 300 },
+    sodium:        { label: "Натрий",          unit: "мг",   value: 2300 },
+    carbohydrates: { label: "Углеводы",        unit: "г",    value: 300 },
+    fiber:         { label: "Клетчатка",       unit: "г",    value: 28 },
+    sugar:         { label: "Сахара",          unit: "г",    value: 50 },
+    protein:       { label: "Белок",           unit: "г",    value: 50 },
+  };
 
   async function onDelete(r) {
     if (!confirm(`Удалить рецепт «${r.name}»?`)) return;

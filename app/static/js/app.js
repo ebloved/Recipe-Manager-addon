@@ -9,6 +9,7 @@
     RM.detail.setup();
     RM.planPicker.setup();
     RM.planner.setup();
+    RM.recipePicker.setup();
     RM.shopping.setup();
     RM.sync.setup();
 

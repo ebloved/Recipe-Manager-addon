@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=10">
+<link rel="stylesheet" href="static/css/style.css?v=11">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -22,7 +22,6 @@
 </header>
 
 <main>
-  <!-- Recipes -->
   <section class="panel active" id="panel-recipes">
     <div class="panel-inner">
       <div class="search-row">
@@ -34,7 +33,6 @@
     </div>
   </section>
 
-  <!-- Planner -->
   <section class="panel" id="panel-planner">
     <div class="planner-wrap">
       <div class="planner-header">
@@ -49,7 +47,6 @@
     </div>
   </section>
 
-  <!-- Shopping -->
   <section class="panel" id="panel-shopping">
     <div class="panel-inner">
       <div class="shopping-toolbar">
@@ -74,7 +71,6 @@
     </div>
   </section>
 
-  <!-- Sync -->
   <section class="panel" id="panel-sync">
     <div class="panel-inner">
       <div class="card">
@@ -94,7 +90,6 @@
     </div>
   </section>
 
-  <!-- YouTube -->
   <section class="panel" id="panel-youtube">
     <div class="panel-inner">
       <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
@@ -119,7 +114,6 @@
     </div>
   </section>
 
-  <!-- Import -->
   <section class="panel" id="panel-import">
     <div class="panel-inner">
       <div class="sub-tabs">
@@ -193,12 +187,10 @@ servings: 4
   </section>
 </main>
 
-<!-- Detail overlay -->
 <div class="detail-overlay" id="detail-overlay">
   <div class="detail-panel" id="detail-panel"></div>
 </div>
 
-<!-- Plan picker modal -->
 <div class="plan-picker-overlay" id="plan-picker">
   <div class="plan-picker-panel">
     <div class="plan-picker-header">
@@ -221,7 +213,28 @@ servings: 4
   </div>
 </div>
 
-<!-- Barcode modal -->
+<!-- Recipe picker: выбор рецепта из планировщика -->
+<div class="plan-picker-overlay" id="recipe-picker-overlay">
+  <div class="plan-picker-panel recipe-picker-panel">
+    <div class="plan-picker-header">
+      <div>
+        <h3 id="recipe-picker-title">Добавить в план</h3>
+        <div class="recipe-picker-subtitle" id="recipe-picker-subtitle"></div>
+      </div>
+      <button class="plan-picker-close" id="recipe-picker-close">×</button>
+    </div>
+    <div class="plan-picker-servings">
+      <span>Порций:</span>
+      <input type="number" id="recipe-picker-servings" min="1" value="2">
+    </div>
+    <div class="picker-search-wrap">
+      <input type="text" id="recipe-picker-search" class="picker-search" placeholder="🔍 Поиск рецепта…">
+    </div>
+    <div class="picker-list" id="recipe-picker-list"></div>
+    <div class="plan-picker-hint">Кликните по рецепту, чтобы добавить его в этот приём пищи.</div>
+  </div>
+</div>
+
 <div class="barcode-overlay" id="barcode-overlay">
   <div class="barcode-panel">
     <div class="barcode-header">
@@ -252,7 +265,6 @@ servings: 4
   </div>
 </div>
 
-<!-- Add-from-recipe modal -->
 <div class="recipe-shop-overlay" id="recipe-shop-overlay">
   <div class="recipe-shop-panel">
     <div class="barcode-header">
@@ -273,22 +285,22 @@ servings: 4
   </div>
 </div>
 
-<!-- Editor overlay -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=10"></script>
-<script src="static/js/api.js?v=10"></script>
-<script src="static/js/state.js?v=10"></script>
-<script src="static/js/tabs.js?v=10"></script>
-<script src="static/js/youtube.js?v=10"></script>
-<script src="static/js/imports.js?v=10"></script>
-<script src="static/js/recipes.js?v=10"></script>
-<script src="static/js/detail.js?v=10"></script>
-<script src="static/js/editor.js?v=10"></script>
-<script src="static/js/plan-picker.js?v=10"></script>
-<script src="static/js/planner.js?v=10"></script>
-<script src="static/js/shopping.js?v=10"></script>
-<script src="static/js/sync.js?v=10"></script>
-<script src="static/js/app.js?v=10"></script>
+<script src="static/js/utils.js?v=11"></script>
+<script src="static/js/api.js?v=11"></script>
+<script src="static/js/state.js?v=11"></script>
+<script src="static/js/tabs.js?v=11"></script>
+<script src="static/js/youtube.js?v=11"></script>
+<script src="static/js/imports.js?v=11"></script>
+<script src="static/js/recipes.js?v=11"></script>
+<script src="static/js/detail.js?v=11"></script>
+<script src="static/js/editor.js?v=11"></script>
+<script src="static/js/plan-picker.js?v=11"></script>
+<script src="static/js/planner.js?v=11"></script>
+<script src="static/js/recipe-picker.js?v=11"></script>
+<script src="static/js/shopping.js?v=11"></script>
+<script src="static/js/sync.js?v=11"></script>
+<script src="static/js/app.js?v=11"></script>
 </body>
 </html>
