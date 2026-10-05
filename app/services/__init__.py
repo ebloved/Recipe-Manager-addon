@@ -1,0 +1,1 @@
+"""Внешние сервисы: Gemini, yt-dlp, recipe-scrapers."""
