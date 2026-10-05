@@ -1,4 +1,11 @@
-"""YT Subs → Recipe + Recipe Manager — FastAPI backend для HA add-on."""
+"""Recipe Manager — FastAPI backend для HA add-on.
+
+Объединяет:
+- генерацию рецептов из YouTube Shorts (yt-dlp + Gemini)
+- импорт рецептов из Markdown, по URL и вручную
+- парсинг рецептов с веб-сайтов через recipe-scrapers
+- библиотеку рецептов с поиском
+"""
 
 from __future__ import annotations
 
@@ -19,19 +26,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# --- Recipe Manager core (extracted from the HA integration) ----------------
+# --- Recipe Manager core --------------------------------------------------
 from recipe_manager.importer import parse_markdown_recipe
 
-# --- Paths and env ---------------------------------------------------------
+# --- Paths and env --------------------------------------------------------
 
-DOWNLOAD_DIR = Path("/downloads")
-DOWNLOAD_DIR.mkdir(exist_ok=True)
+DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", "/downloads"))
+DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-DATA_DIR = Path("/data")
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 RECIPES_FILE = DATA_DIR / "recipes.json"
 
-TEMPLATE_FILE = Path("/app/recipe_template.md")
+BASE_DIR = Path(__file__).resolve().parent
+TEMPLATE_FILE = BASE_DIR / "recipe_template.md"
+STATIC_DIR = BASE_DIR / "static"
+
 _TEMPLATE_CACHE: str | None = None
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -48,7 +58,7 @@ SUB_LANGS = os.environ.get("SUB_LANGS", "ru.*")
 COOKIES_FILE = os.environ.get("COOKIES_FILE") or None
 
 
-# --- Recipe store ----------------------------------------------------------
+# --- Recipe store ---------------------------------------------------------
 
 class RecipeStore:
     """Simple JSON-file backed store for recipes."""
@@ -131,41 +141,11 @@ class RecipeStore:
                     tags.add(t.strip())
         return sorted(tags)
 
-    def search(self, query: str) -> list[dict[str, Any]]:
-        q = (query or "").strip().lower()
-        if not q:
-            return self.get_all()
-
-        def matches(r: dict[str, Any]) -> bool:
-            if q in (r.get("name") or "").lower():
-                return True
-            if q in (r.get("description") or "").lower():
-                return True
-            for t in r.get("tags") or []:
-                if isinstance(t, str) and q in t.lower():
-                    return True
-            for c in r.get("courses") or []:
-                if isinstance(c, str) and q in c.lower():
-                    return True
-            for c in r.get("categories") or []:
-                if isinstance(c, str) and q in c.lower():
-                    return True
-            for c in r.get("collections") or []:
-                if isinstance(c, str) and q in c.lower():
-                    return True
-            for ing in r.get("ingredients") or []:
-                name = ing.get("name") if isinstance(ing, dict) else str(ing)
-                if name and q in str(name).lower():
-                    return True
-            return False
-
-        return [r for r in self.recipes if matches(r)]
-
 
 recipe_store = RecipeStore(RECIPES_FILE)
 
 
-# --- Lifespan --------------------------------------------------------------
+# --- Lifespan -------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -174,9 +154,9 @@ async def lifespan(app: FastAPI):
     yield
 
 
-# --- App -------------------------------------------------------------------
+# --- App ------------------------------------------------------------------
 
-app = FastAPI(title="YT Subs → Recipe + Recipe Manager", lifespan=lifespan)
+app = FastAPI(title="Recipe Manager", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -188,30 +168,28 @@ app.add_middleware(
 
 
 def _load_template() -> str:
-    """Читает шаблон один раз и кэширует."""
     global _TEMPLATE_CACHE
     if _TEMPLATE_CACHE is None:
         if TEMPLATE_FILE.exists():
             _TEMPLATE_CACHE = TEMPLATE_FILE.read_text(encoding="utf-8")
-            print(f"[template] загружен из {TEMPLATE_FILE}, {len(_TEMPLATE_CACHE)} байт")
+            print(f"[template] loaded from {TEMPLATE_FILE}, {len(_TEMPLATE_CACHE)} bytes")
         else:
             _TEMPLATE_CACHE = ""
-            print(f"[template] НЕ НАЙДЕН по пути {TEMPLATE_FILE}")
+            print(f"[template] NOT FOUND at {TEMPLATE_FILE}")
     return _TEMPLATE_CACHE
 
 
-# ---------- Ingress middleware ----------
+# --- Ingress middleware ---------------------------------------------------
 
 @app.middleware("http")
 async def ingress_middleware(request: Request, call_next):
-    """HA ingress передаёт префикс пути в X-Ingress-Path."""
     ingress_path = request.headers.get("X-Ingress-Path", "")
     if ingress_path:
         request.scope["root_path"] = ingress_path
     return await call_next(request)
 
 
-# ---------- Helpers ----------
+# --- Helpers --------------------------------------------------------------
 
 def extract_video_id(url: str) -> str | None:
     for pat in (
@@ -227,7 +205,6 @@ def extract_video_id(url: str) -> str | None:
 
 
 def clean_srt_text(raw: str) -> str:
-    """Убирает таймкоды, теги и rolling-дубли из SRT/VTT."""
     raw = re.sub(r"^WEBVTT.*?\n\n", "", raw, flags=re.DOTALL)
     raw = re.sub(r"\d+\n\d{2}:\d{2}:\d{2}[.,]\d{3} --> .*?\n", "", raw)
     raw = re.sub(r"\d{2}:\d{2}:\d{2}[.,]\d{3} --> .*?\n", "", raw)
@@ -235,7 +212,6 @@ def clean_srt_text(raw: str) -> str:
     raw = re.sub(r"^[a-z-]+:.*$", "", raw, flags=re.MULTILINE)
 
     lines = [l.strip() for l in raw.splitlines() if l.strip()]
-
     cleaned: list[str] = []
     for line in lines:
         if not cleaned:
@@ -250,7 +226,6 @@ def clean_srt_text(raw: str) -> str:
             cleaned[-1] = line
             continue
         cleaned.append(line)
-
     return " ".join(cleaned)
 
 
@@ -283,7 +258,7 @@ async def run_ytdlp(url: str, job_id: str) -> dict:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await proc.communicate()
+    _, stderr = await proc.communicate()
     stderr_text = stderr.decode(errors="replace")
 
     print(f"[yt-dlp job={job_id}] rc={proc.returncode}")
@@ -359,7 +334,6 @@ async def call_gemini(text: str) -> tuple[str, str]:
                             "maxOutputTokens": 2000,
                         },
                     }
-
                     resp = await client.post(url, json=payload)
                     if resp.status_code in (503, 429):
                         raise RuntimeError(f"{resp.status_code}: {resp.text[:200]}")
@@ -384,7 +358,6 @@ async def call_gemini(text: str) -> tuple[str, str]:
 
 
 async def fetch_markdown(url: str) -> str:
-    """Скачивает raw Markdown по URL."""
     headers = {
         "User-Agent": "HomeAssistant-RecipeManager/1.0",
         "Accept": "text/markdown,text/plain,text/*;q=0.9,*/*;q=0.5",
@@ -396,7 +369,113 @@ async def fetch_markdown(url: str) -> str:
         return resp.text
 
 
-# ---------- API: yt-subs ----------
+# --- Web scrape -----------------------------------------------------------
+
+_SCRAPE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+}
+
+
+def _safe(fn):
+    try:
+        return fn()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _first_or_str(v: Any) -> str | None:
+    if not v:
+        return None
+    if isinstance(v, list):
+        return str(v[0]).strip() if v else None
+    return str(v).strip()
+
+
+def _to_int_minutes(v: Any) -> int | None:
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_servings_count(text: str | None) -> int | None:
+    if not text:
+        return None
+    m = re.search(r"\d+", str(text))
+    return int(m.group()) if m else None
+
+
+async def scrape_recipe(url: str) -> dict[str, Any]:
+    """Scrape a recipe from a URL using recipe-scrapers."""
+    try:
+        from recipe_scrapers import scrape_html  # type: ignore[import]
+    except ImportError as exc:
+        raise HTTPException(500, f"recipe-scrapers not installed: {exc}") from exc
+
+    async with httpx.AsyncClient(
+        timeout=30.0, follow_redirects=True, headers=_SCRAPE_HEADERS
+    ) as client:
+        try:
+            resp = await client.get(url)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(502, f"fetch_failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise HTTPException(502, f"HTTP {resp.status_code} fetching {url}")
+        html = resp.text
+
+    try:
+        scraper = scrape_html(html, org_url=url, wild_mode=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(502, f"scrape_failed: {exc}") from exc
+
+    name = (_safe(scraper.title) or "").strip()
+    if not name:
+        raise HTTPException(502, "Не удалось извлечь название рецепта")
+
+    ingredients_raw = _safe(scraper.ingredients) or []
+    ingredients = [str(s).strip() for s in ingredients_raw if s and str(s).strip()]
+
+    instructions = _safe(scraper.instructions_list) or []
+    if not instructions:
+        raw = _safe(scraper.instructions) or ""
+        instructions = [s.strip() for s in str(raw).split("\n") if s.strip()]
+
+    servings_text = _safe(scraper.yields)
+    servings = _extract_servings_count(servings_text)
+
+    keywords = _safe(scraper.keywords) or []
+    if isinstance(keywords, str):
+        tags = [t.strip().lower() for t in keywords.split(",") if t.strip()]
+    else:
+        tags = [str(t).strip().lower() for t in keywords if str(t).strip()]
+
+    return {
+        "name": name,
+        "description": _safe(scraper.description),
+        "source_url": url,
+        "image_url": _safe(scraper.image),
+        "servings": servings,
+        "servings_text": str(servings_text) if servings_text else None,
+        "prep_time": _to_int_minutes(_safe(scraper.prep_time)),
+        "cook_time": _to_int_minutes(_safe(scraper.cook_time)),
+        "total_time": _to_int_minutes(_safe(scraper.total_time)),
+        "cuisine": _first_or_str(_safe(scraper.cuisine)),
+        "category": _first_or_str(_safe(scraper.category)),
+        "ingredients": ingredients,
+        "instructions": instructions,
+        "tags": tags,
+    }
+
+
+# --- API: yt-subs ---------------------------------------------------------
 
 @app.post("/api/download")
 async def api_download(url: str = Form(...)):
@@ -467,12 +546,30 @@ async def generate_recipe(job_id: str = Form(...)):
     }
 
 
-# ---------- API: recipes ----------
+# --- API: recipes ---------------------------------------------------------
 
 @app.get("/api/recipes")
 async def list_recipes(q: str | None = None):
-    """Return all recipes, optionally filtered by a search query."""
-    items = recipe_store.search(q) if q else recipe_store.get_all()
+    items = recipe_store.get_all()
+    if q:
+        lower = q.strip().lower()
+
+        def matches(r: dict[str, Any]) -> bool:
+            if lower in (r.get("name") or "").lower():
+                return True
+            if lower in (r.get("description") or "").lower():
+                return True
+            for key in ("tags", "courses", "categories", "collections"):
+                for v in r.get(key) or []:
+                    if isinstance(v, str) and lower in v.lower():
+                        return True
+            for ing in r.get("ingredients") or []:
+                name = ing.get("name") if isinstance(ing, dict) else str(ing)
+                if name and lower in str(name).lower():
+                    return True
+            return False
+
+        items = [r for r in items if matches(r)]
     return {"recipes": items, "count": len(items)}
 
 
@@ -486,15 +583,6 @@ async def get_recipe(recipe_id: str):
 
 @app.post("/api/recipes")
 async def create_recipe(payload: dict[str, Any] = Body(...)):
-    """Create a recipe from Markdown content or explicit fields.
-
-    Two modes:
-
-    * **Markdown** — pass ``markdown_content`` with a Markdown recipe
-      (YAML front matter + body). Fields passed in the same payload
-      override values parsed from the Markdown.
-    * **Explicit** — pass ``name`` plus any optional fields.
-    """
     md = payload.get("markdown_content")
     explicit = {k: v for k, v in payload.items() if k != "markdown_content"}
 
@@ -517,7 +605,6 @@ async def create_recipe(payload: dict[str, Any] = Body(...)):
 
 @app.post("/api/recipes/import-url")
 async def import_recipe_from_url(url: str = Form(...)):
-    """Download a Markdown file from a URL and save it as a recipe."""
     try:
         content = await fetch_markdown(url)
     except HTTPException:
@@ -532,6 +619,13 @@ async def import_recipe_from_url(url: str = Form(...)):
 
     recipe = await recipe_store.add(data)
     return {"recipe": recipe}
+
+
+@app.post("/api/scrape")
+async def api_scrape(url: str = Form(...)):
+    """Scrape a recipe from a URL and return the parsed data (not saved)."""
+    data = await scrape_recipe(url)
+    return {"recipe": data}
 
 
 @app.patch("/api/recipes/{recipe_id}")
@@ -555,7 +649,7 @@ async def list_tags():
     return {"tags": recipe_store.all_tags()}
 
 
-# ---------- API: files, health, debug ----------
+# --- API: files, health, debug -------------------------------------------
 
 @app.get("/files/{filename}")
 async def get_file(filename: str):
@@ -601,12 +695,12 @@ async def debug_template():
     }
 
 
-# ---------- Web UI ----------
+# --- Web UI ---------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    async with aiofiles.open("/app/static/index.html", "r", encoding="utf-8") as f:
+    async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
         return await f.read()
 
 
-app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

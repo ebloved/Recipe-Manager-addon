@@ -21,188 +21,111 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14161a;
-      --surface: #1b1f25;
-      --elevated: #232833;
-      --text: #e4e7ec;
-      --text-secondary: #a8b0bd;
-      --text-muted: #7a8594;
-      --accent-soft: rgba(255,107,53,0.18);
-      --border: #2b313c;
-      --danger: #ff6b6b;
-      --success: #4caf50;
+      --bg: #14161a; --surface: #1b1f25; --elevated: #232833;
+      --text: #e4e7ec; --text-secondary: #a8b0bd; --text-muted: #7a8594;
+      --accent-soft: rgba(255,107,53,0.18); --border: #2b313c;
+      --danger: #ff6b6b; --success: #4caf50;
     }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 15px;
-    line-height: 1.5;
-    display: flex;
-    flex-direction: column;
+    font-size: 15px; line-height: 1.5;
+    display: flex; flex-direction: column;
   }
-
   header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0; flex-wrap: wrap;
   }
-  header h1 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  header h1::before {
-    content: "🍳";
-    font-size: 20px;
-  }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  header h1::before { content: "🍳"; font-size: 20px; }
   .tabs {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-    background: var(--elevated);
-    border-radius: 10px;
-    padding: 3px;
+    display: flex; gap: 4px; margin-left: auto;
+    background: var(--elevated); border-radius: 10px; padding: 3px;
   }
   .tab {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    padding: 7px 14px;
-    border-radius: 7px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.15s;
+    background: none; border: none; color: var(--text-secondary);
+    padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
   }
   .tab:hover { color: var(--text); }
-  .tab.active {
-    background: var(--surface);
-    color: var(--accent);
-    font-weight: 600;
+  .tab.active { background: var(--surface); color: var(--accent); font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .tab.active { background: var(--elevated); } }
+
+  .sub-tabs {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    background: var(--elevated); border-radius: 10px; padding: 3px;
+    width: fit-content;
   }
-  @media (prefers-color-scheme: dark) {
-    .tab.active { background: var(--elevated); }
+  .sub-tab {
+    background: none; border: none; color: var(--text-secondary);
+    padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
   }
+  .sub-tab:hover { color: var(--text); }
+  .sub-tab.active { background: var(--surface); color: var(--accent); font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .sub-tab.active { background: var(--surface); } }
 
   main {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 16px 40px;
-    max-width: 900px;
-    width: 100%;
-    margin: 0 auto;
+    flex: 1; overflow-y: auto; padding: 20px 16px 40px;
+    max-width: 900px; width: 100%; margin: 0 auto;
   }
-
   .panel { display: none; }
   .panel.active { display: block; }
 
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
   }
-
   .field { margin-bottom: 14px; }
   .field:last-child { margin-bottom: 0; }
   .field label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--text-secondary); text-transform: uppercase;
+    letter-spacing: 0.04em; margin-bottom: 6px;
   }
-  .field input,
-  .field textarea,
-  .field select {
-    width: 100%;
-    background: var(--elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    padding: 10px 12px;
-    font-size: 14px;
-    font-family: inherit;
-    transition: border-color 0.15s;
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--elevated);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-size: 14px;
+    font-family: inherit; transition: border-color 0.15s;
   }
   .field textarea {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 13px;
-    resize: vertical;
-    min-height: 180px;
-    line-height: 1.5;
+    font-size: 13px; resize: vertical; min-height: 120px; line-height: 1.5;
   }
-  .field input:focus,
-  .field textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .row > * { flex: 1; min-width: 140px; }
+  .row.tight > * { min-width: 0; }
+  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
   button.btn {
-    background: var(--elevated);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s;
+    background: var(--elevated); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    padding: 10px 16px; font-size: 14px; font-weight: 500;
+    cursor: pointer; display: inline-flex; align-items: center;
+    gap: 6px; transition: all 0.15s;
   }
   button.btn:hover:not(:disabled) { background: var(--border); }
   button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button.btn.primary:hover:not(:disabled) { opacity: 0.88; background: var(--accent); }
-  button.btn.danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-  button.btn.danger:hover:not(:disabled) {
-    background: var(--danger);
-    color: #fff;
-  }
+  button.btn.danger { color: var(--danger); border-color: var(--danger); }
+  button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
 
   .hint {
-    font-size: 13px;
-    color: var(--text-secondary);
-    background: var(--elevated);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 14px;
+    font-size: 13px; color: var(--text-secondary);
+    background: var(--elevated); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 14px;
     border-left: 3px solid var(--accent);
   }
-
   .status {
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-top: 12px;
-    font-size: 13px;
-    display: none;
+    padding: 10px 12px; border-radius: 8px; margin-top: 12px;
+    font-size: 13px; display: none;
   }
   .status.show { display: block; }
   .status.info { background: var(--accent-soft); color: var(--accent); }
@@ -210,27 +133,18 @@
   .status.success { background: rgba(46,160,67,0.12); color: var(--success); }
 
   .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid currentColor; border-right-color: transparent;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
     vertical-align: -2px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Recipe list */
   .search-row { margin-bottom: 16px; }
   .search-row input {
-    width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    padding: 12px 14px;
-    font-size: 15px;
+    width: 100%; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); padding: 12px 14px; font-size: 15px;
   }
   .search-row input:focus { outline: none; border-color: var(--accent); }
 
@@ -240,118 +154,54 @@
     gap: 14px;
   }
   .recipe-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
   }
-  .recipe-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  }
+  .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
   .recipe-thumb {
-    aspect-ratio: 4/3;
-    background: var(--elevated);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    color: var(--text-muted);
-    font-size: 36px;
+    aspect-ratio: 4/3; background: var(--elevated);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; color: var(--text-muted); font-size: 36px;
   }
-  .recipe-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  .recipe-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .recipe-body { padding: 12px 14px; }
   .recipe-name {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 6px;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    font-size: 15px; font-weight: 600; margin: 0 0 6px; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
   .recipe-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--text-secondary);
+    display: flex; flex-wrap: wrap; gap: 4px;
+    font-size: 11px; color: var(--text-secondary);
   }
-  .meta-chip {
-    background: var(--elevated);
-    border-radius: 6px;
-    padding: 2px 7px;
-  }
+  .meta-chip { background: var(--elevated); border-radius: 6px; padding: 2px 7px; }
   .meta-chip.tag { background: var(--accent-soft); color: var(--accent); }
 
-  .empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-secondary);
-  }
+  .empty { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
   .empty .icon { font-size: 48px; opacity: 0.4; }
 
-  /* Detail view */
   .detail-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 100;
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 20px;
-    overflow-y: auto;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 100; display: none; align-items: flex-start;
+    justify-content: center; padding: 20px; overflow-y: auto;
   }
   .detail-overlay.show { display: flex; }
   .detail-panel {
-    background: var(--surface);
-    border-radius: var(--radius);
-    max-width: 800px;
-    width: 100%;
-    margin: auto;
-    padding: 24px;
-    position: relative;
+    background: var(--surface); border-radius: var(--radius);
+    max-width: 800px; width: 100%; margin: auto;
+    padding: 24px; position: relative;
   }
   .detail-close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 24px;
-    cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 6px;
+    position: absolute; top: 12px; right: 12px;
+    background: none; border: none; color: var(--text-secondary);
+    font-size: 24px; cursor: pointer; padding: 4px 10px; border-radius: 6px;
   }
   .detail-close:hover { background: var(--elevated); color: var(--text); }
-  .detail-title {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 40px 8px 0;
-    line-height: 1.25;
-  }
-  .detail-actions {
-    display: flex;
-    gap: 8px;
-    margin: 16px 0;
-    flex-wrap: wrap;
-  }
+  .detail-title { font-size: 22px; font-weight: 700; margin: 0 40px 8px 0; line-height: 1.25; }
+  .detail-actions { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
 
-  /* Markdown rendering */
-  .md {
-    line-height: 1.65;
-    font-size: 14px;
-  }
+  .md { line-height: 1.65; font-size: 14px; }
   .md h1 { font-size: 20px; margin: 20px 0 8px; }
   .md h2 { font-size: 17px; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .md h3 { font-size: 15px; margin: 14px 0 6px; }
@@ -359,36 +209,33 @@
   .md ul, .md ol { padding-left: 22px; margin: 8px 0; }
   .md li { margin: 3px 0; }
   .md code {
-    background: var(--elevated);
-    border-radius: 4px;
-    padding: 1px 5px;
+    background: var(--elevated); border-radius: 4px; padding: 1px 5px;
     font-size: 12px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   .md pre {
-    background: var(--elevated);
-    border-radius: 8px;
-    padding: 12px;
-    overflow-x: auto;
-    font-size: 12px;
+    background: var(--elevated); border-radius: 8px; padding: 12px;
+    overflow-x: auto; font-size: 12px;
   }
   .md pre code { background: none; padding: 0; }
   .md a { color: var(--accent); }
   .md hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .md blockquote {
-    border-left: 3px solid var(--accent);
-    margin: 8px 0;
-    padding: 4px 12px;
-    color: var(--text-secondary);
-    background: var(--elevated);
+    border-left: 3px solid var(--accent); margin: 8px 0; padding: 4px 12px;
+    color: var(--text-secondary); background: var(--elevated);
     border-radius: 0 6px 6px 0;
   }
 
-  .loading {
-    text-align: center;
-    padding: 40px;
-    color: var(--text-secondary);
+  .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+
+  .file-drop {
+    display: block; border: 2px dashed var(--border); border-radius: 10px;
+    padding: 20px; text-align: center; cursor: pointer;
+    transition: border-color 0.15s; color: var(--text-secondary);
+    font-size: 14px; margin-bottom: 10px;
   }
+  .file-drop:hover { border-color: var(--accent); color: var(--accent); }
+  .file-drop input { display: none; }
 </style>
 </head>
 <body>
@@ -396,16 +243,26 @@
 <header>
   <h1>Recipe Manager</h1>
   <div class="tabs">
-    <button class="tab active" data-panel="youtube">YouTube</button>
-    <button class="tab" data-panel="add">Импорт</button>
-    <button class="tab" data-panel="recipes">Рецепты</button>
+    <button class="tab active" data-panel="recipes">Рецепты</button>
+    <button class="tab" data-panel="youtube">YouTube</button>
+    <button class="tab" data-panel="import">Импорт</button>
   </div>
 </header>
 
 <main>
 
+  <!-- ================================================ Recipes (default) -->
+  <section class="panel active" id="panel-recipes">
+    <div class="search-row">
+      <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
+    </div>
+    <div id="recipes-container">
+      <div class="loading"><span class="spinner"></span> Загрузка…</div>
+    </div>
+  </section>
+
   <!-- ================================================ YouTube -->
-  <section class="panel active" id="panel-youtube">
+  <section class="panel" id="panel-youtube">
     <div class="hint">
       Вставьте ссылку на YouTube Shorts (или обычное видео). Сервис скачает
       субтитры и сгенерирует рецепт по шаблону.
@@ -414,8 +271,7 @@
     <div class="card">
       <div class="field">
         <label for="yt-url">Ссылка на видео</label>
-        <input type="url" id="yt-url"
-               placeholder="https://www.youtube.com/shorts/...">
+        <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
       </div>
       <div class="row">
         <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
@@ -433,23 +289,61 @@
     </div>
   </section>
 
-  <!-- ================================================ Add -->
-  <section class="panel" id="panel-add">
-    <div class="card">
-      <div class="field">
-        <label for="add-url">Импорт Markdown по ссылке</label>
-        <input type="url" id="add-url"
-               placeholder="https://raw.githubusercontent.com/user/repo/main/recipes/borsch.md">
-      </div>
-      <button class="btn primary" id="add-fetch">Загрузить и сохранить</button>
-      <div class="status" id="add-status"></div>
+  <!-- ================================================ Import -->
+  <section class="panel" id="panel-import">
+    <div class="sub-tabs">
+      <button class="sub-tab active" data-subpanel="scrape">🌐 Со сайта</button>
+      <button class="sub-tab" data-subpanel="markdown">📝 Markdown</button>
+      <button class="sub-tab" data-subpanel="manual">✏️ Вручную</button>
     </div>
 
-    <div class="card">
-      <div class="field">
-        <label for="add-paste">Или вставьте Markdown вручную</label>
-        <textarea id="add-paste" spellcheck="false"
-                  placeholder="---
+    <!-- ----- Scrape from URL ----- -->
+    <div class="subpanel active" id="subpanel-scrape">
+      <div class="card">
+        <div class="hint">
+          Вставьте ссылку на страницу с рецептом. Мы попробуем извлечь
+          название, ингредиенты, шаги и метаданные автоматически.
+        </div>
+        <div class="field">
+          <label for="scrape-url">URL рецепта</label>
+          <input type="url" id="scrape-url"
+                 placeholder="https://www.example.com/recipes/borsch">
+        </div>
+        <button class="btn primary" id="scrape-fetch">Загрузить</button>
+        <div class="status" id="scrape-status"></div>
+      </div>
+    </div>
+
+    <!-- ----- Markdown ----- -->
+    <div class="subpanel" id="subpanel-markdown">
+      <div class="card">
+        <div class="field">
+          <label for="md-url">Ссылка на .md файл</label>
+          <input type="url" id="md-url"
+                 placeholder="https://raw.githubusercontent.com/user/repo/main/recipes/borsch.md">
+        </div>
+        <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
+        <div class="status" id="md-url-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>Загрузить .md файл с устройства</label>
+          <label class="file-drop" for="md-file">
+            📎 Нажмите, чтобы выбрать файл .md
+            <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
+          </label>
+          <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+        </div>
+        <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
+        <div class="status" id="md-file-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label for="md-paste">Или вставьте Markdown вручную</label>
+          <textarea id="md-paste" spellcheck="false"
+                    placeholder="---
 title: Борщ
 tags: [суп, украинская]
 servings: 4
@@ -460,19 +354,88 @@ servings: 4
 
 ## Шаги
 1. Сварить бульон."></textarea>
+        </div>
+        <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
+        <div class="status" id="md-paste-status"></div>
       </div>
-      <button class="btn primary" id="add-paste-save">Сохранить рецепт</button>
-      <div class="status" id="add-paste-status"></div>
     </div>
-  </section>
 
-  <!-- ================================================ Recipes -->
-  <section class="panel" id="panel-recipes">
-    <div class="search-row">
-      <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
-    </div>
-    <div id="recipes-container">
-      <div class="loading"><span class="spinner"></span> Загрузка…</div>
+    <!-- ----- Manual / scrape form ----- -->
+    <div class="subpanel" id="subpanel-manual">
+      <div class="hint" id="manual-hint">
+        Заполните поля вручную. Поля со звёздочкой обязательны.
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label for="f-name">Название *</label>
+          <input type="text" id="f-name" placeholder="Например, Борщ с говядиной">
+        </div>
+        <div class="field">
+          <label for="f-description">Описание</label>
+          <textarea id="f-description" rows="2" placeholder="Краткое описание…"></textarea>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="f-source-url">Ссылка на источник</label>
+            <input type="url" id="f-source-url" placeholder="https://…">
+          </div>
+          <div class="field">
+            <label for="f-image-url">Ссылка на фото</label>
+            <input type="url" id="f-image-url" placeholder="https://…jpg">
+          </div>
+        </div>
+        <div class="three">
+          <div class="field">
+            <label for="f-prep-time">Prep (мин)</label>
+            <input type="number" id="f-prep-time" min="0" placeholder="15">
+          </div>
+          <div class="field">
+            <label for="f-cook-time">Cook (мин)</label>
+            <input type="number" id="f-cook-time" min="0" placeholder="30">
+          </div>
+          <div class="field">
+            <label for="f-servings">Порции</label>
+            <input type="number" id="f-servings" min="1" placeholder="4">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-tags">Теги (через запятую)</label>
+          <input type="text" id="f-tags" placeholder="суп, украинская, зима">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="f-courses">Курсы (через запятую)</label>
+            <input type="text" id="f-courses" placeholder="суп, основное">
+          </div>
+          <div class="field">
+            <label for="f-categories">Категории</label>
+            <input type="text" id="f-categories" placeholder="украинская кухня">
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-ingredients">Ингредиенты (по одному на строку)</label>
+          <textarea id="f-ingredients" rows="8"
+                    placeholder="500 г говядины на кости
+2 шт свёклы
+300 г капусты"></textarea>
+        </div>
+        <div class="field">
+          <label for="f-instructions">Шаги (по одному на строку)</label>
+          <textarea id="f-instructions" rows="8"
+                    placeholder="Залейте говядину холодной водой и доведите до кипения.
+Достаньте мясо и нарежьте кусочками."></textarea>
+        </div>
+        <div class="field">
+          <label for="f-notes">Заметки</label>
+          <textarea id="f-notes" rows="2" placeholder="Подавать со сметаной…"></textarea>
+        </div>
+        <div class="row tight">
+          <button class="btn primary" id="f-save">💾 Сохранить рецепт</button>
+          <button class="btn" id="f-clear">Очистить форму</button>
+        </div>
+        <div class="status" id="f-status"></div>
+      </div>
     </div>
   </section>
 
@@ -494,20 +457,17 @@ servings: 4
 <script>
 "use strict";
 
-// --- base path under ingress ----------------------------------------------
 const BASE = window.location.pathname.replace(/\/+$/, "") + "/";
 const api = (p) => BASE + p.replace(/^\/+/, "");
+const $ = (id) => document.getElementById(id);
 
-// --- tiny state -----------------------------------------------------------
 const state = {
   recipes: [],
   currentJobId: null,
   currentRecipe: null,
   showRawMd: false,
+  scrapedData: null,
 };
-
-// --- helpers --------------------------------------------------------------
-const $ = (id) => document.getElementById(id);
 
 function setStatus(el, text, kind = "info") {
   el.textContent = text;
@@ -518,7 +478,7 @@ function clearStatus(el) {
   el.textContent = "";
 }
 
-// markdown → HTML: try marked from CDN, fallback to minimal renderer
+// markdown → HTML
 let markedReady = false;
 (function loadMarked() {
   if (window.marked) { markedReady = true; return; }
@@ -527,17 +487,15 @@ let markedReady = false;
   s.onload = () => { markedReady = true; };
   document.head.appendChild(s);
 })();
-
 function mdToHtml(md) {
   if (markedReady && window.marked) {
-    try { return window.marked.parse(md); } catch (e) { /* fall through */ }
+    try { return window.marked.parse(md); } catch (e) {}
   }
   return minimalMd(md);
 }
-
 function minimalMd(md) {
-  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
-                      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const esc = (s) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const lines = (md || "").split("\n");
   const out = [];
   let list = null;
@@ -563,7 +521,7 @@ function minimalMd(md) {
   return out.join("");
 }
 
-// --- tabs -----------------------------------------------------------------
+// --- top-level tabs -------------------------------------------------------
 document.querySelectorAll(".tab").forEach((t) => {
   t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
@@ -574,7 +532,19 @@ document.querySelectorAll(".tab").forEach((t) => {
   });
 });
 
-// --- YouTube flow ---------------------------------------------------------
+// --- import sub-tabs ------------------------------------------------------
+document.querySelectorAll(".sub-tab").forEach((t) => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".sub-tab").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".subpanel").forEach((x) => x.classList.remove("active"));
+    t.classList.add("active");
+    $("subpanel-" + t.dataset.subpanel).classList.add("active");
+  });
+});
+
+// =====================================================================
+// YouTube flow
+// =====================================================================
 $("yt-download").addEventListener("click", async () => {
   const url = $("yt-url").value.trim();
   if (!url) return;
@@ -583,14 +553,12 @@ $("yt-download").addEventListener("click", async () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Скачивание…';
   setStatus(status, "Скачиваем субтитры через yt-dlp, это займёт 10–60 секунд…", "info");
-
   try {
     const fd = new FormData();
     fd.append("url", url);
     const resp = await fetch(api("api/download"), { method: "POST", body: fd });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
-
     state.currentJobId = data.job_id;
     $("yt-generate").disabled = false;
     setStatus(status, `✓ Скачано ${data.count} файлов (job ${data.job_id}). Нажмите «Сгенерировать рецепт».`, "success");
@@ -609,14 +577,12 @@ $("yt-generate").addEventListener("click", async () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Генерация…';
   setStatus(status, "Отправляем субтитры в Gemini…", "info");
-
   try {
     const fd = new FormData();
     fd.append("job_id", state.currentJobId);
     const resp = await fetch(api("api/generate-recipe"), { method: "POST", body: fd });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail?.error || data.error || JSON.stringify(data));
-
     $("yt-md").value = data.markdown;
     $("yt-preview-card").style.display = "block";
     setStatus(status, `✓ Рецепт сгенерирован моделью ${data.model}. Проверьте и сохраните.`, "success");
@@ -658,12 +624,64 @@ $("yt-save").addEventListener("click", async () => {
   }
 });
 
-// --- Add panel ------------------------------------------------------------
-$("add-fetch").addEventListener("click", async () => {
-  const url = $("add-url").value.trim();
+// =====================================================================
+// Import: Scrape from URL
+// =====================================================================
+$("scrape-fetch").addEventListener("click", async () => {
+  const url = $("scrape-url").value.trim();
   if (!url) return;
-  const status = $("add-status");
-  const btn = $("add-fetch");
+  const status = $("scrape-status");
+  const btn = $("scrape-fetch");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Загрузка…';
+  clearStatus(status);
+  try {
+    const fd = new FormData();
+    fd.append("url", url);
+    const resp = await fetch(api("api/scrape"), { method: "POST", body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    const r = data.recipe;
+
+    // переключаемся на sub-tab «manual» и заполняем форму
+    document.querySelectorAll(".sub-tab").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".subpanel").forEach((x) => x.classList.remove("active"));
+    document.querySelector('.sub-tab[data-subpanel="manual"]').classList.add("active");
+    $("subpanel-manual").classList.add("active");
+    $("manual-hint").textContent = "Данные загружены с сайта. Проверьте, отредактируйте при необходимости и сохраните.";
+
+    fillForm({
+      name: r.name,
+      description: r.description,
+      source_url: r.source_url,
+      image_url: r.image_url,
+      servings: r.servings,
+      prep_time: r.prep_time,
+      cook_time: r.cook_time,
+      tags: (r.tags || []).join(", "),
+      courses: (r.courses || []).join(", "),
+      categories: (r.categories || []).join(", "),
+      ingredients: (r.ingredients || []).map((s) => typeof s === "string" ? s : (s.name || "")),
+      instructions: r.instructions || [],
+      notes: r.notes || "",
+    });
+    setStatus(status, `✓ Загружено «${r.name}». Проверьте форму ниже.`, "success");
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Загрузить";
+  }
+});
+
+// =====================================================================
+// Import: Markdown
+// =====================================================================
+$("md-fetch").addEventListener("click", async () => {
+  const url = $("md-url").value.trim();
+  if (!url) return;
+  const status = $("md-url-status");
+  const btn = $("md-fetch");
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Загрузка…';
   clearStatus(status);
@@ -674,7 +692,7 @@ $("add-fetch").addEventListener("click", async () => {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     setStatus(status, `✓ Импортирован рецепт «${data.recipe.name}».`, "success");
-    $("add-url").value = "";
+    $("md-url").value = "";
     state.recipes = [];
   } catch (err) {
     setStatus(status, "Ошибка: " + err.message, "error");
@@ -684,11 +702,53 @@ $("add-fetch").addEventListener("click", async () => {
   }
 });
 
-$("add-paste-save").addEventListener("click", async () => {
-  const md = $("add-paste").value.trim();
+let pendingMdFileContent = null;
+$("md-file").addEventListener("change", (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    pendingMdFileContent = ev.target.result || "";
+    $("md-file-name").textContent = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+    $("md-file-save").disabled = !pendingMdFileContent.trim();
+  };
+  reader.readAsText(file, "utf-8");
+});
+
+$("md-file-save").addEventListener("click", async () => {
+  if (!pendingMdFileContent) return;
+  const status = $("md-file-status");
+  const btn = $("md-file-save");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+  clearStatus(status);
+  try {
+    const resp = await fetch(api("api/recipes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown_content: pendingMdFileContent }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
+    pendingMdFileContent = null;
+    $("md-file").value = "";
+    $("md-file-name").textContent = "";
+    btn.disabled = true;
+    state.recipes = [];
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+    btn.disabled = false;
+  } finally {
+    btn.textContent = "Сохранить файл";
+  }
+});
+
+$("md-paste-save").addEventListener("click", async () => {
+  const md = $("md-paste").value.trim();
   if (!md) return;
-  const status = $("add-paste-status");
-  const btn = $("add-paste-save");
+  const status = $("md-paste-status");
+  const btn = $("md-paste-save");
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Сохранение…';
   clearStatus(status);
@@ -701,7 +761,7 @@ $("add-paste-save").addEventListener("click", async () => {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
-    $("add-paste").value = "";
+    $("md-paste").value = "";
     state.recipes = [];
   } catch (err) {
     setStatus(status, "Ошибка: " + err.message, "error");
@@ -711,7 +771,90 @@ $("add-paste-save").addEventListener("click", async () => {
   }
 });
 
-// --- Recipes list ---------------------------------------------------------
+// =====================================================================
+// Import: Manual form
+// =====================================================================
+function fillForm(r) {
+  $("f-name").value = r.name || "";
+  $("f-description").value = r.description || "";
+  $("f-source-url").value = r.source_url || "";
+  $("f-image-url").value = r.image_url || "";
+  $("f-prep-time").value = r.prep_time ?? "";
+  $("f-cook-time").value = r.cook_time ?? "";
+  $("f-servings").value = r.servings ?? "";
+  $("f-tags").value = r.tags || "";
+  $("f-courses").value = r.courses || "";
+  $("f-categories").value = r.categories || "";
+  $("f-ingredients").value = (r.ingredients || []).join("\n");
+  $("f-instructions").value = (r.instructions || []).join("\n");
+  $("f-notes").value = r.notes || "";
+}
+
+function clearForm() {
+  fillForm({});
+  $("f-status").className = "status";
+  $("f-status").textContent = "";
+  $("manual-hint").textContent = "Заполните поля вручную. Поля со звёздочкой обязательны.";
+}
+
+$("f-clear").addEventListener("click", clearForm);
+
+function splitList(v) {
+  return (v || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+$("f-save").addEventListener("click", async () => {
+  const name = $("f-name").value.trim();
+  if (!name) {
+    setStatus($("f-status"), "Введите название рецепта.", "error");
+    return;
+  }
+  const status = $("f-status");
+  const btn = $("f-save");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+  clearStatus(status);
+
+  const payload = {
+    name,
+    description: $("f-description").value.trim() || null,
+    source_url: $("f-source-url").value.trim() || null,
+    image_url: $("f-image-url").value.trim() || null,
+    servings: parseInt($("f-servings").value, 10) || null,
+    prep_time: parseInt($("f-prep-time").value, 10) || null,
+    cook_time: parseInt($("f-cook-time").value, 10) || null,
+    tags: splitList($("f-tags").value),
+    courses: splitList($("f-courses").value),
+    categories: splitList($("f-categories").value),
+    ingredients: $("f-ingredients").value
+      .split("\n").map((s) => s.trim()).filter(Boolean),
+    instructions: $("f-instructions").value
+      .split("\n").map((s) => s.trim()).filter(Boolean),
+    notes: $("f-notes").value.trim() || null,
+  };
+
+  try {
+    const resp = await fetch(api("api/recipes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    setStatus(status, `✓ Рецепт «${data.recipe.name}» сохранён.`, "success");
+    clearForm();
+    state.recipes = [];
+  } catch (err) {
+    setStatus(status, "Ошибка: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "💾 Сохранить рецепт";
+  }
+});
+
+// =====================================================================
+// Recipes list
+// =====================================================================
 async function loadRecipes() {
   const container = $("recipes-container");
   if (state.recipes.length) {
@@ -790,10 +933,11 @@ function renderRecipes(recipes) {
 
     const meta = document.createElement("div");
     meta.className = "recipe-meta";
-    if (r.total_time || r.time) {
+    const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
+    if (t) {
       const chip = document.createElement("span");
       chip.className = "meta-chip";
-      chip.textContent = "⏱ " + formatTime(r.total_time || r.time);
+      chip.textContent = "⏱ " + formatTime(t);
       meta.appendChild(chip);
     }
     if (r.servings) {
@@ -802,10 +946,10 @@ function renderRecipes(recipes) {
       chip.textContent = "👥 " + r.servings;
       meta.appendChild(chip);
     }
-    for (const t of (r.tags || []).slice(0, 3)) {
+    for (const tag of (r.tags || []).slice(0, 3)) {
       const chip = document.createElement("span");
       chip.className = "meta-chip tag";
-      chip.textContent = t;
+      chip.textContent = tag;
       meta.appendChild(chip);
     }
     body.appendChild(meta);
@@ -824,10 +968,13 @@ function formatTime(mins) {
   return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
-// --- Detail ---------------------------------------------------------------
+// =====================================================================
+// Detail
+// =====================================================================
 function openDetail(recipe) {
   state.currentRecipe = recipe;
   state.showRawMd = false;
+  $("detail-edit-md").textContent = "Показать Markdown";
   $("detail-title").textContent = recipe.name || "(без названия)";
   renderDetailBody();
   $("detail-overlay").classList.add("show");
@@ -836,50 +983,24 @@ function openDetail(recipe) {
 function renderDetailBody() {
   const recipe = state.currentRecipe;
   if (!recipe) return;
-  if (state.showRawMd) {
-    const lines = [];
-    if (recipe.description) lines.push(recipe.description, "");
-    if (recipe.ingredients?.length) {
-      lines.push("## Ингредиенты", "");
-      for (const ing of recipe.ingredients) {
-        if (typeof ing === "string") { lines.push("- " + ing); continue; }
-        const amt = [ing.amount, ing.unit].filter(Boolean).join(" ");
-        lines.push(`- ${ing.name || ""}${amt ? " — " + amt : ""}${ing.notes ? ` (${ing.notes})` : ""}`);
-      }
-      lines.push("");
-    }
-    if (recipe.instructions?.length) {
-      lines.push("## Шаги", "");
-      recipe.instructions.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
-      lines.push("");
-    }
-    if (recipe.notes) lines.push("## Заметки", "", recipe.notes);
-    $("detail-body").innerHTML = mdToHtml(lines.join("\n"));
-  } else {
-    const md = buildRecipeMd(recipe);
-    $("detail-body").innerHTML = mdToHtml(md);
-  }
-}
-
-function buildRecipeMd(recipe) {
-  const out = [];
-  if (recipe.description) out.push(recipe.description, "");
+  const lines = [];
+  if (recipe.description) lines.push(recipe.description, "");
   if (recipe.ingredients?.length) {
-    out.push("## Ингредиенты", "");
+    lines.push("## Ингредиенты", "");
     for (const ing of recipe.ingredients) {
-      if (typeof ing === "string") { out.push("- " + ing); continue; }
+      if (typeof ing === "string") { lines.push("- " + ing); continue; }
       const amt = [ing.amount, ing.unit].filter(Boolean).join(" ");
-      out.push(`- ${ing.name || ""}${amt ? " — " + amt : ""}${ing.notes ? ` (${ing.notes})` : ""}`);
+      lines.push(`- ${ing.name || ""}${amt ? " — " + amt : ""}${ing.notes ? ` (${ing.notes})` : ""}`);
     }
-    out.push("");
+    lines.push("");
   }
   if (recipe.instructions?.length) {
-    out.push("## Шаги", "");
-    recipe.instructions.forEach((s, i) => out.push(`${i + 1}. ${s}`));
-    out.push("");
+    lines.push("## Шаги", "");
+    recipe.instructions.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+    lines.push("");
   }
-  if (recipe.notes) out.push("## Заметки", "", recipe.notes);
-  return out.join("\n");
+  if (recipe.notes) lines.push("## Заметки", "", recipe.notes);
+  $("detail-body").innerHTML = mdToHtml(lines.join("\n"));
 }
 
 $("detail-close").addEventListener("click", () => {
@@ -914,6 +1035,9 @@ $("detail-delete").addEventListener("click", async () => {
     alert("Ошибка удаления: " + err.message);
   }
 });
+
+// --- init -----------------------------------------------------------------
+loadRecipes();
 </script>
 
 </body>
