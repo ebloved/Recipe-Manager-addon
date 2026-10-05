@@ -26,7 +26,7 @@
     $("recipe-picker-title").textContent = `Добавить в ${label}`;
     $("recipe-picker-subtitle").textContent = formatDateFull(date);
     $("recipe-picker-search").value = "";
-    $("recipe-picker-servings").value = "2";
+    $("recipe-picker-servings").value = "1";
 
     $("recipe-picker-overlay").classList.add("show");
     setTimeout(() => $("recipe-picker-search").focus(), 60);

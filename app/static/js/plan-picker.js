@@ -26,7 +26,7 @@
 
   async function open(recipe) {
     state.pickerRecipe = recipe;
-    state.pickerServings = recipe.servings || 2;
+    state.pickerServings = 1;
     state.pickerWeekStart = getMonday(new Date());
     $("plan-picker-title").textContent = `Добавить «${recipe.name}» в план`;
     $("plan-picker-servings").value = state.pickerServings;

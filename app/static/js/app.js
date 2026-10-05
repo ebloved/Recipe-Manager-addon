@@ -12,6 +12,7 @@
     RM.recipePicker.setup();
     RM.shopping.setup();
     RM.sync.setup();
+    RM.liveSync.setup();
 
     RM.recipes.load();
   }

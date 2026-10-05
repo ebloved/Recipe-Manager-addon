@@ -692,41 +692,22 @@ def _extract_nutrition_from_notes(
 def parse_markdown_recipe(content: str) -> Dict[str, Any]:
     """Parse a Markdown recipe with YAML front matter into a recipe dict.
 
-    Expected structure::
-
-        ---
-        title: Борщ
-        tags: [суп, украинская]
-        servings: 4
-        time: 120
-        ---
-
-        ## Ингредиенты
-        - Свёкла — 2 шт
-        - Капуста — 300 г
-
-        ## Шаги
-        1. Сварить бульон.
-        2. Добавить овощи.
-
-    The YAML front matter is optional but recommended; if absent, the
-    parser falls back to the first ``# Heading`` for the name and to
-    ``## Ингредиенты`` / ``## Шаги`` sections for the rest.
-
-    Raises ValueError if no recipe title can be determined.
+    При ошибке YAML возвращает детальную диагностику: номер строки,
+    саму строку и подсказку.
     """
     try:
         import frontmatter  # type: ignore[import]
     except ImportError as exc:
         raise ValueError(
             "python-frontmatter is required for Markdown import — "
-            "add 'python-frontmatter>=1.0.0' to manifest.json requirements"
+            "add 'python-frontmatter>=1.0.0' to requirements"
         ) from exc
 
+    # --- Парсинг front matter с детальной диагностикой ----------------
     try:
         post = frontmatter.loads(content)
-    except Exception as exc:
-        raise ValueError(f"Invalid YAML front matter: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(_format_yaml_error(content, exc)) from exc
 
     metadata: Dict[str, Any] = dict(post.metadata or {})
     body: str = post.content or ""
@@ -749,7 +730,7 @@ def parse_markdown_recipe(content: str) -> Dict[str, Any]:
     # --- Instructions ---
     instructions = _parse_md_instructions(metadata, body)
 
-    # --- Times (reuse existing _parse_time helper) ---
+    # --- Times ---
     prep_time = _parse_time(str(metadata["prep_time"])) if metadata.get("prep_time") else None
     cook_time = _parse_time(str(metadata["cook_time"])) if metadata.get("cook_time") else None
 
@@ -776,7 +757,7 @@ def parse_markdown_recipe(content: str) -> Dict[str, Any]:
                 if not servings_text:
                     servings_text = str(raw_servings)
 
-    # --- Lists (tags/courses/categories/collections) ---
+    # --- Lists ---
     tags = _to_str_list(metadata.get("tags"))
     courses = _to_str_list(metadata.get("courses"))
     categories = _to_str_list(metadata.get("categories"))
@@ -811,6 +792,59 @@ def parse_markdown_recipe(content: str) -> Dict[str, Any]:
         "is_favourite": bool(metadata.get("is_favourite", False)),
     }
 
+
+# ---------------------------------------------------------------------------
+# YAML error formatter
+# ---------------------------------------------------------------------------
+
+def _format_yaml_error(content: str, exc: Exception) -> str:
+    """Строит человекочитаемое сообщение об ошибке YAML.
+
+    Извлекает из исключения номер строки и колонки (если есть),
+    показывает проблемную строку, подчёркивает позицию и даёт подсказку.
+    """
+    msg = str(exc)
+
+    # Ищем паттерн "... line N, column M ..." — так ругается PyYAML.
+    line_no: int | None = None
+    col_no: int | None = None
+    m = re.search(r"line (\d+), column (\d+)", msg)
+    if m:
+        line_no = int(m.group(1))
+        col_no = int(m.group(2))
+
+    # Отделяем front matter: он идёт между первыми двумя строками '---'.
+    # Строки нумеруются с 1 для пользователя.
+    fm_lines = content.splitlines()
+    # В content первая строка — '---', затем front matter, затем '---'.
+    # PyYAML считает строки ВНУТРИ front matter (без ведущего ---).
+    # Поэтому line_no указывает на строку внутри front matter, начиная с 1.
+
+    hint = (
+        "Проверьте строку на спецсимволы: ':', '#', '{', '}', '[', ']', ',', "
+        "'&', '*', '!', '|', '>', '%', '@'. Если значение содержит такие символы — "
+        "оберните его в двойные кавычки: ключ: \"значение: с двоеточием\"."
+    )
+
+    detail = []
+    detail.append("Invalid YAML front matter.")
+    if line_no is not None:
+        detail.append(f"Строка {line_no}" + (f", колонка {col_no}" if col_no else "") + ".")
+        # front matter в content идёт после первого '---', поэтому +1 к индексу
+        idx = line_no  # front_matter_line[0] = content[1]
+        if 0 <= idx < len(fm_lines):
+            bad = fm_lines[idx]
+            detail.append(f"Вот эта строка:")
+            detail.append(f"    {bad}")
+            if col_no and 0 < col_no <= len(bad) + 1:
+                detail.append("    " + " " * (col_no - 1) + "^")
+    else:
+        detail.append(msg)
+
+    detail.append("")
+    detail.append(hint)
+
+    return "\n".join(detail)
 
 # ---------------------------------------------------------------------------
 # Markdown helpers
