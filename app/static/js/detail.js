@@ -141,31 +141,33 @@
         ${chipsRows.length ? `<div class="chips-area">${chipsRows.join("")}</div>` : ""}
       </div>
 
-      <div class="detail-grid">
-        <div class="detail-col">
-          <div class="section-card">
-            <div class="scaler-row">
-              <div class="scaler">
-                <button class="scaler-btn" id="scale-minus">−</button>
-                <span class="scaler-val" id="scale-val">×1</span>
-                <button class="scaler-btn" id="scale-plus">+</button>
-              </div>
-              <span style="font-size:11px;color:var(--text-muted)">порции</span>
+      <div class="detail-stack">
+
+        <div class="section-card">
+          <div class="section-title">🥕 Ингредиенты</div>
+          ${ingredientsHtml}
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">📋 Шаги приготовления</div>
+          ${stepsHtml}
+        </div>
+
+        <div class="section-card">
+          <div class="scaler-row">
+            <span class="scaler-label">Порции</span>
+            <div class="scaler">
+              <button class="scaler-btn" id="scale-minus">−</button>
+              <span class="scaler-val" id="scale-val">×1</span>
+              <button class="scaler-btn" id="scale-plus">+</button>
             </div>
           </div>
-          <div class="section-card">
-            <div class="section-title">🥕 Ингредиенты</div>
-            ${ingredientsHtml}
-          </div>
-          ${hasNutrition ? `<div class="section-card">${nutritionBlock}${rdaBlock}</div>` : ""}
         </div>
-        <div class="detail-col">
-          <div class="section-card">
-            <div class="section-title">📋 Шаги приготовления</div>
-            ${stepsHtml}
-          </div>
-          ${notesHtml}
-        </div>
+
+        ${hasNutrition ? `<div class="section-card">${nutritionBlock}${rdaBlock}</div>` : ""}
+
+        ${notesHtml}
+
       </div>
     `;
 
@@ -225,7 +227,7 @@
       });
     });
 
-    // Event delegation на список ингредиентов — работает и после перерисовки при смене порций
+    // Event delegation на список ингредиентов
     const ingList = panel.querySelector(".ingredients-list");
     if (ingList) {
       ingList.addEventListener("click", (e) => {

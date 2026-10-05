@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.1.7"
+version: "1.1.8"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -26,8 +26,6 @@ options:
   sub_langs: "ru.*"
   cookies_file: ""
   log_level: "info"
-  catalog_source: "auto"
-  catalog_api_key: ""
 
 schema:
   gemini_api_key: "password"
@@ -36,8 +34,6 @@ schema:
   sub_langs: "str"
   cookies_file: "str?"
   log_level: "list(trace|debug|info|notice|warning|error|fatal)"
-  catalog_source: "list(auto|openfoodfacts|national)"
-  catalog_api_key: "password?"
 
 map:
   - type: share

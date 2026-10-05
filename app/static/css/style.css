@@ -902,3 +902,17 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   flex-direction: column;
   justify-content: center;
 }
+
+.detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scaler-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

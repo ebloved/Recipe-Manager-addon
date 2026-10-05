@@ -295,7 +295,7 @@
     const image = p.image_url
       ? `<img src="${escHtml(p.image_url)}" alt="">`
       : `<div class="bc-thumb-placeholder">🛒</div>`;
-    const source = p.source === "national" ? "🇷🇺 Национальный каталог" : "🌍 OpenFoodFacts";
+    const source = "🌍 OpenFoodFacts";
     const result = $("barcode-result");
     result.innerHTML = `<div class="bc-card">
       <div class="bc-thumb">${image}</div>
