@@ -741,3 +741,65 @@ button.btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff;
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* Barcode scanner */
+.barcode-scanner {
+  margin-top: 12px;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+.barcode-scanner video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.barcode-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  pointer-events: none;
+}
+.barcode-scanner-overlay .btn {
+  pointer-events: auto;
+}
+.barcode-scan-frame {
+  width: 70%;
+  height: 40%;
+  margin-top: 15%;
+  border: 2px solid rgba(255,255,255,0.85);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
+  position: relative;
+}
+.barcode-scan-frame::before {
+  content: "";
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent, #ff6b35);
+  animation: scanline 2s linear infinite;
+}
+@keyframes scanline {
+  0%   { transform: translateY(-50%); opacity: 0.9; }
+  100% { transform: translateY(-50%) translateY(calc(100% - 2px)); opacity: 0.9; }
+}
+
+#html5qr-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+#html5qr-container video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}

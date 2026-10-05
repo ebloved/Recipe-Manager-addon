@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css">
+<link rel="stylesheet" href="static/css/style.css?v=4">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -208,13 +209,21 @@ servings: 4
       <button class="plan-picker-close" id="barcode-close">×</button>
     </div>
     <div class="barcode-body">
-      <div class="field">
+        <div class="field">
         <label for="barcode-input">Штрих-код (GTIN)</label>
         <div class="barcode-row">
-          <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
-          <button class="btn primary" id="barcode-search">Найти</button>
+            <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
+            <button class="btn" id="barcode-scan" title="Сканировать камерой">📷</button>
+            <button class="btn primary" id="barcode-search">Найти</button>
         </div>
-      </div>
+        <div class="barcode-scanner" id="barcode-scanner" style="display:none">
+            <video id="barcode-video" autoplay playsinline muted></video>
+            <div class="barcode-scanner-overlay">
+            <div class="barcode-scan-frame"></div>
+            <button class="btn" id="barcode-scan-stop">Остановить</button>
+            </div>
+        </div>
+        </div>
       <div class="status" id="barcode-status"></div>
       <div id="barcode-result"></div>
     </div>
