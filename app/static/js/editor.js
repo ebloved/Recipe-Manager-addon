@@ -1,12 +1,34 @@
-/* Редактор рецепта — модальное окно поверх основного UI. */
+/* Редактор рецепта — модальное окно поверх основного UI.
+ *
+ * Изменения относительно предыдущей версии:
+ *   - Под textarea «Ингредиенты» добавлена секция «🔗 Связки с продуктами»,
+ *     где для каждого ингредиента можно связать/отвязать продукт через
+ *     product-picker.
+ *   - Связки хранятся в локальном state редактора (по имени ингредиента,
+ *     нормализованному в lowercase + ё→е) и применяются к ингредиентам
+ *     при сохранении.
+ *   - Кнопки экспорта и Markdown-редактирования сохранены без изменений.
+ */
 "use strict";
 (function (RM) {
   const { $, escHtml } = RM.utils;
-  const { postJSON, patchJSON, del } = RM.api;
+  const { getJSON, postJSON, patchJSON, del } = RM.api;
 
   const BASE = window.location.pathname.replace(/\/+$/, "") + "/";
   const api = (p) => BASE + p.replace(/^\/+/, "");
 
+  // -----------------------------------------------------------------
+  // Состояние текущего открытого редактора
+  // -----------------------------------------------------------------
+  const s = {
+    ingredientLinks: {},   // normalized name → product_id
+    productCache: {},      // product_id → { name, brand, image_url, ... }
+    linksTimer: null,      // debounce для renderLinks
+  };
+
+  // -----------------------------------------------------------------
+  // Базовые хелперы
+  // -----------------------------------------------------------------
   function emptyRecipe() {
     return {
       name: "", description: "", source_url: "", image_url: "",
@@ -25,7 +47,7 @@
     merged.ingredients = (merged.ingredients || []).map((ing) =>
       typeof ing === "string" ? { name: ing } : { ...ing }
     );
-    merged.instructions = (merged.instructions || []).map((s) => String(s));
+    merged.instructions = (merged.instructions || []).map((x) => String(x));
     merged.nutrition = { ...(merged.nutrition || {}) };
     return merged;
   }
@@ -36,12 +58,38 @@
     return isNaN(n) ? null : n;
   }
   function splitList(v) {
-    return (v || "").split(",").map((s) => s.trim()).filter(Boolean);
+    return (v || "").split(",").map((x) => x.trim()).filter(Boolean);
   }
   function joinList(v) {
     return Array.isArray(v) ? v.join(", ") : "";
   }
+  function normalizeName(name) {
+    return String(name || "").trim().toLowerCase().replace(/ё/g, "е");
+  }
 
+  // -----------------------------------------------------------------
+  // Парсинг строки ингредиента (тот же формат, что и на бэкенде)
+  // -----------------------------------------------------------------
+  function parseIngredientLine(line) {
+    const trimmed = (line || "").trim();
+    if (!trimmed) return null;
+
+    // Подзаголовок
+    if (trimmed.startsWith("#")) {
+      return { name: trimmed, is_heading: true };
+    }
+
+    // "500 г муки" или "2 шт яйца" или "соль"
+    const m = trimmed.match(/^([\d.,/]+)\s+([а-яa-z]+\.?)\s+(.+)$/i);
+    if (m) {
+      return { amount: m[1], unit: m[2], name: m[3].trim() };
+    }
+    return { name: trimmed };
+  }
+
+  // -----------------------------------------------------------------
+  // Рендер модалки
+  // -----------------------------------------------------------------
   function renderEditor(r, isNew) {
     const n = r.nutrition || {};
     const nutritionFields = [
@@ -57,6 +105,9 @@
     ];
 
     const ingredientsText = r.ingredients.map((ing) => {
+      if (ing.is_heading || (ing.name || "").startsWith("#")) {
+        return ing.name || "";
+      }
       const parts = [];
       if (ing.amount) parts.push(ing.amount);
       if (ing.unit) parts.push(ing.unit);
@@ -138,6 +189,8 @@
             <div class="editor-hint">Один ингредиент на строку. Начните с <code>#</code> для подзаголовка.</div>
           </div>
 
+          <div class="editor-links" id="ed-ingredient-links"></div>
+
           <div class="editor-section-title">📋 Шаги</div>
           <div class="field">
             <textarea id="ed-instructions" rows="8">${escHtml(instructionsText)}</textarea>
@@ -192,21 +245,144 @@
     `;
   }
 
-  function collectForm() {
-    const ingredients = [];
-    for (const line of $("ed-ingredients").value.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (trimmed.startsWith("#")) {
-        ingredients.push({ name: trimmed, is_heading: true });
-        continue;
-      }
-      const m = trimmed.match(/^([\d.,/]+)\s+([а-яa-z]+\.?)\s+(.+)$/i);
-      if (m) ingredients.push({ amount: m[1], unit: m[2], name: m[3] });
-      else ingredients.push({ name: trimmed });
+  // -----------------------------------------------------------------
+  // Секция «Связки с продуктами»
+  // -----------------------------------------------------------------
+  function scheduleRenderLinks() {
+    if (s.linksTimer) clearTimeout(s.linksTimer);
+    s.linksTimer = setTimeout(renderLinks, 200);
+  }
+
+  function renderLinks() {
+    const ta = $("ed-ingredients");
+    const container = $("ed-ingredient-links");
+    if (!ta || !container) return;
+
+    // Парсим текущее содержимое textarea
+    const lines = ta.value.split("\n").map((l) => l.trim()).filter(Boolean);
+    const items = [];
+    for (const line of lines) {
+      const parsed = parseIngredientLine(line);
+      if (!parsed || parsed.is_heading) continue;
+      if (!parsed.name) continue;
+      items.push(parsed.name);
     }
 
-    const instructions = $("ed-instructions").value.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (!items.length) {
+      container.innerHTML = "";
+      container.style.display = "none";
+      return;
+    }
+
+    // Убираем устаревшие связки (ингредиенты, которые больше не в textarea)
+    const currentNorms = new Set(items.map(normalizeName));
+    for (const k of Object.keys(s.ingredientLinks)) {
+      if (!currentNorms.has(k)) delete s.ingredientLinks[k];
+    }
+
+    const linkedCount = items.filter((n) => s.ingredientLinks[normalizeName(n)]).length;
+
+    container.style.display = "block";
+    container.innerHTML = `
+      <div class="ed-links-header">
+        <span class="ed-links-title">🔗 Связки с продуктами</span>
+        <span class="ed-links-count">${linkedCount} из ${items.length}</span>
+      </div>
+      <div class="ed-links-list">
+        ${items.map((name) => renderLinkRow(name)).join("")}
+      </div>
+    `;
+
+    container.querySelectorAll("[data-ed-link]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-ed-unlink]")) return;
+        onLinkClick(el.dataset.edLink);
+      });
+    });
+    container.querySelectorAll("[data-ed-unlink]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onUnlink(el.dataset.edUnlink);
+      });
+    });
+  }
+
+  function renderLinkRow(name) {
+    const norm = normalizeName(name);
+    const pid = s.ingredientLinks[norm];
+
+    if (pid) {
+      const p = s.productCache[pid];
+      const label = p
+        ? (p.name || "") + (p.brand ? ` · ${p.brand}` : "")
+        : "(продукт не найден)";
+      const thumb = p && p.image_url
+        ? `<img class="ed-link-thumb" src="${escHtml(p.image_url)}" alt="" loading="lazy">`
+        : `<span class="ed-link-thumb ed-link-thumb-placeholder">📦</span>`;
+
+      return `<div class="ed-link-row linked" data-ed-link="${escHtml(name)}" title="Изменить связку">
+        ${thumb}
+        <div class="ed-link-info">
+          <span class="ed-link-ing">${escHtml(name)}</span>
+          <span class="ed-link-product">${escHtml(label)}</span>
+        </div>
+        <button class="ed-link-remove" data-ed-unlink="${escHtml(name)}" title="Отвязать">×</button>
+      </div>`;
+    }
+
+    return `<div class="ed-link-row" data-ed-link="${escHtml(name)}" title="Связать с продуктом">
+      <span class="ed-link-thumb ed-link-thumb-placeholder">🔗</span>
+      <div class="ed-link-info">
+        <span class="ed-link-ing">${escHtml(name)}</span>
+        <span class="ed-link-hint">не связан — нажмите, чтобы связать</span>
+      </div>
+    </div>`;
+  }
+
+  function onLinkClick(name) {
+    const norm = normalizeName(name);
+    const currentPid = s.ingredientLinks[norm] || null;
+
+    RM.productPicker.open(name, currentPid, async (productId, product) => {
+      if (productId) {
+        s.ingredientLinks[norm] = productId;
+        if (product) s.productCache[productId] = product;
+      } else {
+        delete s.ingredientLinks[norm];
+      }
+      renderLinks();
+    });
+  }
+
+  function onUnlink(name) {
+    const norm = normalizeName(name);
+    if (!s.ingredientLinks[norm]) return;
+    if (!confirm(`Отвязать «${name}» от продукта?`)) return;
+    delete s.ingredientLinks[norm];
+    renderLinks();
+  }
+
+  // -----------------------------------------------------------------
+  // Сбор данных формы
+  // -----------------------------------------------------------------
+  function collectForm() {
+    const lines = $("ed-ingredients").value.split("\n");
+    const ingredients = [];
+    for (const line of lines) {
+      const parsed = parseIngredientLine(line);
+      if (!parsed) continue;
+
+      // Применяем связку из локального state
+      if (!parsed.is_heading && parsed.name) {
+        const pid = s.ingredientLinks[normalizeName(parsed.name)];
+        if (pid) parsed.product_id = pid;
+      }
+
+      ingredients.push(parsed);
+    }
+
+    const instructions = $("ed-instructions").value
+      .split("\n").map((x) => x.trim()).filter(Boolean);
 
     const nutrition = {};
     document.querySelectorAll("[data-nutr]").forEach((el) => {
@@ -238,16 +414,35 @@
     el.className = "status show " + kind;
   }
 
-  function open(recipe, onSaved, defaults) {
+  // -----------------------------------------------------------------
+  // Open
+  // -----------------------------------------------------------------
+  async function open(recipe, onSaved, defaults) {
     const isNew = !recipe || !recipe.id;
     const data = normalize(recipe, defaults);
     const overlay = $("editor-overlay");
+
+    // Сброс локального состояния
+    s.ingredientLinks = {};
+    s.productCache = {};
+
+    // Засеиваем связки из рецепта
+    if (recipe && Array.isArray(recipe.ingredients)) {
+      for (const ing of recipe.ingredients) {
+        if (ing && typeof ing === "object" && ing.product_id && ing.name) {
+          s.ingredientLinks[normalizeName(ing.name)] = ing.product_id;
+        }
+      }
+    }
+
     overlay.innerHTML = renderEditor(data, isNew);
     overlay.classList.add("show");
 
     const close = () => {
       overlay.classList.remove("show");
       overlay.innerHTML = "";
+      s.ingredientLinks = {};
+      s.productCache = {};
     };
 
     $("ed-close").addEventListener("click", close);
@@ -255,6 +450,27 @@
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 
     const status = $("ed-status");
+
+    // --- Первичный рендер связок (до загрузки продуктов) ---
+    renderLinks();
+
+    // --- Асинхронная загрузка данных продуктов по связкам ---
+    const ids = new Set(Object.values(s.ingredientLinks));
+    if (ids.size) {
+      Promise.all([...ids].map((id) =>
+        getJSON(`api/products/${id}`)
+          .then((d) => [id, d.product])
+          .catch(() => [id, null])
+      )).then((results) => {
+        for (const [id, p] of results) {
+          if (p) s.productCache[id] = p;
+        }
+        renderLinks();
+      });
+    }
+
+    // --- Перерисовка связок при изменении textarea ---
+    $("ed-ingredients").addEventListener("input", scheduleRenderLinks);
 
     // --- Сохранить ---
     $("ed-save").addEventListener("click", async () => {
@@ -360,7 +576,9 @@
     }
   }
 
-  // --- Локальная сериализация в Markdown (для превью) -----
+  // -----------------------------------------------------------------
+  // Локальная сериализация в Markdown (для превью)
+  // -----------------------------------------------------------------
   function _recipeToMd(r, original) {
     const out = ["---"];
     const push = (k, v) => {
@@ -412,7 +630,7 @@
     }
     if (r.instructions && r.instructions.length) {
       out.push("## Шаги", "");
-      r.instructions.forEach((s, i) => out.push(`${i + 1}. ${s}`));
+      r.instructions.forEach((x, i) => out.push(`${i + 1}. ${x}`));
       out.push("");
     }
     if (r.notes) out.push("## Заметки", "", r.notes);

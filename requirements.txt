@@ -19,3 +19,7 @@ Pillow>=10.4.0
 
 # Utilities
 lxml>=5.3.0
+
+# Локальные эмбеддинги (опционально, ~200 МБ к образу)
+sentence-transformers>=3.2.0
+onnxruntime>=1.18.0

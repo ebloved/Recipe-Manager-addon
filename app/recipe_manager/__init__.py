@@ -1,6 +1,9 @@
-"""Core recipe manager library.
+"""Пакет парсеров Recipe Manager.
 
-Extracted from the Home Assistant custom integration for use inside the
-recipe-manager add-on. HA-specific code (config flow, WebSocket handlers,
-Lovelace resource registration) is intentionally not part of this package.
+Содержит:
+  - importer.py — парсер Recipe Keeper HTML и Markdown-рецептов
+
+Пакет сознательно минимален: только чистые парсеры без доступа к stores
+или внешним сервисам. Связывание (product.barcode → product_id) делается
+в `services/linker.py`.
 """

@@ -1,8 +1,13 @@
 "use strict";
 (function (RM) {
   const { $, escHtml, formatTime, scaleAmount } = RM.utils;
-  const { patchJSON, del } = RM.api;
+  const { getJSON, patchJSON, del } = RM.api;
   const state = RM.state;
+
+  // Кэш продуктов, связанных с текущим рецептом.
+  // Ключ — product_id, значение — объект продукта из /api/products/{id}.
+  // Заполняется при открытии detail-view.
+  state.productCache = state.productCache || {};
 
   function setup() {
     $("detail-overlay").addEventListener("click", (e) => {
@@ -10,12 +15,24 @@
     });
   }
 
-  function open(recipe) {
+  async function open(recipe) {
     state.currentRecipe = recipe;
     state.servingMult = 1;
     state.completedSteps = new Set();
-    render();
+
+    // Показываем оверлей сразу с "Загрузка…" — чтобы не было пустоты
     $("detail-overlay").classList.add("show");
+    $("detail-panel").innerHTML = `
+      <button class="detail-close" id="detail-close">×</button>
+      <div class="loading" style="padding:60px 0">
+        <span class="spinner"></span> Загрузка…
+      </div>`;
+    $("detail-close").addEventListener("click", close);
+
+    // Подгружаем информацию о связанных продуктах
+    await loadLinkedProducts(recipe);
+
+    render();
   }
 
   function close() {
@@ -23,6 +40,46 @@
     state.currentRecipe = null;
   }
 
+  // -----------------------------------------------------------------
+  // Загрузка продуктов, связанных с ингредиентами
+  // -----------------------------------------------------------------
+  async function loadLinkedProducts(recipe) {
+    if (!recipe || !Array.isArray(recipe.ingredients)) return;
+
+    // Собираем уникальные product_id, которых ещё нет в кэше
+    const missing = new Set();
+    for (const ing of recipe.ingredients) {
+      if (ing && typeof ing === "object" && ing.product_id) {
+        if (!state.productCache[ing.product_id]) {
+          missing.add(ing.product_id);
+        }
+      }
+    }
+
+    if (!missing.size) return;
+
+    // Параллельно запрашиваем каждый продукт
+    const tasks = [...missing].map(async (id) => {
+      try {
+        const data = await getJSON(`api/products/${id}`);
+        return [id, data.product];
+      } catch (err) {
+        // Продукт мог быть удалён — не считаем это ошибкой
+        return [id, null];
+      }
+    });
+
+    const results = await Promise.all(tasks);
+    for (const [id, product] of results) {
+      if (product) {
+        state.productCache[id] = product;
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------
   function render() {
     const r = state.currentRecipe;
     if (!r) return;
@@ -159,6 +216,7 @@
       </div>
     `;
 
+    // --- Events ---
     $("detail-close").addEventListener("click", close);
     $("tbtn-delete").addEventListener("click", () => onDelete(r));
     $("tbtn-fav").addEventListener("click", () => onToggleFav(r));
@@ -214,43 +272,171 @@
       });
     });
 
+    // Event delegation на список ингредиентов:
+    //   .ing-cart-btn   → добавить в покупки
+    //   .ing-link-btn   → открыть product-picker (связать)
+    //   .ing-product    → открыть product-picker (изменить/отвязать связку)
     const ingList = panel.querySelector(".ingredients-list");
     if (ingList) {
       ingList.addEventListener("click", (e) => {
-        const btn = e.target.closest(".ing-cart-btn");
-        if (!btn) return;
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.ingIdx, 10);
-        const ings = (r.ingredients || []).map((ing) =>
-          typeof ing === "string" ? { name: ing } : ing
-        );
-        const ing = ings[idx];
-        if (ing) {
-          RM.shopping.addIngredient(ing, r, state.servingMult);
-          btn.textContent = "✓";
-          setTimeout(() => { btn.textContent = "🛒"; }, 900);
+        // 1. Корзина — добавить в покупки
+        const cartBtn = e.target.closest(".ing-cart-btn");
+        if (cartBtn) {
+          e.stopPropagation();
+          const idx = parseInt(cartBtn.dataset.ingIdx, 10);
+          const ings = normalizedIngredients(r);
+          const ing = ings[idx];
+          if (ing) {
+            RM.shopping.addIngredient(ing, r, state.servingMult);
+            cartBtn.textContent = "✓";
+            setTimeout(() => { cartBtn.textContent = "🛒"; }, 900);
+          }
+          return;
+        }
+
+        // 2. Привязка/изменение связки
+        const linkEl = e.target.closest(".ing-link-btn, .ing-product");
+        if (linkEl) {
+          e.stopPropagation();
+          const idx = parseInt(linkEl.dataset.ingIdx, 10);
+          onLinkClick(idx);
         }
       });
     }
   }
 
+  // -----------------------------------------------------------------
+  // Row rendering
+  // -----------------------------------------------------------------
+  function normalizedIngredients(r) {
+    return (r.ingredients || []).map((ing) =>
+      typeof ing === "string" ? { name: ing, amount: null, unit: null, notes: null } : ing
+    );
+  }
+
   function renderIngredientRow(ing, idx) {
+    // Подзаголовок
     if (ing.is_heading || (ing.name || "").startsWith("#")) {
       const text = (ing.name || "").replace(/^#\s*/, "");
       return `<li class="ing-heading">${escHtml(text)}</li>`;
     }
+
     const amount = scaleAmount(ing.amount, state.servingMult);
     const unit = ing.unit || "";
     const amountStr = [amount, unit].filter(Boolean).join(" ");
+
+    // Продукт
+    const productId = ing.product_id || null;
+    const product = productId ? state.productCache[productId] : null;
+
+    let productHtml = "";
+    if (product) {
+      // Есть связка — показываем миниатюру и название продукта (кликабельно)
+      const thumb = product.image_url
+        ? `<img class="ing-product-thumb" src="${escHtml(product.image_url)}" alt="" loading="lazy">`
+        : `<span class="ing-product-thumb ing-product-thumb-placeholder">📦</span>`;
+
+      const brand = product.brand ? ` · ${escHtml(product.brand)}` : "";
+      const title = `${product.name || ""}${product.brand ? " (" + product.brand + ")" : ""}`;
+
+      productHtml = `
+        <button class="ing-product" data-ing-idx="${idx}" title="${escHtml(title)} — изменить/отвязать">
+          ${thumb}
+          <span class="ing-product-name">${escHtml(product.name || "")}${brand}</span>
+        </button>`;
+    } else if (productId) {
+      // product_id есть, но данных нет (продукт удалён или не загрузился)
+      productHtml = `
+        <button class="ing-product ing-product-missing" data-ing-idx="${idx}" title="Продукт не найден — открыть для замены">
+          <span class="ing-product-thumb ing-product-thumb-placeholder">❓</span>
+          <span class="ing-product-name">(продукт удалён)</span>
+        </button>`;
+    } else {
+      // Связки нет — кнопка 🔗
+      productHtml = `<button class="ing-link-btn" data-ing-idx="${idx}" title="Связать с продуктом">🔗</button>`;
+    }
+
     return `<li class="ing-item">
       <span class="ing-amount">${escHtml(amountStr || "—")}</span>
       <span class="ing-name">${escHtml(ing.name || "")}${
         ing.notes ? ` <span class="ing-notes">(${escHtml(ing.notes)})</span>` : ""
       }</span>
+      ${productHtml}
       <button class="ing-cart-btn" data-ing-idx="${idx}" title="Добавить в покупки">🛒</button>
     </li>`;
   }
 
+  // -----------------------------------------------------------------
+  // Open product picker for an ingredient
+  // -----------------------------------------------------------------
+  function onLinkClick(idx) {
+    const r = state.currentRecipe;
+    if (!r) return;
+    const ings = normalizedIngredients(r);
+    const ing = ings[idx];
+    if (!ing) return;
+
+    const currentProductId = ing.product_id || null;
+
+    RM.productPicker.open(ing.name || "", currentProductId, async (productId, product) => {
+      await applyLinkToIngredient(r, idx, productId, product);
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // Save link back to recipe
+  // -----------------------------------------------------------------
+  async function applyLinkToIngredient(recipe, idx, productId, product) {
+    const ings = [...(recipe.ingredients || [])];
+    const current = ings[idx];
+
+    // Нормализуем в объект
+    let normalized;
+    if (typeof current === "string") {
+      normalized = { name: current };
+    } else {
+      normalized = { ...current };
+    }
+
+    if (productId) {
+      normalized.product_id = productId;
+      // Обновим локальный кэш, чтобы UI не ждал следующего запроса
+      if (product) {
+        state.productCache[productId] = product;
+      }
+    } else {
+      // Отвязка
+      delete normalized.product_id;
+    }
+
+    ings[idx] = normalized;
+
+    // Оптимистично обновляем локальный state
+    state.currentRecipe = { ...recipe, ingredients: ings };
+    const recipeIdx = state.recipes.findIndex((x) => x.id === recipe.id);
+    if (recipeIdx >= 0) {
+      state.recipes[recipeIdx] = { ...state.recipes[recipeIdx], ingredients: ings };
+    }
+
+    try {
+      await patchJSON(`api/recipes/${recipe.id}`, { ingredients: ings });
+      // Перерисовать detail и карточку в списке
+      render();
+      RM.recipes.render(state.recipes);
+    } catch (err) {
+      // Откатываем
+      state.currentRecipe = recipe;
+      if (recipeIdx >= 0) {
+        state.recipes[recipeIdx] = recipe;
+      }
+      alert("Не удалось сохранить связку: " + err.message);
+      render();
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Steps / serving display
+  // -----------------------------------------------------------------
   function renderStepText(text) {
     return escHtml(text)
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -264,9 +450,7 @@
     if (!r) return;
     const list = document.querySelector(".ingredients-list");
     if (!list) return;
-    const ingredients = (r.ingredients || []).map((ing) =>
-      typeof ing === "string" ? { name: ing } : ing
-    );
+    const ingredients = normalizedIngredients(r);
     list.innerHTML = ingredients.map((ing, idx) => renderIngredientRow(ing, idx)).join("");
   }
 
@@ -286,7 +470,9 @@
     });
   }
 
-  // --- Nutrition ring (значения — на 1 порцию) ---
+  // -----------------------------------------------------------------
+  // Nutrition ring
+  // -----------------------------------------------------------------
   function renderNutrition(r) {
     const n = r.nutrition || {};
     const carbs = parseFloat(n.carbohydrates) || 0;
@@ -357,6 +543,18 @@
     </div>`;
   }
 
+  const RDA_LOOKUP = {
+    calories:      { label: "Калории",         unit: "kcal", value: 2000 },
+    fat:           { label: "Жиры",            unit: "г",    value: 65 },
+    saturated_fat: { label: "Насыщенные жиры", unit: "г",    value: 20 },
+    cholesterol:   { label: "Холестерин",      unit: "мг",   value: 300 },
+    sodium:        { label: "Натрий",          unit: "мг",   value: 2300 },
+    carbohydrates: { label: "Углеводы",        unit: "г",    value: 300 },
+    fiber:         { label: "Клетчатка",       unit: "г",    value: 28 },
+    sugar:         { label: "Сахара",          unit: "г",    value: 50 },
+    protein:       { label: "Белок",           unit: "г",    value: 50 },
+  };
+
   function renderRDA(r) {
     const n = r.nutrition || {};
     const order = ["calories","fat","saturated_fat","cholesterol","sodium","carbohydrates","fiber","sugar","protein"];
@@ -381,18 +579,9 @@
     </div>`;
   }
 
-  const RDA_LOOKUP = {
-    calories:      { label: "Калории",         unit: "kcal", value: 2000 },
-    fat:           { label: "Жиры",            unit: "г",    value: 65 },
-    saturated_fat: { label: "Насыщенные жиры", unit: "г",    value: 20 },
-    cholesterol:   { label: "Холестерин",      unit: "мг",   value: 300 },
-    sodium:        { label: "Натрий",          unit: "мг",   value: 2300 },
-    carbohydrates: { label: "Углеводы",        unit: "г",    value: 300 },
-    fiber:         { label: "Клетчатка",       unit: "г",    value: 28 },
-    sugar:         { label: "Сахара",          unit: "г",    value: 50 },
-    protein:       { label: "Белок",           unit: "г",    value: 50 },
-  };
-
+  // -----------------------------------------------------------------
+  // Actions
+  // -----------------------------------------------------------------
   async function onDelete(r) {
     if (!confirm(`Удалить рецепт «${r.name}»?`)) return;
     try {
@@ -418,5 +607,8 @@
     }
   }
 
+  // -----------------------------------------------------------------
+  // Public
+  // -----------------------------------------------------------------
   RM.detail = { setup, open, close, render };
 })(window.RM);

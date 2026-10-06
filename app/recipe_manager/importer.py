@@ -1,8 +1,43 @@
-"""Recipe Keeper (.rkeeper) import parser for Recipe Manager.
+"""Recipe Manager parser.
 
-The .rkeeper file is a ZIP archive containing:
-  - recipebook.html  — all recipes in HTML
-  - images/          — recipe photos
+Содержит два независимых парсера:
+
+1. **Recipe Keeper HTML** — парсер экспорта из приложения Recipe Keeper
+   (.rkeeper / .zip). Не изменялся.
+
+2. **Markdown recipe** — парсер .md-файлов с YAML front matter.
+
+Ключевое дополнение в Markdown-парсере:
+  Ингредиенты могут содержать опциональный блок `product` с полями
+  `uuid` (локальный ID продукта) и `barcode` (GTIN из OpenFoodFacts).
+  Парсер возвращает эти поля в результирующем dict ингредиента, но
+  НЕ ходит в ingredients_store — связывание с базой продуктов делает
+  отдельный слой (services/linker.py). Это сохраняет парсер чистым
+  и тестируемым.
+
+Формат, который понимает Markdown-парсер:
+
+    ---
+    title: Греческий салат
+    servings: 2
+    ingredients:
+      - name: Греческий йогурт 2%
+        amount: 200
+        unit: г
+        product:
+          uuid: 3f8a12bc-...
+          barcode: 4607123456789
+      - name: Огурец
+        amount: 2
+        unit: шт
+    ---
+
+    ## Ингредиенты
+    - Греческий йогурт 2% — 200 г
+    - Огурец — 2 шт
+
+    ## Шаги
+    1. Нарезать.
 """
 from __future__ import annotations
 
@@ -14,9 +49,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
+
+# ===========================================================================
+# Публичный API: Recipe Keeper
+# ===========================================================================
 
 def parse_recipe_keeper_html(
     html_content: str,
@@ -55,14 +91,12 @@ def parse_recipe_keeper_html(
         _LOGGER.info("Recipe Keeper import: fallback found %d containers with recipe-name child", len(containers))
 
     if not containers:
-        # Log a sample of the HTML to help diagnose structure
         sample = html_content[:1000].replace("\n", " ")
         _LOGGER.warning("Recipe Keeper import: no recipe containers found. HTML sample: %s", sample)
         raise ValueError(
             "No recipe containers found — check this is a valid Recipe Keeper export"
         )
 
-    # Log the first container's HTML for diagnostics
     _LOGGER.info(
         "Recipe Keeper import: first container HTML sample: %s",
         str(containers[0])[:600].replace("\n", " "),
@@ -120,580 +154,31 @@ def parse_recipe_keeper_bytes(
     return recipes, images
 
 
-# ---------------------------------------------------------------------------
-# Per-recipe parsing
-# ---------------------------------------------------------------------------
-
-def _text(container: Any, *class_names: str) -> Optional[str]:
-    """Return stripped text of the first matching class, or None."""
-    for cls in class_names:
-        el = container.find(class_=re.compile(rf"\b{re.escape(cls)}\b", re.I))
-        if el:
-            t = el.get_text(" ", strip=True)
-            if t:
-                return t
-    return None
-
-
-def _itemprop(container: Any, prop: str) -> Optional[str]:
-    """Return the text/content of the first element with itemprop=prop."""
-    el = container.find(attrs={"itemprop": prop})
-    if not el:
-        return None
-    # <meta itemprop="..." content="..."> — use content attribute
-    if el.name == "meta":
-        return el.get("content", "").strip() or None
-    return el.get_text(" ", strip=True) or None
-
-
-def _itemprop_all(container: Any, prop: str) -> List[str]:
-    """Return all text/content values for elements with itemprop=prop."""
-    values = []
-    for el in container.find_all(attrs={"itemprop": prop}):
-        if el.name == "meta":
-            v = el.get("content", "").strip()
-        else:
-            v = el.get_text(" ", strip=True)
-        if v:
-            values.append(v)
-    return values
-
-
-def _parse_iso_duration(iso: Optional[str]) -> Optional[int]:
-    """Parse ISO 8601 duration (PT5M, PT1H30M) to minutes."""
-    if not iso:
-        return None
-    iso = iso.strip()
-    m = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", iso, re.I)
-    if not m:
-        return None
-    hours = int(m.group(1) or 0)
-    mins  = int(m.group(2) or 0)
-    # Ignore seconds for recipe times
-    return hours * 60 + mins or None
-
-
-def _parse_recipe_container(
-    container: Any, images: Dict[str, bytes]
-) -> Dict[str, Any]:
-    """Parse one recipe <div class="recipe-details"> block."""
-
-    # --- Name ---
-    name = (_itemprop(container, "name")
-            or _text(container, "recipe-name"))
-    if not name:
-        for tag in ("h2", "h3", "h1"):
-            el = container.find(tag)
-            if el:
-                name = el.get_text(strip=True)
-                break
-    if not name:
-        return {}
-
-    # --- Description ---
-    description = (_itemprop(container, "description")
-                   or _text(container, "recipe-description"))
-
-    # --- Servings ---
-    servings_text = (_itemprop(container, "recipeYield")
-                     or _text(container, "recipe-serving-size", "recipe-yield", "recipe-servings"))
-    servings: Optional[int] = None
-    if servings_text:
-        m = re.search(r"\d+", servings_text)
-        servings = int(m.group()) if m else None
-
-    # --- Times (prefer ISO 8601 <meta> over text, fall back to text) ---
-    prep_meta  = _itemprop(container, "prepTime")
-    cook_meta  = _itemprop(container, "cookTime")
-    total_meta = _itemprop(container, "totalTime")
-
-    prep_time  = _parse_iso_duration(prep_meta)  or _parse_time(_text(container, "recipe-prep-time",  "recipe-preptime"))
-    cook_time  = _parse_iso_duration(cook_meta)  or _parse_time(_text(container, "recipe-cook-time",  "recipe-cooktime"))
-    total_time = _parse_iso_duration(total_meta) or _parse_time(_text(container, "recipe-total-time", "recipe-totaltime"))
-
-    # --- Courses (itemprop="recipeCourse") ---
-    courses: List[str] = _itemprop_all(container, "recipeCourse")
-    if not courses:
-        course_text = _text(container, "recipe-course", "recipe-courses")
-        if course_text:
-            courses = [c.strip() for c in re.split(r"[,;/]", course_text) if c.strip()]
-
-    # --- Categories (itemprop="recipeCategory" — often in <meta> tags) ---
-    categories: List[str] = _itemprop_all(container, "recipeCategory")
-    if not categories:
-        cat_text = _text(container, "recipe-categories", "recipe-category")
-        if cat_text:
-            categories = [c.strip() for c in re.split(r"[,;/]", cat_text) if c.strip()]
-
-    # --- Collections (itemprop="recipeCollection") ---
-    collections: List[str] = _itemprop_all(container, "recipeCollection")
-    if not collections:
-        coll_text = _text(container, "recipe-collections", "recipe-collection")
-        if coll_text:
-            collections = [c.strip() for c in re.split(r"[,;/]", coll_text) if c.strip()]
-
-    # Build tags from categories (for compatibility)
-    tags: List[str] = [c.lower() for c in categories]
-
-    # --- Cuisine ---
-    cuisine = _text(container, "recipe-cuisine")
-
-    # --- Source URL ---
-    source_url = (_itemprop(container, "recipeSource")
-                  or _text(container, "recipe-source", "recipe-url", "recipe-source-url"))
-    # Also check <a> inside a source element
-    if not source_url:
-        src_el = container.find(class_=re.compile(r"recipe-source", re.I))
-        if src_el:
-            a = src_el.find("a")
-            if a:
-                source_url = a.get("href", "").strip() or None
-    if source_url and not source_url.startswith("http"):
-        source_url = None
-
-    # --- Notes ---
-    notes = _text(container, "recipe-notes", "recipe-note")
-
-    # --- Image ---
-    image_bytes: Optional[bytes] = None
-    image_src: Optional[str] = None
-    photo_el = container.find(class_=re.compile(r"recipe-photo", re.I))
-    if photo_el:
-        img = photo_el if photo_el.name == "img" else photo_el.find("img")
-        if img:
-            image_src = img.get("src") or img.get("data-src")
-    if not image_src:
-        img = container.find("img")
-        if img:
-            src = img.get("src", "")
-            if not any(skip in src.lower() for skip in ("logo", "icon", "banner")):
-                image_src = src
-    if image_src:
-        image_bytes = images.get(image_src)
-        if not image_bytes:
-            basename = image_src.split("/")[-1]
-            for k, v in images.items():
-                if k.split("/")[-1] == basename:
-                    image_bytes = v
-                    break
-
-    # --- Ingredients ---
-    # Recipe Keeper uses itemprop="recipeIngredients" or class="recipe-ingredients"
-    ingredients: List[Dict[str, Any]] = []
-    ing_el = (
-        container.find(attrs={"itemprop": "recipeIngredients"})
-        or container.find(class_=re.compile(
-            r"recipe-ingredients?|p-ingredients?|ingredient-list|ingredients-list", re.I
-        ))
-    )
-    if ing_el:
-        raw_items = ing_el.find_all("li") or ing_el.find_all("p") or ing_el.find_all("span")
-        if raw_items:
-            for item in raw_items:
-                # Check for section heading: bold/strong tag or ALL-CAPS-only content
-                is_bold = bool(item.find(["b", "strong"]))
-                txt = item.get_text(" ", strip=True)
-                if not txt:
-                    continue
-                if is_bold and _is_ingredient_heading(txt):
-                    ingredients.append({"name": txt.rstrip(":"), "amount": None, "unit": None, "notes": None, "is_heading": True})
-                elif _is_ingredient_heading(txt) and not re.search(r"\d", txt):
-                    ingredients.append({"name": txt.rstrip(":"), "amount": None, "unit": None, "notes": None, "is_heading": True})
-                else:
-                    ingredients.append(_parse_ingredient_line(txt))
-        else:
-            # Fall back to splitting the whole text block by newlines
-            for line in ing_el.get_text("\n", strip=True).split("\n"):
-                line = line.strip()
-                if line:
-                    ingredients.append(_parse_ingredient_line(line))
-
-    # --- Instructions / Directions ---
-    # Recipe Keeper uses itemprop="recipeDirections" (no class!) or class-based variants
-    instructions: List[str] = []
-    method_el = (
-        container.find(attrs={"itemprop": "recipeDirections"})
-        or container.find(attrs={"itemprop": "recipeInstructions"})
-        or container.find(class_=re.compile(
-            r"recipe-method-directions|recipe-method|recipe-directions?"
-            r"|recipe-instructions?|recipe-steps?"
-            r"|e-instructions?|directions?-list|steps?-list"
-            r"|method|directions?",
-            re.I,
-        ))
-    )
-
-    if not method_el:
-        # Fallback: look for any element whose text starts with numbered steps
-        for el in container.find_all(["ol", "ul"]):
-            if el.find("li"):
-                # Heuristic: if the first <li> looks like a cooking step
-                first_li = el.find("li")
-                first_text = first_li.get_text(strip=True) if first_li else ""
-                if len(first_text) > 10:
-                    # Check it's not the ingredients list
-                    if el is not ing_el:
-                        method_el = el
-                        _LOGGER.debug("Recipe Keeper import: using fallback <ol/ul> for directions")
-                        break
-
-    if method_el:
-        items = method_el.find_all("li") or method_el.find_all("p")
-        if items:
-            for item in items:
-                txt = item.get_text(" ", strip=True)
-                # Strip leading numbering like "1." or "Step 1:"
-                txt = re.sub(r"^(?:Step\s*)?\d+[.):\s]+", "", txt, flags=re.I).strip()
-                if txt:
-                    instructions.append(txt)
-        else:
-            raw_text = method_el.get_text("\n", strip=True)
-            for line in raw_text.split("\n"):
-                line = re.sub(r"^(?:Step\s*)?\d+[.):\s]+", "", line.strip(), flags=re.I).strip()
-                if line:
-                    instructions.append(line)
-    else:
-        _LOGGER.warning(
-            "Recipe Keeper import: no directions element found for recipe '%s'", name
-        )
-
-    # --- Nutrition (itemprop schema.org, then class-based, then notes text) ---
-    nutrition: Optional[Dict[str, str]] = None
-
-    # Map from schema.org itemprop names → internal keys
-    _NUTR_ITEMPROP_MAP = {
-        "calories":              "calories",
-        "fatContent":            "fat",
-        "saturatedFatContent":   "saturated_fat",
-        "transFatContent":       "trans_fat",
-        "cholesterolContent":    "cholesterol",
-        "sodiumContent":         "sodium",
-        "carbohydrateContent":   "carbohydrates",
-        "fiberContent":          "fiber",
-        "sugarContent":          "sugar",
-        "proteinContent":        "protein",
-    }
-
-    # Strategy 1: look for a nutrition wrapper (itemprop="nutrition" or class)
-    nutr_el = (
-        container.find(attrs={"itemprop": "nutrition"})
-        or container.find(class_=re.compile(r"recipe-nutrition", re.I))
-    )
-
-    # Strategy 2: look for individual nutrition itemprop values directly on container
-    # (some Recipe Keeper exports have them outside any wrapper)
-    direct_nutr: Dict[str, str] = {}
-    for ip, key in _NUTR_ITEMPROP_MAP.items():
-        val = _itemprop(container, ip)
-        if val:
-            num_m = re.search(r"[\d.]+", val)
-            if num_m:
-                direct_nutr[key] = num_m.group()
-
-    if nutr_el:
-        nutrition = {}
-        # First try itemprop children inside the wrapper
-        for ip, key in _NUTR_ITEMPROP_MAP.items():
-            val = _itemprop(nutr_el, ip)
-            if val:
-                num_m = re.search(r"[\d.]+", val)
-                if num_m:
-                    nutrition[key] = num_m.group()
-        # If no itemprop children, fall back to key:value text parsing
-        if not nutrition:
-            for item in nutr_el.find_all(["li", "span", "div", "td", "p"]):
-                txt = item.get_text(" ", strip=True)
-                m = re.match(r"(.+?):\s*(.+)", txt)
-                if m:
-                    key = m.group(1).strip().lower().replace(" ", "_")
-                    nutrition[key] = m.group(2).strip()
-        if not nutrition:
-            nutrition = None
-
-    # Merge direct itemprop values (may supplement or replace)
-    if direct_nutr:
-        nutrition = {**(nutrition or {}), **direct_nutr} or None
-
-    # If no dedicated nutrition element, try to parse from notes
-    if not nutrition and notes:
-        parsed_nutrition, cleaned_notes = _extract_nutrition_from_notes(notes)
-        if parsed_nutrition:
-            nutrition = parsed_nutrition
-            notes = cleaned_notes  # Remove nutrition lines from notes
-
-    return {
-        "name": name.strip(),
-        "description": description,
-        "servings": servings,
-        "servings_text": servings_text,
-        "prep_time": prep_time,
-        "cook_time": cook_time,
-        "total_time": total_time,
-        "cuisine": cuisine,
-        "courses": courses,
-        "categories": categories,
-        "collections": collections,
-        "tags": tags,
-        "source_url": source_url,
-        "notes": notes,
-        "ingredients": ingredients,
-        "instructions": instructions,
-        "nutrition": nutrition,
-        # _image_bytes: raw bytes when images dict was provided (parse_recipe_keeper_bytes)
-        "_image_bytes": image_bytes,
-        # _image_filename: src reference in HTML (used for two-phase browser upload)
-        "_image_filename": image_src,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _is_ingredient_heading(text: str) -> bool:
-    """Return True if the text looks like a section heading within an ingredients list.
-
-    Headings are typically:
-    - ALL CAPS (with optional trailing colon/punctuation), e.g. "ICING" or "FOR THE SAUCE:"
-    - Title-case short phrases with no quantity digits (handled by caller)
-    """
-    stripped = text.rstrip(":").strip()
-    if not stripped:
-        return False
-    # All-uppercase (allow spaces, punctuation)
-    if stripped == stripped.upper() and re.search(r"[A-Z]", stripped):
-        return True
-    # Phrase starting with "For the …" / "For …" (common heading pattern)
-    if re.match(r"^For\s+", stripped, re.I) and not re.search(r"\d", stripped):
-        return True
-    return False
-
-
-def _parse_time(text: Optional[str]) -> Optional[int]:
-    """Parse human time strings to minutes.
-
-    Handles: "1 hour 30 mins", "45 minutes", "1h 30m", "30", etc.
-    """
-    if not text:
-        return None
-    t = text.strip().lower()
-    # "1 hour(s) 30 min(s)"
-    m = re.match(r"(\d+)\s*h(?:ours?)?\s*(?:and\s*)?(\d+)\s*m(?:in(?:utes?)?)?", t)
-    if m:
-        return int(m.group(1)) * 60 + int(m.group(2))
-    # "30 minutes" / "30 mins" / "30m"
-    m = re.match(r"(\d+)\s*m(?:in(?:utes?)?)?$", t)
-    if m:
-        return int(m.group(1))
-    # "1 hour" / "2 hours"
-    m = re.match(r"(\d+)\s*h(?:ours?)?$", t)
-    if m:
-        return int(m.group(1)) * 60
-    # bare number — assume minutes
-    m = re.match(r"^(\d+)$", t)
-    if m:
-        return int(m.group(1))
-    return None
-
-
-# Globally-accepted measurement abbreviations.
-# Covers both American spellings (liter, gram) and
-# British/international spellings (litre, gramme, etc.).
-_UNIT_NORMALIZE: Dict[str, str] = {
-    # Teaspoon
-    "teaspoon":           "tsp",
-    "teaspoons":          "tsp",
-    # Tablespoon
-    "tablespoon":         "Tbsp",
-    "tablespoons":        "Tbsp",
-    # Ounce / fluid ounce
-    "ounce":              "oz",
-    "ounces":             "oz",
-    "fluid ounce":        "fl oz",
-    "fluid ounces":       "fl oz",
-    # Pound
-    "pound":              "lb",
-    "pounds":             "lb",
-    "lbs":                "lb",
-    # Gram  (American: gram / British: gramme)
-    "gram":               "g",
-    "grams":              "g",
-    "gramme":             "g",
-    "grammes":            "g",
-    # Kilogram  (American: kilogram / British: kilogramme)
-    "kilogram":           "kg",
-    "kilograms":          "kg",
-    "kilogramme":         "kg",
-    "kilogrammes":        "kg",
-    # Millilitre  (British: millilitre / American: milliliter)
-    "millilitre":         "ml",
-    "millilitres":        "ml",
-    "milliliter":         "ml",
-    "milliliters":        "ml",
-    # Centilitre  (British: centilitre / American: centiliter)
-    "centilitre":         "cl",
-    "centilitres":        "cl",
-    "centiliter":         "cl",
-    "centiliters":        "cl",
-    # Decilitre  (British: decilitre / American: deciliter)
-    "decilitre":          "dl",
-    "decilitres":         "dl",
-    "deciliter":          "dl",
-    "deciliters":         "dl",
-    # Litre  (British: litre / American: liter)
-    "litre":              "L",
-    "litres":             "L",
-    "liter":              "L",
-    "liters":             "L",
-    # Pint / quart / gallon (same spelling internationally)
-    "pint":               "pt",
-    "pints":              "pt",
-    "quart":              "qt",
-    "quarts":             "qt",
-    "gallon":             "gal",
-    "gallons":            "gal",
-}
-
-
-def _normalize_unit(unit: Optional[str]) -> Optional[str]:
-    """Normalize a measurement unit to its standard abbreviation."""
-    if not unit:
-        return unit
-    return _UNIT_NORMALIZE.get(unit.lower(), unit)
-
-
-# Compiled once at module level for efficiency.
-# Unit alternation covers both American and British/international spellings.
-_INGREDIENT_RE = re.compile(
-    r"^"
-    r"(?P<amount>\d+(?:[.,/]\d+)?(?:\s*[-–]\s*\d+(?:[.,/]\d+)?)?"
-    r"(?:\s+\d+/\d+)?)?"
-    r"\s*"
-    r"(?P<unit>"
-    # Abbreviations first (short, unambiguous)
-    r"tsp|tbsp|fl\.?\s*oz"
-    # Full names — teaspoon/tablespoon
-    r"|tablespoons?|teaspoons?"
-    # Volume — litre/liter/millilitre/milliliter/centilitre/centiliter/decilitre/deciliter
-    r"|(?:milli|centi|deci)?lit(?:re|er)s?"
-    r"|ml|cl|dl|L"
-    # Mass — gramme/gram/kilogramme/kilogram
-    r"|kilo(?:gramme|gram)s?|(?:gramme|gram)s?"
-    r"|kg|g"
-    # Other imperial
-    r"|cups?|oz|lbs?|pints?|quarts?|gallons?"
-    # Countable / descriptive
-    r"|cans?|bunches?|heads?|cloves?|slices?|pieces?|sheets?"
-    r"|pinch(?:es)?|dash(?:es)?|handfuls?|sprigs?|stalks?"
-    r")?\.?"
-    r"\s*"
-    r"(?P<name>.+?)$",
-    re.IGNORECASE,
-)
-
-
-_UNICODE_FRACTIONS: Dict[str, str] = {
-    "\u00bd": "1/2",  # ½
-    "\u00bc": "1/4",  # ¼
-    "\u00be": "3/4",  # ¾
-    "\u2153": "1/3",  # ⅓
-    "\u2154": "2/3",  # ⅔
-    "\u215b": "1/8",  # ⅛
-    "\u215c": "3/8",  # ⅜
-    "\u215d": "5/8",  # ⅝
-    "\u215e": "7/8",  # ⅞
-}
-
-
-def _normalize_fractions(text: str) -> str:
-    """Replace Unicode fraction chars with ASCII equivalents.
-
-    Handles bare fractions ("½" → "1/2") and mixed numbers ("1½" → "1 1/2").
-    """
-    for char, replacement in _UNICODE_FRACTIONS.items():
-        # "1½" → "1 1/2" (digit immediately followed by fraction)
-        text = re.sub(rf"(\d){re.escape(char)}", rf"\1 {replacement}", text)
-        text = text.replace(char, replacement)
-    return text
-
-
-def _parse_ingredient_line(raw: str) -> Dict[str, Any]:
-    """Split an ingredient string into {amount, unit, name}."""
-    raw = _normalize_fractions(raw.strip())
-    m = _INGREDIENT_RE.match(raw)
-    if not m:
-        return {"name": raw, "amount": None, "unit": None, "notes": None}
-
-    amount = (m.group("amount") or "").strip() or None
-    unit = _normalize_unit((m.group("unit") or "").strip() or None)
-    rest = (m.group("name") or "").strip()
-
-    # Strip leading "of" / "of the" — e.g. "200g of butter" → "butter"
-    rest = re.sub(r"^of\s+(?:the\s+)?", "", rest, flags=re.I).strip()
-
-    name, notes = rest, None
-    if "," in rest:
-        parts = rest.split(",", 1)
-        name = parts[0].strip()
-        notes = parts[1].strip()
-    return {"name": name, "amount": amount, "unit": unit, "notes": notes}
-
-
-# Nutrition field patterns to extract from free-text notes
-_NUTRITION_PATTERNS: List[Tuple[str, str]] = [
-    (r"calories?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*(?:kcal)?",                  "calories"),
-    (r"total\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                       "fat"),
-    (r"saturated\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                   "saturated_fat"),
-    (r"trans\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                       "trans_fat"),
-    (r"cholesterol\s*[:\-]\s*(\d+(?:\.\d+)?)\s*mg?",                      "cholesterol"),
-    (r"sodium\s*[:\-]\s*(\d+(?:\.\d+)?)\s*mg?",                           "sodium"),
-    (r"(?:total\s+)?carb(?:ohydrate)?s?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",  "carbohydrates"),
-    (r"(?:dietary\s+)?fiber\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",              "fiber"),
-    (r"(?:total\s+)?sugars?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",              "sugar"),
-    (r"protein\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                           "protein"),
-]
-
-
-def _extract_nutrition_from_notes(
-    notes_text: str,
-) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
-    """Try to extract nutrition values embedded in the notes field.
-
-    Returns (nutrition_dict_or_None, cleaned_notes_or_None).
-    Lines that contain matched nutrition data are removed from the returned notes.
-    """
-    if not notes_text:
-        return None, notes_text
-
-    nutrition: Dict[str, str] = {}
-    remaining_lines: List[str] = []
-
-    for line in notes_text.splitlines():
-        matched = False
-        for pattern, key in _NUTRITION_PATTERNS:
-            m = re.search(pattern, line, re.I)
-            if m:
-                nutrition[key] = m.group(1)
-                matched = True
-                break
-        if not matched:
-            remaining_lines.append(line)
-
-    if not nutrition:
-        return None, notes_text
-
-    cleaned = "\n".join(remaining_lines).strip() or None
-    return nutrition, cleaned
-
-# ---------------------------------------------------------------------------
-# Markdown recipe parsing
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Публичный API: Markdown
+# ===========================================================================
 
 def parse_markdown_recipe(content: str) -> Dict[str, Any]:
     """Parse a Markdown recipe with YAML front matter into a recipe dict.
 
-    При ошибке YAML возвращает детальную диагностику: номер строки,
-    саму строку и подсказку.
+    Возвращает dict, пригодный для storage.add_recipe().
+
+    Ингредиенты могут содержать (опционально) вложенный блок product:
+
+        ingredients:
+          - name: Греческий йогурт 2%
+            amount: 200
+            unit: г
+            product:
+              uuid: 3f8a12bc-...      # локальный ID (опционально)
+              barcode: 4607123456789  # GTIN (опционально)
+
+    Парсер возвращает этот блок как есть — он не ходит в ingredients_store.
+    Связывание (product_id) выполняется на уровне routes/services, где
+    доступен store. Это сохраняет чистоту парсера.
+
+    При ошибке YAML возвращает детальную диагностику с номером строки
+    и подсказкой про кавычки.
     """
     try:
         import frontmatter  # type: ignore[import]
@@ -793,32 +278,26 @@ def parse_markdown_recipe(content: str) -> Dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # YAML error formatter
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 def _format_yaml_error(content: str, exc: Exception) -> str:
     """Строит человекочитаемое сообщение об ошибке YAML.
 
-    Извлекает из исключения номер строки и колонки (если есть),
-    показывает проблемную строку, подчёркивает позицию и даёт подсказку.
+    Извлекает номер строки и колонки, показывает проблемную строку,
+    подчёркивает позицию и даёт подсказку.
     """
     msg = str(exc)
 
-    # Ищем паттерн "... line N, column M ..." — так ругается PyYAML.
-    line_no: int | None = None
-    col_no: int | None = None
+    line_no: Optional[int] = None
+    col_no: Optional[int] = None
     m = re.search(r"line (\d+), column (\d+)", msg)
     if m:
         line_no = int(m.group(1))
         col_no = int(m.group(2))
 
-    # Отделяем front matter: он идёт между первыми двумя строками '---'.
-    # Строки нумеруются с 1 для пользователя.
     fm_lines = content.splitlines()
-    # В content первая строка — '---', затем front matter, затем '---'.
-    # PyYAML считает строки ВНУТРИ front matter (без ведущего ---).
-    # Поэтому line_no указывает на строку внутри front matter, начиная с 1.
 
     hint = (
         "Проверьте строку на спецсимволы: ':', '#', '{', '}', '[', ']', ',', "
@@ -826,15 +305,14 @@ def _format_yaml_error(content: str, exc: Exception) -> str:
         "оберните его в двойные кавычки: ключ: \"значение: с двоеточием\"."
     )
 
-    detail = []
-    detail.append("Invalid YAML front matter.")
+    detail = ["Invalid YAML front matter."]
     if line_no is not None:
         detail.append(f"Строка {line_no}" + (f", колонка {col_no}" if col_no else "") + ".")
         # front matter в content идёт после первого '---', поэтому +1 к индексу
-        idx = line_no  # front_matter_line[0] = content[1]
+        idx = line_no
         if 0 <= idx < len(fm_lines):
             bad = fm_lines[idx]
-            detail.append(f"Вот эта строка:")
+            detail.append("Вот эта строка:")
             detail.append(f"    {bad}")
             if col_no and 0 < col_no <= len(bad) + 1:
                 detail.append("    " + " " * (col_no - 1) + "^")
@@ -846,9 +324,10 @@ def _format_yaml_error(content: str, exc: Exception) -> str:
 
     return "\n".join(detail)
 
-# ---------------------------------------------------------------------------
+
+# ===========================================================================
 # Markdown helpers
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 def _to_str_list(value: Any) -> List[str]:
     """Coerce a YAML value to a list of non-empty strings."""
@@ -874,10 +353,58 @@ def _extract_md_section(body: str, heading_pattern: str) -> str:
     return body[start:].strip()
 
 
+def _extract_product_link(raw: Any) -> Optional[Dict[str, Any]]:
+    """Извлекает блок product из сырого значения ингредиента.
+
+    Ожидает либо dict {'uuid': ..., 'barcode': ...}, либо отдельные поля
+    верхнего уровня 'product_id' / 'barcode'. Возвращает None, если ничего нет.
+
+    Не делает lookup в store — только нормализует данные.
+    """
+    if not isinstance(raw, dict):
+        return None
+
+    result: Dict[str, Any] = {}
+
+    # Явный вложенный блок product
+    nested = raw.get("product")
+    if isinstance(nested, dict):
+        if nested.get("uuid"):
+            result["uuid"] = str(nested["uuid"]).strip()
+        if nested.get("barcode"):
+            result["barcode"] = str(nested["barcode"]).strip()
+        if nested.get("name"):
+            result["name"] = str(nested["name"]).strip()
+
+    # Верхнеуровневые поля (для краткости ручного набора)
+    if not result.get("uuid") and raw.get("product_id"):
+        result["uuid"] = str(raw["product_id"]).strip()
+    if not result.get("barcode") and raw.get("barcode"):
+        result["barcode"] = str(raw["barcode"]).strip()
+
+    # Дополнительные поля — если присутствуют, они не обязательны,
+    # но могут быть использованы linker'ом для более точной подстановки.
+    for key in ("brand", "category", "image_url", "nutrition_per_100g", "serving_size_g"):
+        if raw.get(key) is not None and key not in result:
+            result[key] = raw[key]
+
+    return result or None
+
+
 def _parse_md_ingredients(
     metadata: Dict[str, Any], body: str
 ) -> List[Dict[str, Any]]:
-    """Parse ingredients from front matter (preferred) or body section."""
+    """Parse ingredients from front matter (preferred) or body section.
+
+    Каждый ингредиент — dict с полями:
+        name, amount, unit, notes, is_heading?, product?
+
+    Блок `product` (если был в front matter) сохраняется как есть:
+        {"uuid": "...", "barcode": "...", ...}
+
+    Парсер НЕ пытается связать ингредиент с базой продуктов — это делает
+    вызывающий код. Здесь только структура.
+    """
     # Preferred: structured list in front matter
     raw = metadata.get("ingredients")
     if isinstance(raw, list):
@@ -886,12 +413,25 @@ def _parse_md_ingredients(
             if isinstance(item, str):
                 result.append(_parse_ingredient_line(item))
             elif isinstance(item, dict):
-                result.append({
+                # Определяем, является ли это подзаголовком
+                is_heading = bool(item.get("is_heading")) or str(item.get("name", "")).startswith("#")
+
+                parsed: Dict[str, Any] = {
                     "name": str(item.get("name", "")).strip(),
-                    "amount": item.get("amount"),
-                    "unit": item.get("unit"),
-                    "notes": item.get("notes"),
-                })
+                }
+                if is_heading:
+                    parsed["is_heading"] = True
+                else:
+                    parsed["amount"] = item.get("amount")
+                    parsed["unit"] = item.get("unit")
+                    parsed["notes"] = item.get("notes")
+
+                    # Блок product — если есть
+                    product = _extract_product_link(item)
+                    if product:
+                        parsed["product"] = product
+
+                result.append(parsed)
         return [r for r in result if r.get("name")]
 
     # Fallback: bullet list under "## Ингредиенты" / "## Ingredients"
@@ -911,7 +451,6 @@ def _parse_md_ingredients(
         if _is_ingredient_heading(txt):
             result.append({
                 "name": txt.rstrip(":"),
-                "amount": None, "unit": None, "notes": None,
                 "is_heading": True,
             })
         else:
@@ -942,16 +481,489 @@ def _parse_md_instructions(
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        # Numbered step: "1. ..." / "1) ..."
         m = re.match(r"^\d+[.)]\s*(.+)$", line)
         if m:
             instructions.append(m.group(1).strip())
             continue
-        # Bulleted step
         m = re.match(r"^[-*+]\s+(.+)$", line)
         if m:
             instructions.append(m.group(1).strip())
             continue
-        # Plain paragraph
         instructions.append(line)
     return [s for s in instructions if s]
+
+
+# ===========================================================================
+# Recipe Keeper per-recipe parsing
+# ===========================================================================
+
+def _text(container: Any, *class_names: str) -> Optional[str]:
+    for cls in class_names:
+        el = container.find(class_=re.compile(rf"\b{re.escape(cls)}\b", re.I))
+        if el:
+            t = el.get_text(" ", strip=True)
+            if t:
+                return t
+    return None
+
+
+def _itemprop(container: Any, prop: str) -> Optional[str]:
+    el = container.find(attrs={"itemprop": prop})
+    if not el:
+        return None
+    if el.name == "meta":
+        return el.get("content", "").strip() or None
+    return el.get_text(" ", strip=True) or None
+
+
+def _itemprop_all(container: Any, prop: str) -> List[str]:
+    values = []
+    for el in container.find_all(attrs={"itemprop": prop}):
+        if el.name == "meta":
+            v = el.get("content", "").strip()
+        else:
+            v = el.get_text(" ", strip=True)
+        if v:
+            values.append(v)
+    return values
+
+
+def _parse_iso_duration(iso: Optional[str]) -> Optional[int]:
+    if not iso:
+        return None
+    iso = iso.strip()
+    m = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", iso, re.I)
+    if not m:
+        return None
+    hours = int(m.group(1) or 0)
+    mins = int(m.group(2) or 0)
+    return hours * 60 + mins or None
+
+
+def _parse_recipe_container(
+    container: Any, images: Dict[str, bytes]
+) -> Dict[str, Any]:
+    """Parse one recipe <div class="recipe-details"> block."""
+
+    name = (_itemprop(container, "name")
+            or _text(container, "recipe-name"))
+    if not name:
+        for tag in ("h2", "h3", "h1"):
+            el = container.find(tag)
+            if el:
+                name = el.get_text(strip=True)
+                break
+    if not name:
+        return {}
+
+    description = (_itemprop(container, "description")
+                   or _text(container, "recipe-description"))
+
+    servings_text = (_itemprop(container, "recipeYield")
+                     or _text(container, "recipe-serving-size", "recipe-yield", "recipe-servings"))
+    servings: Optional[int] = None
+    if servings_text:
+        m = re.search(r"\d+", servings_text)
+        servings = int(m.group()) if m else None
+
+    prep_meta  = _itemprop(container, "prepTime")
+    cook_meta  = _itemprop(container, "cookTime")
+    total_meta = _itemprop(container, "totalTime")
+
+    prep_time  = _parse_iso_duration(prep_meta)  or _parse_time(_text(container, "recipe-prep-time",  "recipe-preptime"))
+    cook_time  = _parse_iso_duration(cook_meta)  or _parse_time(_text(container, "recipe-cook-time",  "recipe-cooktime"))
+    total_time = _parse_iso_duration(total_meta) or _parse_time(_text(container, "recipe-total-time", "recipe-totaltime"))
+
+    courses: List[str] = _itemprop_all(container, "recipeCourse")
+    if not courses:
+        course_text = _text(container, "recipe-course", "recipe-courses")
+        if course_text:
+            courses = [c.strip() for c in re.split(r"[,;/]", course_text) if c.strip()]
+
+    categories: List[str] = _itemprop_all(container, "recipeCategory")
+    if not categories:
+        cat_text = _text(container, "recipe-categories", "recipe-category")
+        if cat_text:
+            categories = [c.strip() for c in re.split(r"[,;/]", cat_text) if c.strip()]
+
+    collections: List[str] = _itemprop_all(container, "recipeCollection")
+    if not collections:
+        coll_text = _text(container, "recipe-collections", "recipe-collection")
+        if coll_text:
+            collections = [c.strip() for c in re.split(r"[,;/]", coll_text) if c.strip()]
+
+    tags: List[str] = [c.lower() for c in categories]
+
+    cuisine = _text(container, "recipe-cuisine")
+
+    source_url = (_itemprop(container, "recipeSource")
+                  or _text(container, "recipe-source", "recipe-url", "recipe-source-url"))
+    if not source_url:
+        src_el = container.find(class_=re.compile(r"recipe-source", re.I))
+        if src_el:
+            a = src_el.find("a")
+            if a:
+                source_url = a.get("href", "").strip() or None
+    if source_url and not source_url.startswith("http"):
+        source_url = None
+
+    notes = _text(container, "recipe-notes", "recipe-note")
+
+    image_bytes: Optional[bytes] = None
+    image_src: Optional[str] = None
+    photo_el = container.find(class_=re.compile(r"recipe-photo", re.I))
+    if photo_el:
+        img = photo_el if photo_el.name == "img" else photo_el.find("img")
+        if img:
+            image_src = img.get("src") or img.get("data-src")
+    if not image_src:
+        img = container.find("img")
+        if img:
+            src = img.get("src", "")
+            if not any(skip in src.lower() for skip in ("logo", "icon", "banner")):
+                image_src = src
+    if image_src:
+        image_bytes = images.get(image_src)
+        if not image_bytes:
+            basename = image_src.split("/")[-1]
+            for k, v in images.items():
+                if k.split("/")[-1] == basename:
+                    image_bytes = v
+                    break
+
+    ingredients: List[Dict[str, Any]] = []
+    ing_el = (
+        container.find(attrs={"itemprop": "recipeIngredients"})
+        or container.find(class_=re.compile(
+            r"recipe-ingredients?|p-ingredients?|ingredient-list|ingredients-list", re.I
+        ))
+    )
+    if ing_el:
+        raw_items = ing_el.find_all("li") or ing_el.find_all("p") or ing_el.find_all("span")
+        if raw_items:
+            for item in raw_items:
+                is_bold = bool(item.find(["b", "strong"]))
+                txt = item.get_text(" ", strip=True)
+                if not txt:
+                    continue
+                if is_bold and _is_ingredient_heading(txt):
+                    ingredients.append({"name": txt.rstrip(":"), "is_heading": True})
+                elif _is_ingredient_heading(txt) and not re.search(r"\d", txt):
+                    ingredients.append({"name": txt.rstrip(":"), "is_heading": True})
+                else:
+                    ingredients.append(_parse_ingredient_line(txt))
+        else:
+            for line in ing_el.get_text("\n", strip=True).split("\n"):
+                line = line.strip()
+                if line:
+                    ingredients.append(_parse_ingredient_line(line))
+
+    instructions: List[str] = []
+    method_el = (
+        container.find(attrs={"itemprop": "recipeDirections"})
+        or container.find(attrs={"itemprop": "recipeInstructions"})
+        or container.find(class_=re.compile(
+            r"recipe-method-directions|recipe-method|recipe-directions?"
+            r"|recipe-instructions?|recipe-steps?"
+            r"|e-instructions?|directions?-list|steps?-list"
+            r"|method|directions?",
+            re.I,
+        ))
+    )
+
+    if not method_el:
+        for el in container.find_all(["ol", "ul"]):
+            if el.find("li"):
+                first_li = el.find("li")
+                first_text = first_li.get_text(strip=True) if first_li else ""
+                if len(first_text) > 10:
+                    if el is not ing_el:
+                        method_el = el
+                        _LOGGER.debug("Recipe Keeper import: using fallback <ol/ul> for directions")
+                        break
+
+    if method_el:
+        items = method_el.find_all("li") or method_el.find_all("p")
+        if items:
+            for item in items:
+                txt = item.get_text(" ", strip=True)
+                txt = re.sub(r"^(?:Step\s*)?\d+[.):\s]+", "", txt, flags=re.I).strip()
+                if txt:
+                    instructions.append(txt)
+        else:
+            raw_text = method_el.get_text("\n", strip=True)
+            for line in raw_text.split("\n"):
+                line = re.sub(r"^(?:Step\s*)?\d+[.):\s]+", "", line.strip(), flags=re.I).strip()
+                if line:
+                    instructions.append(line)
+    else:
+        _LOGGER.warning(
+            "Recipe Keeper import: no directions element found for recipe '%s'", name
+        )
+
+    nutrition: Optional[Dict[str, str]] = None
+
+    _NUTR_ITEMPROP_MAP = {
+        "calories":              "calories",
+        "fatContent":            "fat",
+        "saturatedFatContent":   "saturated_fat",
+        "transFatContent":       "trans_fat",
+        "cholesterolContent":    "cholesterol",
+        "sodiumContent":         "sodium",
+        "carbohydrateContent":   "carbohydrates",
+        "fiberContent":          "fiber",
+        "sugarContent":          "sugar",
+        "proteinContent":        "protein",
+    }
+
+    nutr_el = (
+        container.find(attrs={"itemprop": "nutrition"})
+        or container.find(class_=re.compile(r"recipe-nutrition", re.I))
+    )
+
+    direct_nutr: Dict[str, str] = {}
+    for ip, key in _NUTR_ITEMPROP_MAP.items():
+        val = _itemprop(container, ip)
+        if val:
+            num_m = re.search(r"[\d.]+", val)
+            if num_m:
+                direct_nutr[key] = num_m.group()
+
+    if nutr_el:
+        nutrition = {}
+        for ip, key in _NUTR_ITEMPROP_MAP.items():
+            val = _itemprop(nutr_el, ip)
+            if val:
+                num_m = re.search(r"[\d.]+", val)
+                if num_m:
+                    nutrition[key] = num_m.group()
+        if not nutrition:
+            for item in nutr_el.find_all(["li", "span", "div", "td", "p"]):
+                txt = item.get_text(" ", strip=True)
+                m = re.match(r"(.+?):\s*(.+)", txt)
+                if m:
+                    key = m.group(1).strip().lower().replace(" ", "_")
+                    nutrition[key] = m.group(2).strip()
+        if not nutrition:
+            nutrition = None
+
+    if direct_nutr:
+        nutrition = {**(nutrition or {}), **direct_nutr} or None
+
+    if not nutrition and notes:
+        parsed_nutrition, cleaned_notes = _extract_nutrition_from_notes(notes)
+        if parsed_nutrition:
+            nutrition = parsed_nutrition
+            notes = cleaned_notes
+
+    return {
+        "name": name.strip(),
+        "description": description,
+        "servings": servings,
+        "servings_text": servings_text,
+        "prep_time": prep_time,
+        "cook_time": cook_time,
+        "total_time": total_time,
+        "cuisine": cuisine,
+        "courses": courses,
+        "categories": categories,
+        "collections": collections,
+        "tags": tags,
+        "source_url": source_url,
+        "notes": notes,
+        "ingredients": ingredients,
+        "instructions": instructions,
+        "nutrition": nutrition,
+        "_image_bytes": image_bytes,
+        "_image_filename": image_src,
+    }
+
+
+# ===========================================================================
+# Ingredient / time helpers
+# ===========================================================================
+
+def _is_ingredient_heading(text: str) -> bool:
+    stripped = text.rstrip(":").strip()
+    if not stripped:
+        return False
+    if stripped == stripped.upper() and re.search(r"[A-Z]", stripped):
+        return True
+    if re.match(r"^For\s+", stripped, re.I) and not re.search(r"\d", stripped):
+        return True
+    return False
+
+
+def _parse_time(text: Optional[str]) -> Optional[int]:
+    """Parse human time strings to minutes."""
+    if not text:
+        return None
+    t = text.strip().lower()
+    m = re.match(r"(\d+)\s*h(?:ours?)?\s*(?:and\s*)?(\d+)\s*m(?:in(?:utes?)?)?", t)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+    m = re.match(r"(\d+)\s*m(?:in(?:utes?)?)?$", t)
+    if m:
+        return int(m.group(1))
+    m = re.match(r"(\d+)\s*h(?:ours?)?$", t)
+    if m:
+        return int(m.group(1)) * 60
+    m = re.match(r"^(\d+)$", t)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+_UNIT_NORMALIZE: Dict[str, str] = {
+    "teaspoon":           "tsp",
+    "teaspoons":          "tsp",
+    "tablespoon":         "Tbsp",
+    "tablespoons":        "Tbsp",
+    "ounce":              "oz",
+    "ounces":             "oz",
+    "fluid ounce":        "fl oz",
+    "fluid ounces":       "fl oz",
+    "pound":              "lb",
+    "pounds":             "lb",
+    "lbs":                "lb",
+    "gram":               "g",
+    "grams":              "g",
+    "gramme":             "g",
+    "grammes":            "g",
+    "kilogram":           "kg",
+    "kilograms":          "kg",
+    "kilogramme":         "kg",
+    "kilogrammes":        "kg",
+    "millilitre":         "ml",
+    "millilitres":        "ml",
+    "milliliter":         "ml",
+    "milliliters":        "ml",
+    "centilitre":         "cl",
+    "centilitres":        "cl",
+    "centiliter":         "cl",
+    "centiliters":        "cl",
+    "decilitre":          "dl",
+    "decilitres":         "dl",
+    "deciliter":          "dl",
+    "deciliters":         "dl",
+    "litre":              "L",
+    "litres":             "L",
+    "liter":              "L",
+    "liters":             "L",
+    "pint":               "pt",
+    "pints":              "pt",
+    "quart":              "qt",
+    "quarts":             "qt",
+    "gallon":             "gal",
+    "gallons":            "gal",
+}
+
+
+def _normalize_unit(unit: Optional[str]) -> Optional[str]:
+    if not unit:
+        return unit
+    return _UNIT_NORMALIZE.get(unit.lower(), unit)
+
+
+_INGREDIENT_RE = re.compile(
+    r"^"
+    r"(?P<amount>\d+(?:[.,/]\d+)?(?:\s*[-–]\s*\d+(?:[.,/]\d+)?)?"
+    r"(?:\s+\d+/\d+)?)?"
+    r"\s*"
+    r"(?P<unit>"
+    r"tsp|tbsp|fl\.?\s*oz"
+    r"|tablespoons?|teaspoons?"
+    r"|(?:milli|centi|deci)?lit(?:re|er)s?"
+    r"|ml|cl|dl|L"
+    r"|kilo(?:gramme|gram)s?|(?:gramme|gram)s?"
+    r"|kg|g"
+    r"|cups?|oz|lbs?|pints?|quarts?|gallons?"
+    r"|cans?|bunches?|heads?|cloves?|slices?|pieces?|sheets?"
+    r"|pinch(?:es)?|dash(?:es)?|handfuls?|sprigs?|stalks?"
+    r")?\.?"
+    r"\s*"
+    r"(?P<name>.+?)$",
+    re.IGNORECASE,
+)
+
+
+_UNICODE_FRACTIONS: Dict[str, str] = {
+    "\u00bd": "1/2",
+    "\u00bc": "1/4",
+    "\u00be": "3/4",
+    "\u2153": "1/3",
+    "\u2154": "2/3",
+    "\u215b": "1/8",
+    "\u215c": "3/8",
+    "\u215d": "5/8",
+    "\u215e": "7/8",
+}
+
+
+def _normalize_fractions(text: str) -> str:
+    for char, replacement in _UNICODE_FRACTIONS.items():
+        text = re.sub(rf"(\d){re.escape(char)}", rf"\1 {replacement}", text)
+        text = text.replace(char, replacement)
+    return text
+
+
+def _parse_ingredient_line(raw: str) -> Dict[str, Any]:
+    """Split an ingredient string into {amount, unit, name, notes}."""
+    raw = _normalize_fractions(raw.strip())
+    m = _INGREDIENT_RE.match(raw)
+    if not m:
+        return {"name": raw, "amount": None, "unit": None, "notes": None}
+
+    amount = (m.group("amount") or "").strip() or None
+    unit = _normalize_unit((m.group("unit") or "").strip() or None)
+    rest = (m.group("name") or "").strip()
+
+    rest = re.sub(r"^of\s+(?:the\s+)?", "", rest, flags=re.I).strip()
+
+    name, notes = rest, None
+    if "," in rest:
+        parts = rest.split(",", 1)
+        name = parts[0].strip()
+        notes = parts[1].strip()
+    return {"name": name, "amount": amount, "unit": unit, "notes": notes}
+
+
+_NUTRITION_PATTERNS: List[Tuple[str, str]] = [
+    (r"calories?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*(?:kcal)?",                  "calories"),
+    (r"total\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                       "fat"),
+    (r"saturated\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                   "saturated_fat"),
+    (r"trans\s+fat\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                       "trans_fat"),
+    (r"cholesterol\s*[:\-]\s*(\d+(?:\.\d+)?)\s*mg?",                      "cholesterol"),
+    (r"sodium\s*[:\-]\s*(\d+(?:\.\d+)?)\s*mg?",                           "sodium"),
+    (r"(?:total\s+)?carb(?:ohydrate)?s?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",  "carbohydrates"),
+    (r"(?:dietary\s+)?fiber\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",              "fiber"),
+    (r"(?:total\s+)?sugars?\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",              "sugar"),
+    (r"protein\s*[:\-]\s*(\d+(?:\.\d+)?)\s*g?",                           "protein"),
+]
+
+
+def _extract_nutrition_from_notes(
+    notes_text: str,
+) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    if not notes_text:
+        return None, notes_text
+
+    nutrition: Dict[str, str] = {}
+    remaining_lines: List[str] = []
+
+    for line in notes_text.splitlines():
+        matched = False
+        for pattern, key in _NUTRITION_PATTERNS:
+            m = re.search(pattern, line, re.I)
+            if m:
+                nutrition[key] = m.group(1)
+                matched = True
+                break
+        if not matched:
+            remaining_lines.append(line)
+
+    if not nutrition:
+        return None, notes_text
+
+    cleaned = "\n".join(remaining_lines).strip() or None
+    return nutrition, cleaned
