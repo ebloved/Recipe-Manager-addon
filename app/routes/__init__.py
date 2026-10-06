@@ -8,6 +8,7 @@ from . import (
     shopping,
     sync,
     ingredients,
+    products,
     profiles,
     matcher,
     recipes,
@@ -21,6 +22,7 @@ api_router.include_router(meal_plan.router)
 api_router.include_router(shopping.router)
 api_router.include_router(sync.router)
 api_router.include_router(ingredients.router)
+api_router.include_router(products.router)
 api_router.include_router(profiles.router)
 api_router.include_router(matcher.router)
 api_router.include_router(recipes.router)

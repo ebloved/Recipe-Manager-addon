@@ -3,6 +3,10 @@ set -e
 
 CONFIG_PATH=/data/options.json
 
+# --- Пути для опциональной установки зависимостей -------------------------
+EXTRA_PACKAGES_DIR="/data/.extra_packages"
+EXTRA_MARKER="${EXTRA_PACKAGES_DIR}/.installed"
+
 # --- Режим работы ----------------------------------------------------------
 export RUNTIME_MODE="$(jq --raw-output '.runtime_mode // "standard"' $CONFIG_PATH)"
 
@@ -88,6 +92,55 @@ case "${RUNTIME_MODE}" in
         export FEATURE_GENERATOR="false"
         ;;
 esac
+
+# ==========================================================================
+# Локальный эмбеддер: опциональная установка sentence-transformers + onnxruntime
+# ==========================================================================
+#
+# Устанавливаем только если пользователь включил local_embedder_enabled=true.
+# Пакеты идут в /data/.extra_packages — персистентная папка, переживает
+# пересборку образа и перезапуски контейнера. Маркер .installed не даёт
+# повторять pip install при каждом старте.
+#
+# Установка занимает 30–120 секунд при первом запуске (зависит от скорости
+# сети до PyPI). Модель HuggingFace скачается в /data/.hf_cache при первом
+# использовании эмбеддера.
+
+install_local_embedder_deps() {
+    bashio::log.info "Local embedder enabled — installing sentence-transformers and onnxruntime (first run may take up to 2 minutes)…"
+    mkdir -p "$EXTRA_PACKAGES_DIR"
+
+    if ! /opt/venv/bin/pip install \
+            --target="$EXTRA_PACKAGES_DIR" \
+            --no-cache-dir \
+            --upgrade \
+            sentence-transformers onnxruntime 2>&1; then
+        bashio::log.error "Failed to install local embedder deps. Local embeddings will be unavailable."
+        return 1
+    fi
+
+    touch "$EXTRA_MARKER"
+    bashio::log.info "Local embedder deps installed successfully."
+    return 0
+}
+
+if [ "${LOCAL_EMBEDDER_ENABLED}" = "true" ]; then
+    if [ -f "$EXTRA_MARKER" ]; then
+        bashio::log.info "Local embedder deps already installed (marker: $EXTRA_MARKER)"
+    else
+        install_local_embedder_deps || true
+    fi
+
+    # Продлеваем PYTHONPATH, чтобы Python видел пакеты из /data/.extra_packages
+    export PYTHONPATH="${EXTRA_PACKAGES_DIR}:${PYTHONPATH}"
+    bashio::log.info "PYTHONPATH extended with ${EXTRA_PACKAGES_DIR}"
+
+    # Кэш моделей HuggingFace — в /data, чтобы не перекачивать при перезапусках
+    export HF_HOME="/data/.hf_cache"
+    export TRANSFORMERS_CACHE="/data/.hf_cache"
+    export SENTENCE_TRANSFORMERS_HOME="/data/.hf_cache"
+    mkdir -p "$HF_HOME"
+fi
 
 # --- Логирование конфигурации ---------------------------------------------
 bashio::log.info "Starting Recipe Manager add-on on port 8099"
