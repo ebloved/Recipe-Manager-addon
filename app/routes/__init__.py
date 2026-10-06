@@ -8,7 +8,6 @@ from . import (
     shopping,
     sync,
     ingredients,
-    products,
     profiles,
     matcher,
     recipes,

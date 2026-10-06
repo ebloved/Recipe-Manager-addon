@@ -458,7 +458,7 @@
     const ids = new Set(Object.values(s.ingredientLinks));
     if (ids.size) {
       Promise.all([...ids].map((id) =>
-        getJSON(`api/products/${id}`)
+        getJSON(`api/ingredients/${id}`)
           .then((d) => [id, d.product])
           .catch(() => [id, null])
       )).then((results) => {
