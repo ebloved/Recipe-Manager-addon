@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=16">
+<link rel="stylesheet" href="static/css/style.css?v=18">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -19,6 +19,13 @@
     <button class="tab" data-panel="sync">☁️ Синхронизация</button>
     <button class="tab" data-panel="youtube">YouTube</button>
     <button class="tab" data-panel="import">Импорт</button>
+  </div>
+  <div class="profile-selector" id="profile-selector">
+    <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
+    <select id="profile-select" class="profile-select" title="Активный профиль">
+      <option value="">Без профиля</option>
+    </select>
+    <button class="profile-manage-btn" id="profile-manage-btn" title="Управление профилями">⚙️</button>
   </div>
 </header>
 
@@ -105,8 +112,8 @@
     <div class="panel-inner">
       <div class="card">
         <div class="hint">
-          Синхронизация рецептов с репозиторием GitHub. Настройки задаются
-          в Configuration аддона (репозиторий, токен, ветка, путь к файлу).
+          Синхронизация рецептов и базы продуктов с репозиторием GitHub.
+          Настройки задаются в Configuration аддона.
         </div>
         <div class="sync-status" id="sync-status">
           <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
@@ -310,8 +317,8 @@ servings: 4
         <button class="product-editor-close" id="product-editor-close">×</button>
       </div>
     </div>
+    <div class="status" id="product-editor-status"></div>
 
-    <!-- Сканер внутри модалки -->
     <div class="product-editor-scanner" id="product-editor-scanner" style="display:none">
       <video id="product-editor-video" autoplay playsinline muted></video>
       <div class="barcode-scanner-overlay">
@@ -388,8 +395,6 @@ servings: 4
           <button class="btn" id="product-editor-alias-add">Добавить</button>
         </div>
       </div>
-
-      <div class="status" id="product-editor-status"></div>
     </div>
 
     <div class="product-editor-footer">
@@ -399,6 +404,106 @@ servings: 4
       <div class="editor-footer-right">
         <button class="btn" id="product-editor-cancel">Отмена</button>
         <button class="btn primary" id="product-editor-save">💾 Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Gen profiles manager modal -->
+<div class="profiles-overlay" id="profiles-overlay">
+  <div class="profiles-panel">
+    <div class="profiles-header">
+      <h3 id="profiles-title">Профили генерации</h3>
+      <div class="profiles-header-actions">
+        <button class="editor-btn" id="profiles-add">+ Новый</button>
+        <button class="product-editor-close" id="profiles-close">×</button>
+      </div>
+    </div>
+
+    <div class="profiles-body">
+      <div class="profiles-list" id="profiles-list"></div>
+
+      <div class="profiles-editor" id="profiles-editor" style="display:none">
+        <div class="profiles-editor-header">
+          <h4 id="profiles-editor-title">Новый профиль</h4>
+        </div>
+
+        <div class="field">
+          <label for="profile-name">Название *</label>
+          <input type="text" id="profile-name" placeholder="Например, Здоровое и быстрое">
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="profile-icon">Иконка (эмодзи)</label>
+            <input type="text" id="profile-icon" maxlength="4" placeholder="🥗">
+          </div>
+          <div class="field">
+            <label for="profile-description">Описание</label>
+            <input type="text" id="profile-description" placeholder="Краткое пояснение">
+          </div>
+        </div>
+
+        <div class="editor-section-title">Ограничения</div>
+
+        <div class="editor-three">
+          <div class="field">
+            <label for="profile-max-kcal">Макс. ккал/порция</label>
+            <input type="number" min="0" id="profile-max-kcal" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-active">Макс. активное, мин</label>
+            <input type="number" min="0" id="profile-max-active" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-total">Макс. всего, мин</label>
+            <input type="number" min="0" id="profile-max-total" placeholder="Пусто = нет">
+          </div>
+        </div>
+
+        <div class="editor-three">
+          <div class="field">
+            <label for="profile-min-protein">Мин. белок, г/порция</label>
+            <input type="number" min="0" id="profile-min-protein" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-sugar">Макс. сахар, г/порция</label>
+            <input type="number" min="0" id="profile-max-sugar" placeholder="Пусто = нет">
+          </div>
+          <div class="field"></div>
+        </div>
+
+        <div class="field">
+          <label for="profile-avoid-methods">Избегать способов готовки (через запятую)</label>
+          <input type="text" id="profile-avoid-methods" placeholder="жарка, фритюр">
+        </div>
+
+        <div class="field">
+          <label for="profile-prefer-methods">Предпочитать способы готовки</label>
+          <input type="text" id="profile-prefer-methods" placeholder="варка, пар, запекание">
+        </div>
+
+        <div class="field">
+          <label for="profile-avoid-ingredients">Избегать ингредиентов</label>
+          <input type="text" id="profile-avoid-ingredients" placeholder="майонез, сливки">
+        </div>
+
+        <div class="field">
+          <label for="profile-prefer-ingredients">Предпочитать ингредиенты</label>
+          <input type="text" id="profile-prefer-ingredients" placeholder="овощи, зелень">
+        </div>
+
+        <div class="status" id="profile-editor-status"></div>
+
+        <div class="profiles-editor-footer">
+          <div>
+            <button class="btn danger" id="profile-delete" style="display:none">🗑️ Удалить</button>
+          </div>
+          <div class="editor-footer-right">
+            <button class="btn" id="profile-cancel">Отмена</button>
+            <button class="btn primary" id="profile-save">💾 Сохранить</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -428,22 +533,23 @@ servings: 4
 <!-- ==================================================== Editor overlay (recipe) -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=16"></script>
-<script src="static/js/api.js?v=16"></script>
-<script src="static/js/state.js?v=16"></script>
-<script src="static/js/tabs.js?v=16"></script>
-<script src="static/js/youtube.js?v=16"></script>
-<script src="static/js/imports.js?v=16"></script>
-<script src="static/js/recipes.js?v=16"></script>
-<script src="static/js/detail.js?v=16"></script>
-<script src="static/js/editor.js?v=16"></script>
-<script src="static/js/plan-picker.js?v=16"></script>
-<script src="static/js/planner.js?v=16"></script>
-<script src="static/js/recipe-picker.js?v=16"></script>
-<script src="static/js/shopping.js?v=16"></script>
-<script src="static/js/products.js?v=16"></script>
-<script src="static/js/sync.js?v=16"></script>
-<script src="static/js/live-sync.js?v=16"></script>
-<script src="static/js/app.js?v=16"></script>
+<script src="static/js/utils.js?v=18"></script>
+<script src="static/js/api.js?v=18"></script>
+<script src="static/js/state.js?v=18"></script>
+<script src="static/js/tabs.js?v=18"></script>
+<script src="static/js/youtube.js?v=18"></script>
+<script src="static/js/imports.js?v=18"></script>
+<script src="static/js/recipes.js?v=18"></script>
+<script src="static/js/detail.js?v=18"></script>
+<script src="static/js/editor.js?v=18"></script>
+<script src="static/js/plan-picker.js?v=18"></script>
+<script src="static/js/planner.js?v=18"></script>
+<script src="static/js/recipe-picker.js?v=18"></script>
+<script src="static/js/shopping.js?v=18"></script>
+<script src="static/js/products.js?v=18"></script>
+<script src="static/js/profiles.js?v=18"></script>
+<script src="static/js/sync.js?v=18"></script>
+<script src="static/js/live-sync.js?v=18"></script>
+<script src="static/js/app.js?v=18"></script>
 </body>
 </html>
