@@ -401,10 +401,25 @@
   // =====================================================================
 
   async function onQuickLookup() {
+    if (RM.productPicker && typeof RM.productPicker.open === "function") {
+      RM.productPicker.open(
+        "",
+        null,
+        async (productId /*, product */) => {
+          // После выбора/создания продукта обновим список
+          if (productId) await load();
+        },
+        {
+          tab: "barcode",
+          title: "Найти по штрих-коду",
+          subtitle: "Отсканируйте или введите GTIN вручную",
+        }
+      );
+      return;
+    }
+    // Fallback: если picker почему-то не загружен — старый путь через редактор
     openEditor(null);
-    setTimeout(() => {
-      $("product-editor-barcode").focus();
-    }, 100);
+    setTimeout(() => $("product-editor-barcode").focus(), 100);
   }
 
   // =====================================================================

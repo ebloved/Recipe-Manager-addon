@@ -23,7 +23,7 @@
  *   POST   /api/ingredients/import-from-off → {product, created}
  *
  * Публичный API:
- *   RM.productPicker.open(name, currentProductId, onSelect)
+ *   RM.productPicker.open(name, currentProductId, onSelect, options)
  *     name             — имя ингредиента
  *     currentProductId — текущий id продукта (или null)
  *     onSelect         — callback(productId | null, product | null)
@@ -99,7 +99,9 @@
   // -----------------------------------------------------------------
   // Open / close
   // -----------------------------------------------------------------
-  async function open(name, currentProductId, onSelect) {
+  async function open(name, currentProductId, onSelect, options) {
+    const opts = options || {};
+
     s.ingredientName = (name || "").trim();
     s.currentProductId = currentProductId || null;
     s.onSelect = onSelect || null;
@@ -107,8 +109,8 @@
     s.barcodeResult = null;
     s.currentProduct = null;
 
-    $("pp-title").textContent = "Связать с продуктом";
-    $("pp-subtitle").textContent = s.ingredientName || "(без названия)";
+    $("pp-title").textContent = opts.title || "Связать с продуктом";
+    $("pp-subtitle").textContent = s.ingredientName || opts.subtitle || "";
 
     clearStatus($("pp-status"));
 
@@ -133,10 +135,10 @@
     resetCreateForm();
     stopScanner();
 
-    switchTab("search");
+    switchTab(opts.tab || "search");
     $("product-picker-overlay").classList.add("show");
 
-    if (!s.currentProductId && s.ingredientName) {
+    if (!s.currentProductId && s.ingredientName && !opts.tab) {
       setTimeout(() => searchProducts(s.ingredientName), 100);
     }
   }
