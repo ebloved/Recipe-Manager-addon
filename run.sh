@@ -46,11 +46,13 @@ export GITHUB_TOKEN="$(jq --raw-output '.github_token // ""' $CONFIG_PATH)"
 export GITHUB_BRANCH="$(jq --raw-output '.github_branch // "main"' $CONFIG_PATH)"
 export GITHUB_PATH="$(jq --raw-output '.github_path // "recipes.json"' $CONFIG_PATH)"
 
+export GITHUB_INGREDIENTS_ENABLED="$(jq --raw-output '.github_ingredients_enabled // true' $CONFIG_PATH)"
+export GITHUB_INGREDIENTS_PATH="$(jq --raw-output '.github_ingredients_path // "ingredients.json"' $CONFIG_PATH)"
+
 # --- Прочее ---------------------------------------------------------------
 export LOG_LEVEL="$(jq --raw-output '.log_level // "info"' $CONFIG_PATH)"
 
 # --- Feature flags выводятся из runtime_mode ------------------------------
-# Определяем, какие фичи включены, в зависимости от выбранного режима.
 case "${RUNTIME_MODE}" in
     minimal)
         export FEATURE_PRODUCTS="false"
@@ -90,6 +92,7 @@ bashio::log.info "Open Food Facts: $([ "${OFF_ENABLED}" = "true" ] && echo "enab
 bashio::log.info "OFF contribute: $([ "${OFF_CONTRIBUTE_ENABLED}" = "true" ] && echo "yes" || echo "no")"
 bashio::log.info "Matcher: ${MATCHER_PROVIDER}$([ "${MATCHER_EXTERNAL_ENABLED}" = "true" ] && echo " + external" || echo "")"
 bashio::log.info "GitHub: $([ -n "${GITHUB_REPO}" ] && echo "${GITHUB_REPO}@${GITHUB_BRANCH}" || echo 'not configured')"
+bashio::log.info "GitHub ingredients sync: $([ "${GITHUB_INGREDIENTS_ENABLED}" = "true" ] && echo "yes (${GITHUB_INGREDIENTS_PATH})" || echo "no")"
 bashio::log.info "Features: products=${FEATURE_PRODUCTS} matcher=${FEATURE_MATCHER} profiles=${FEATURE_PROFILES} generator=${FEATURE_GENERATOR}"
 
 exec /opt/venv/bin/uvicorn main:app \

@@ -48,8 +48,6 @@ SUB_LANGS = os.environ.get("SUB_LANGS", "ru.*")
 COOKIES_FILE = os.environ.get("COOKIES_FILE") or None
 
 # --- OpenFoodFacts ---------------------------------------------------------
-# Чтение (поиск по штрих-коду) работает без ключей.
-# Запись (контрибуция) требует логин/пароль от аккаунта на OFF.
 
 OFF_ENABLED = os.environ.get("OFF_ENABLED", "true").strip().lower() == "true"
 OFF_CONTRIBUTE_ENABLED = os.environ.get("OFF_CONTRIBUTE_ENABLED", "false").strip().lower() == "true"
@@ -66,8 +64,6 @@ OFF_CACHE_TTL_DAYS = int(os.environ.get("OFF_CACHE_TTL_DAYS", "7") or 7)
 # --- Матчинг ингредиентов --------------------------------------------------
 
 MATCHER_PROVIDER = os.environ.get("MATCHER_PROVIDER", "auto").strip().lower()
-# auto | gemini | external | local | none
-
 MATCHER_EXTERNAL_ENABLED = os.environ.get("MATCHER_EXTERNAL_ENABLED", "false").strip().lower() == "true"
 MATCHER_EXTERNAL_URL = os.environ.get("MATCHER_EXTERNAL_URL", "").strip().rstrip("/")
 MATCHER_EXTERNAL_KEY = os.environ.get("MATCHER_EXTERNAL_KEY", "")
@@ -77,7 +73,6 @@ MATCHER_DAILY_LIMIT = int(os.environ.get("MATCHER_DAILY_LIMIT", "200") or 200)
 MATCHER_AUTO_THRESHOLD = float(os.environ.get("MATCHER_AUTO_THRESHOLD", "0.95") or 0.95)
 MATCHER_SUGGEST_THRESHOLD = float(os.environ.get("MATCHER_SUGGEST_THRESHOLD", "0.80") or 0.80)
 MATCHER_CONFIRM_MODE = os.environ.get("MATCHER_CONFIRM_MODE", "single").strip().lower()
-# single | batch | auto
 
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001").strip()
 EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "768") or 768)
@@ -90,8 +85,16 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main").strip() or "main"
 GITHUB_PATH = os.environ.get("GITHUB_PATH", "recipes.json").strip() or "recipes.json"
 
+# Синхронизация справочника продуктов (второй файл в том же коммите)
+GITHUB_INGREDIENTS_ENABLED = (
+    os.environ.get("GITHUB_INGREDIENTS_ENABLED", "true").strip().lower() == "true"
+)
+GITHUB_INGREDIENTS_PATH = (
+    os.environ.get("GITHUB_INGREDIENTS_PATH", "ingredients.json").strip()
+    or "ingredients.json"
+)
+
 # --- Feature flags ---------------------------------------------------------
-# Позволяют включать/выключать крупные модули без их удаления.
 
 FEATURE_PRODUCTS = os.environ.get("FEATURE_PRODUCTS", "true").strip().lower() == "true"
 FEATURE_MATCHER = os.environ.get("FEATURE_MATCHER", "false").strip().lower() == "true"
@@ -99,7 +102,5 @@ FEATURE_PROFILES = os.environ.get("FEATURE_PROFILES", "false").strip().lower() =
 FEATURE_GENERATOR = os.environ.get("FEATURE_GENERATOR", "false").strip().lower() == "true"
 
 # --- Режим работы ----------------------------------------------------------
-# minimal | standard | full
-# Влияет на дефолтные значения фич и доступные провайдеры.
 
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "standard").strip().lower() or "standard"

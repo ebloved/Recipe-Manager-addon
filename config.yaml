@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.4.0"
+version: "1.4.1"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -19,80 +19,65 @@ init: false
 host_network: false
 
 options:
-  # --- Режим работы ----------------------------------------------------
-  runtime_mode: "standard"          # minimal | standard | full
+  runtime_mode: "standard"
 
-  # --- Gemini (генерация, embeddings) ----------------------------------
   gemini_api_key: ""
   gemini_models: "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash"
   gemini_proxy: ""
 
-  # --- yt-dlp ----------------------------------------------------------
   sub_langs: "ru.*"
   cookies_file: ""
 
-  # --- Open Food Facts -------------------------------------------------
   off_enabled: true
-  off_subdomain: "world"            # world | ru | us | fr | de | es | it | uk
+  off_subdomain: "world"
   off_user_agent: "HomeAssistant-RecipeManager/1.0 (add-on)"
   off_cache_ttl_days: 7
-
-  # Контрибуция (отправка продуктов в публичную базу). По умолчанию выключена.
   off_contribute_enabled: false
   off_user_id: ""
   off_password: ""
 
-  # --- Матчинг ингредиентов --------------------------------------------
-  matcher_provider: "auto"          # auto | gemini | external | local | none
-  matcher_confirm_mode: "single"    # single | batch | auto
+  matcher_provider: "auto"
+  matcher_confirm_mode: "single"
   matcher_auto_threshold: 0.95
   matcher_suggest_threshold: 0.80
   matcher_daily_limit: 200
 
-  # Внешний OpenAI-совместимый endpoint (Hermes, OpenRouter, Groq, Ollama...)
   matcher_external_enabled: false
   matcher_external_url: ""
   matcher_external_key: ""
   matcher_external_model: "hermes-agent"
 
-  # Embedding-модель
   embedding_model: "gemini-embedding-001"
   embedding_dim: 768
 
-  # --- GitHub sync -----------------------------------------------------
   github_repo: ""
   github_username: ""
   github_token: ""
   github_branch: "main"
   github_path: "recipes.json"
+  github_ingredients_enabled: true
+  github_ingredients_path: "ingredients.json"
 
-  # --- Прочее ----------------------------------------------------------
   log_level: "info"
 
 schema:
-  # --- Режим работы ----------------------------------------------------
   runtime_mode: "list(minimal|standard|full)"
 
-  # --- Gemini ----------------------------------------------------------
   gemini_api_key: "password"
   gemini_models: "str"
   gemini_proxy: "str?"
 
-  # --- yt-dlp ----------------------------------------------------------
   sub_langs: "str"
   cookies_file: "str?"
 
-  # --- Open Food Facts -------------------------------------------------
   off_enabled: "bool"
   off_subdomain: "list(world|ru|us|fr|de|es|it|uk)"
   off_user_agent: "str"
   off_cache_ttl_days: "int(1,365)"
-
   off_contribute_enabled: "bool"
   off_user_id: "str?"
   off_password: "password?"
 
-  # --- Матчинг ингредиентов --------------------------------------------
   matcher_provider: "list(auto|gemini|external|local|none)"
   matcher_confirm_mode: "list(single|batch|auto)"
   matcher_auto_threshold: "float(0.5,1.0)"
@@ -107,14 +92,14 @@ schema:
   embedding_model: "str"
   embedding_dim: "int(64,4096)"
 
-  # --- GitHub sync -----------------------------------------------------
   github_repo: "str?"
   github_username: "str?"
   github_token: "password?"
   github_branch: "str?"
   github_path: "str?"
+  github_ingredients_enabled: "bool"
+  github_ingredients_path: "str?"
 
-  # --- Прочее ----------------------------------------------------------
   log_level: "list(trace|debug|info|notice|warning|error|fatal)"
 
 map:
