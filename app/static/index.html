@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=15">
+<link rel="stylesheet" href="static/css/style.css?v=16">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -13,9 +13,9 @@
   <h1>Recipe Manager</h1>
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
+    <button class="tab" data-panel="products">🧺 Продукты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
-    <button class="tab" data-panel="products">📦 Продукты</button>
     <button class="tab" data-panel="sync">☁️ Синхронизация</button>
     <button class="tab" data-panel="youtube">YouTube</button>
     <button class="tab" data-panel="import">Импорт</button>
@@ -23,8 +23,7 @@
 </header>
 
 <main>
-
-  <!-- ============================================================ Recipes -->
+  <!-- ==================================================== Recipes -->
   <section class="panel active" id="panel-recipes">
     <div class="panel-inner">
       <div class="search-row">
@@ -36,7 +35,32 @@
     </div>
   </section>
 
-  <!-- ============================================================ Planner -->
+  <!-- ==================================================== Products -->
+  <section class="panel" id="panel-products">
+    <div class="panel-inner">
+      <div class="products-toolbar">
+        <div class="products-search">
+          <input type="search" id="products-search" placeholder="🔍 Поиск по названию или алиасу…">
+          <select id="products-category-filter" class="products-category-filter">
+            <option value="">Все категории</option>
+          </select>
+        </div>
+        <div class="products-actions">
+          <button class="btn primary" id="products-add">+ Новый продукт</button>
+          <button class="btn" id="products-lookup">📷 Найти по штрих-коду</button>
+          <label class="products-show-deleted">
+            <input type="checkbox" id="products-show-deleted">
+            Показать удалённые
+          </label>
+        </div>
+      </div>
+      <div id="products-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Planner -->
   <section class="panel" id="panel-planner">
     <div class="planner-wrap">
       <div class="planner-header">
@@ -51,7 +75,7 @@
     </div>
   </section>
 
-  <!-- ============================================================ Shopping -->
+  <!-- ==================================================== Shopping -->
   <section class="panel" id="panel-shopping">
     <div class="panel-inner">
       <div class="shopping-toolbar">
@@ -76,41 +100,13 @@
     </div>
   </section>
 
-  <!-- ============================================================ Products -->
-  <section class="panel" id="panel-products">
-    <div class="panel-inner">
-      <div class="products-toolbar">
-        <div class="products-search-row">
-          <input type="search" id="products-search" placeholder="🔍 Поиск по имени, бренду, штрих-коду…">
-          <button class="btn" id="products-refresh" title="Обновить">🔄</button>
-          <button class="btn primary" id="products-create">+ Добавить продукт</button>
-          <button class="btn" id="products-export" title="Скачать ingredients.json">💾 JSON</button>
-        </div>
-        <div class="products-stats-row">
-          <div class="prod-stats" id="products-stats"></div>
-          <label class="products-filter">
-            <input type="checkbox" id="products-include-deleted">
-            Показать удалённые
-          </label>
-        </div>
-      </div>
-
-      <div class="products-bulk-bar" id="products-bulk-bar"></div>
-
-      <div id="products-container">
-        <div class="loading"><span class="spinner"></span> Загрузка…</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ Sync -->
+  <!-- ==================================================== Sync -->
   <section class="panel" id="panel-sync">
     <div class="panel-inner">
       <div class="card">
         <div class="hint">
-          Синхронизация рецептов и базы продуктов с репозиторием GitHub.
-          Настройки задаются в Configuration аддона (репозиторий, токен,
-          ветка, пути к файлам).
+          Синхронизация рецептов с репозиторием GitHub. Настройки задаются
+          в Configuration аддона (репозиторий, токен, ветка, путь к файлу).
         </div>
         <div class="sync-status" id="sync-status">
           <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
@@ -124,7 +120,7 @@
     </div>
   </section>
 
-  <!-- ============================================================ YouTube -->
+  <!-- ==================================================== YouTube -->
   <section class="panel" id="panel-youtube">
     <div class="panel-inner">
       <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
@@ -149,7 +145,7 @@
     </div>
   </section>
 
-  <!-- ============================================================ Import -->
+  <!-- ==================================================== Import -->
   <section class="panel" id="panel-import">
     <div class="panel-inner">
       <div class="sub-tabs">
@@ -158,7 +154,6 @@
         <button class="sub-tab" data-subpanel="manual">✏️ Вручную</button>
       </div>
 
-      <!-- --- Scrape --- -->
       <div class="subpanel active" id="subpanel-scrape">
         <div class="card">
           <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
@@ -171,7 +166,6 @@
         </div>
       </div>
 
-      <!-- --- Markdown --- -->
       <div class="subpanel" id="subpanel-markdown">
         <div class="card">
           <div class="field">
@@ -184,7 +178,7 @@
 
         <div class="card">
           <div class="field">
-            <label>Загрузить один .md файл с устройства</label>
+            <label>Загрузить .md файл с устройства</label>
             <label class="file-drop" for="md-file">
               📎 Выбрать файл .md
               <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
@@ -193,19 +187,6 @@
           </div>
           <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
           <div class="status" id="md-file-status"></div>
-        </div>
-
-        <div class="card">
-          <div class="field">
-            <label>Массовый импорт .md файлов</label>
-            <label class="file-drop" for="md-batch">
-              📎 Выбрать несколько .md файлов
-              <input type="file" id="md-batch" accept=".md,text/markdown,text/plain" multiple>
-            </label>
-            <div id="md-batch-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
-          </div>
-          <button class="btn primary" id="md-batch-save" disabled>Импортировать все</button>
-          <div class="status" id="md-batch-status"></div>
         </div>
 
         <div class="card">
@@ -228,7 +209,6 @@ servings: 4
         </div>
       </div>
 
-      <!-- --- Manual --- -->
       <div class="subpanel" id="subpanel-manual">
         <div class="card">
           <div class="hint">Откройте полноценный редактор для создания рецепта вручную.</div>
@@ -237,19 +217,14 @@ servings: 4
       </div>
     </div>
   </section>
-
 </main>
 
-<!-- ==================================================================== -->
-<!-- Overlays                                                              -->
-<!-- ==================================================================== -->
-
-<!-- Recipe detail -->
+<!-- ==================================================== Detail overlay -->
 <div class="detail-overlay" id="detail-overlay">
   <div class="detail-panel" id="detail-panel"></div>
 </div>
 
-<!-- Plan picker (add recipe to meal plan) -->
+<!-- ==================================================== Plan picker modal -->
 <div class="plan-picker-overlay" id="plan-picker">
   <div class="plan-picker-panel">
     <div class="plan-picker-header">
@@ -272,7 +247,7 @@ servings: 4
   </div>
 </div>
 
-<!-- Recipe picker (choose recipe from planner) -->
+<!-- ==================================================== Recipe picker (from planner) -->
 <div class="plan-picker-overlay" id="recipe-picker-overlay">
   <div class="plan-picker-panel recipe-picker-panel">
     <div class="plan-picker-header">
@@ -294,7 +269,7 @@ servings: 4
   </div>
 </div>
 
-<!-- Barcode scanner (shopping) -->
+<!-- ==================================================== Barcode lookup (shopping) -->
 <div class="barcode-overlay" id="barcode-overlay">
   <div class="barcode-panel">
     <div class="barcode-header">
@@ -325,7 +300,111 @@ servings: 4
   </div>
 </div>
 
-<!-- Add ingredients from recipe to shopping -->
+<!-- ==================================================== Product editor modal -->
+<div class="product-editor-overlay" id="product-editor-overlay">
+  <div class="product-editor-panel">
+    <div class="product-editor-header">
+      <h3 id="product-editor-title">Новый продукт</h3>
+      <div class="product-editor-header-actions">
+        <button class="editor-btn" id="product-editor-scan" title="Сканировать штрих-код">📷 Сканировать</button>
+        <button class="product-editor-close" id="product-editor-close">×</button>
+      </div>
+    </div>
+
+    <!-- Сканер внутри модалки -->
+    <div class="product-editor-scanner" id="product-editor-scanner" style="display:none">
+      <video id="product-editor-video" autoplay playsinline muted></video>
+      <div class="barcode-scanner-overlay">
+        <div class="barcode-scan-hint" id="product-editor-scan-hint">Наведите камеру на штрих-код</div>
+        <div class="barcode-scan-frame"></div>
+        <div class="barcode-scan-status" id="product-editor-scan-status"></div>
+        <button class="btn" id="product-editor-scan-stop">Остановить</button>
+      </div>
+    </div>
+
+    <div class="product-editor-body">
+      <div class="field">
+        <label for="product-editor-name">Название *</label>
+        <input type="text" id="product-editor-name" placeholder="Греческий йогурт 2%">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="product-editor-barcode">Штрих-код</label>
+          <div class="barcode-row">
+            <input type="text" id="product-editor-barcode" inputmode="numeric" placeholder="4600…">
+            <button class="btn" id="product-editor-lookup" title="Найти в Open Food Facts">🔍</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="product-editor-brand">Бренд</label>
+          <input type="text" id="product-editor-brand" placeholder="Parmalat">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="product-editor-category">Категория</label>
+          <input type="text" id="product-editor-category" placeholder="Молочное">
+        </div>
+        <div class="field">
+          <label for="product-editor-unit">Единица по умолчанию</label>
+          <select id="product-editor-unit">
+            <option value="г">г</option>
+            <option value="мл">мл</option>
+            <option value="шт">шт</option>
+            <option value="уп">уп</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="editor-section-title">КБЖУ на 100 г</div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-cal">Калории</label><input type="number" step="0.1" min="0" id="product-editor-cal"></div>
+        <div class="field"><label for="product-editor-prot">Белки</label><input type="number" step="0.1" min="0" id="product-editor-prot"></div>
+        <div class="field"><label for="product-editor-fat">Жиры</label><input type="number" step="0.1" min="0" id="product-editor-fat"></div>
+      </div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-carb">Углеводы</label><input type="number" step="0.1" min="0" id="product-editor-carb"></div>
+        <div class="field"><label for="product-editor-fiber">Клетчатка</label><input type="number" step="0.1" min="0" id="product-editor-fiber"></div>
+        <div class="field"><label for="product-editor-sugar">Сахара</label><input type="number" step="0.1" min="0" id="product-editor-sugar"></div>
+      </div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-sodium">Натрий (мг)</label><input type="number" step="0.1" min="0" id="product-editor-sodium"></div>
+        <div class="field"><label for="product-editor-satfat">Насыщ. жиры</label><input type="number" step="0.1" min="0" id="product-editor-satfat"></div>
+        <div class="field"></div>
+      </div>
+
+      <div class="field">
+        <label for="product-editor-image">Ссылка на фото</label>
+        <input type="url" id="product-editor-image" placeholder="https://…">
+      </div>
+
+      <div class="editor-section-title">Алиасы (синонимы для поиска)</div>
+      <div class="field">
+        <div class="aliases-editor" id="product-editor-aliases-list"></div>
+        <div class="aliases-add-row">
+          <input type="text" id="product-editor-alias-input" placeholder="Например, греч. йогурт 2%">
+          <button class="btn" id="product-editor-alias-add">Добавить</button>
+        </div>
+      </div>
+
+      <div class="status" id="product-editor-status"></div>
+    </div>
+
+    <div class="product-editor-footer">
+      <div>
+        <button class="btn danger" id="product-editor-delete" style="display:none">🗑️ Удалить</button>
+      </div>
+      <div class="editor-footer-right">
+        <button class="btn" id="product-editor-cancel">Отмена</button>
+        <button class="btn primary" id="product-editor-save">💾 Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Add-from-recipe modal (shopping) -->
 <div class="recipe-shop-overlay" id="recipe-shop-overlay">
   <div class="recipe-shop-panel">
     <div class="barcode-header">
@@ -346,138 +425,25 @@ servings: 4
   </div>
 </div>
 
-<!-- Recipe editor -->
+<!-- ==================================================== Editor overlay (recipe) -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<!-- Product editor (products tab) -->
-<div class="editor-overlay" id="products-editor-overlay"></div>
-
-<!-- Product picker (linking ingredient to product) -->
-<div class="plan-picker-overlay" id="product-picker-overlay">
-  <div class="plan-picker-panel pp-panel">
-    <div class="plan-picker-header">
-      <div>
-        <h3 id="pp-title">Связать с продуктом</h3>
-        <div class="pp-subtitle" id="pp-subtitle"></div>
-      </div>
-      <button class="plan-picker-close" id="pp-close">×</button>
-    </div>
-
-    <div class="pp-current" id="pp-current" style="display:none">
-      <div class="pp-current-info" id="pp-current-info"></div>
-      <button class="btn small danger" id="pp-current-unlink">Отвязать</button>
-    </div>
-
-    <div class="sub-tabs pp-tabs">
-      <button class="sub-tab active" data-pp-tab="search">🔍 Поиск</button>
-      <button class="sub-tab" data-pp-tab="barcode">📷 По штрих-коду</button>
-      <button class="sub-tab" data-pp-tab="create">✏️ Создать</button>
-    </div>
-
-    <!-- Search -->
-    <div class="pp-pane" id="pp-pane-search">
-      <div class="field" style="margin-bottom:10px">
-        <input type="search" id="pp-search-input" placeholder="Название продукта…">
-      </div>
-      <div class="pp-results" id="pp-search-results"></div>
-    </div>
-
-    <!-- Barcode -->
-    <div class="pp-pane" id="pp-pane-barcode" style="display:none">
-      <div class="field">
-        <label for="pp-barcode-input">Штрих-код (GTIN)</label>
-        <div class="barcode-row">
-          <input type="text" id="pp-barcode-input" inputmode="numeric" placeholder="4607123456789">
-          <button class="btn primary" id="pp-barcode-search">Найти</button>
-        </div>
-      </div>
-      <div id="pp-barcode-result"></div>
-    </div>
-
-    <!-- Create -->
-    <div class="pp-pane" id="pp-pane-create" style="display:none">
-      <div class="field">
-        <label>Название *</label>
-        <input type="text" id="pp-new-name">
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>Бренд</label>
-          <input type="text" id="pp-new-brand">
-        </div>
-        <div class="field">
-          <label>Категория</label>
-          <input type="text" id="pp-new-category">
-        </div>
-      </div>
-      <div class="field">
-        <label>Штрих-код</label>
-        <input type="text" id="pp-new-barcode" inputmode="numeric">
-      </div>
-      <div class="field">
-        <label>Алиасы (через запятую)</label>
-        <input type="text" id="pp-new-aliases">
-      </div>
-      <button class="btn primary" id="pp-new-create" style="width:100%">
-        💾 Создать и связать
-      </button>
-    </div>
-
-    <div class="status" id="pp-status"></div>
-  </div>
-</div>
-
-<!-- Matcher batch confirmation -->
-<div class="plan-picker-overlay" id="matcher-batch-overlay">
-  <div class="plan-picker-panel mb-panel">
-    <div class="plan-picker-header">
-      <div>
-        <h3 id="mb-title">Очередь связок</h3>
-        <div class="pp-subtitle" id="mb-subtitle"></div>
-      </div>
-      <button class="plan-picker-close" id="mb-close">×</button>
-    </div>
-
-    <div id="mb-empty" class="pp-empty" style="display:none">
-      <div style="font-size:32px;opacity:0.5">✅</div>
-      <p>Очередь пуста. Все связки подтверждены или пропущены.</p>
-    </div>
-
-    <div id="mb-list"></div>
-
-    <div class="status" id="mb-status"></div>
-
-    <div class="mb-footer" id="mb-footer" style="display:none">
-      <button class="btn" id="mb-skip-all">Пропустить всё</button>
-      <div class="editor-footer-right">
-        <button class="btn" id="mb-close-footer">Закрыть</button>
-        <button class="btn primary" id="mb-confirm-all">Подтвердить всё</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================================================================== -->
-<!-- Scripts (порядок важен)                                               -->
-<!-- ==================================================================== -->
-<script src="static/js/utils.js?v=15"></script>
-<script src="static/js/api.js?v=15"></script>
-<script src="static/js/state.js?v=15"></script>
-<script src="static/js/tabs.js?v=15"></script>
-<script src="static/js/youtube.js?v=15"></script>
-<script src="static/js/imports.js?v=15"></script>
-<script src="static/js/recipes.js?v=15"></script>
-<script src="static/js/product-picker.js?v=15"></script>
-<script src="static/js/detail.js?v=15"></script>
-<script src="static/js/editor.js?v=15"></script>
-<script src="static/js/products.js?v=15"></script>
-<script src="static/js/matcher-batch.js?v=15"></script>
-<script src="static/js/plan-picker.js?v=15"></script>
-<script src="static/js/planner.js?v=15"></script>
-<script src="static/js/recipe-picker.js?v=15"></script>
-<script src="static/js/shopping.js?v=15"></script>
-<script src="static/js/sync.js?v=15"></script>
-<script src="static/js/live-sync.js?v=15"></script>
-<script src="static/js/app.js?v=15"></script>
+<script src="static/js/utils.js?v=16"></script>
+<script src="static/js/api.js?v=16"></script>
+<script src="static/js/state.js?v=16"></script>
+<script src="static/js/tabs.js?v=16"></script>
+<script src="static/js/youtube.js?v=16"></script>
+<script src="static/js/imports.js?v=16"></script>
+<script src="static/js/recipes.js?v=16"></script>
+<script src="static/js/detail.js?v=16"></script>
+<script src="static/js/editor.js?v=16"></script>
+<script src="static/js/plan-picker.js?v=16"></script>
+<script src="static/js/planner.js?v=16"></script>
+<script src="static/js/recipe-picker.js?v=16"></script>
+<script src="static/js/shopping.js?v=16"></script>
+<script src="static/js/products.js?v=16"></script>
+<script src="static/js/sync.js?v=16"></script>
+<script src="static/js/live-sync.js?v=16"></script>
+<script src="static/js/app.js?v=16"></script>
 </body>
 </html>

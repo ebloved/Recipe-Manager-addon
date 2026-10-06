@@ -1,0 +1,1482 @@
+{
+  "schema_version": 1,
+  "description": "Базовый каталог продуктов. Поставляется с плагином, при первом запуске копируется в /data/ingredients.json. Данные усреднённые, пользователь может редактировать локальную копию.",
+  "products": [
+    {
+      "key": "potato",
+      "name": "Картофель",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["картошка", "картофель свежий"],
+      "nutrition_per_100g": {
+        "calories": 77, "protein": 2.0, "fat": 0.1, "carbohydrates": 17.0,
+        "fiber": 2.2, "sugar": 0.8, "sodium": 6
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "carrot",
+      "name": "Морковь",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["морковка"],
+      "nutrition_per_100g": {
+        "calories": 41, "protein": 0.9, "fat": 0.2, "carbohydrates": 9.6,
+        "fiber": 2.8, "sugar": 4.7, "sodium": 69
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "onion",
+      "name": "Лук репчатый",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["лук", "лучок"],
+      "nutrition_per_100g": {
+        "calories": 41, "protein": 1.1, "fat": 0.1, "carbohydrates": 9.3,
+        "fiber": 1.7, "sugar": 4.2, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "green_onion",
+      "name": "Лук зелёный",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["зелёный лук"],
+      "nutrition_per_100g": {
+        "calories": 19, "protein": 1.3, "fat": 0.1, "carbohydrates": 3.2,
+        "fiber": 1.8, "sugar": 1.5, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cabbage_white",
+      "name": "Капуста белокочанная",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["капуста"],
+      "nutrition_per_100g": {
+        "calories": 25, "protein": 1.3, "fat": 0.1, "carbohydrates": 5.8,
+        "fiber": 2.5, "sugar": 3.2, "sodium": 18
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cabbage_cauliflower",
+      "name": "Капуста цветная",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["цветная капуста"],
+      "nutrition_per_100g": {
+        "calories": 25, "protein": 1.9, "fat": 0.3, "carbohydrates": 5.0,
+        "fiber": 2.0, "sugar": 1.9, "sodium": 30
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "broccoli",
+      "name": "Брокколи",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 34, "protein": 2.8, "fat": 0.4, "carbohydrates": 6.6,
+        "fiber": 2.6, "sugar": 1.7, "sodium": 33
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "tomato",
+      "name": "Помидор",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["помидоры", "томат", "томаты"],
+      "nutrition_per_100g": {
+        "calories": 18, "protein": 0.9, "fat": 0.2, "carbohydrates": 3.9,
+        "fiber": 1.2, "sugar": 2.6, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cucumber",
+      "name": "Огурец",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["огурцы"],
+      "nutrition_per_100g": {
+        "calories": 15, "protein": 0.7, "fat": 0.1, "carbohydrates": 3.6,
+        "fiber": 0.5, "sugar": 1.7, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "bell_pepper",
+      "name": "Перец болгарский",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["перец сладкий", "болгарский перец"],
+      "nutrition_per_100g": {
+        "calories": 27, "protein": 1.0, "fat": 0.3, "carbohydrates": 6.0,
+        "fiber": 2.1, "sugar": 4.2, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "eggplant",
+      "name": "Баклажан",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["баклажаны", "синенькие"],
+      "nutrition_per_100g": {
+        "calories": 25, "protein": 1.2, "fat": 0.1, "carbohydrates": 5.9,
+        "fiber": 3.0, "sugar": 2.4, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "zucchini",
+      "name": "Кабачок",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["кабачки"],
+      "nutrition_per_100g": {
+        "calories": 17, "protein": 1.2, "fat": 0.3, "carbohydrates": 3.1,
+        "fiber": 1.0, "sugar": 2.5, "sodium": 8
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "beet",
+      "name": "Свёкла",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["свекла", "буряк"],
+      "nutrition_per_100g": {
+        "calories": 43, "protein": 1.6, "fat": 0.2, "carbohydrates": 9.6,
+        "fiber": 2.8, "sugar": 6.8, "sodium": 78
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "radish",
+      "name": "Редис",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": ["редиска"],
+      "nutrition_per_100g": {
+        "calories": 16, "protein": 0.7, "fat": 0.1, "carbohydrates": 3.4,
+        "fiber": 1.6, "sugar": 1.9, "sodium": 39
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "garlic",
+      "name": "Чеснок",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 149, "protein": 6.4, "fat": 0.5, "carbohydrates": 33.1,
+        "fiber": 2.1, "sugar": 1.0, "sodium": 17
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pumpkin",
+      "name": "Тыква",
+      "category": "Овощи",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 26, "protein": 1.0, "fat": 0.1, "carbohydrates": 6.5,
+        "fiber": 0.5, "sugar": 2.8, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "parsley",
+      "name": "Петрушка",
+      "category": "Зелень",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 36, "protein": 3.0, "fat": 0.8, "carbohydrates": 6.3,
+        "fiber": 3.3, "sugar": 0.9, "sodium": 56
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "dill",
+      "name": "Укроп",
+      "category": "Зелень",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 43, "protein": 3.5, "fat": 1.1, "carbohydrates": 7.0,
+        "fiber": 2.1, "sugar": 0.0, "sodium": 61
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cilantro",
+      "name": "Кинза",
+      "category": "Зелень",
+      "kind": "weighted",
+      "aliases": ["кориандр свежий"],
+      "nutrition_per_100g": {
+        "calories": 23, "protein": 2.1, "fat": 0.5, "carbohydrates": 3.7,
+        "fiber": 2.8, "sugar": 0.9, "sodium": 46
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "basil_fresh",
+      "name": "Базилик свежий",
+      "category": "Зелень",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 23, "protein": 3.2, "fat": 0.6, "carbohydrates": 2.6,
+        "fiber": 1.6, "sugar": 0.3, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "lettuce",
+      "name": "Салат листовой",
+      "category": "Зелень",
+      "kind": "weighted",
+      "aliases": ["салат"],
+      "nutrition_per_100g": {
+        "calories": 15, "protein": 1.4, "fat": 0.2, "carbohydrates": 2.9,
+        "fiber": 1.3, "sugar": 0.8, "sodium": 28
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "apple",
+      "name": "Яблоко",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["яблоки"],
+      "nutrition_per_100g": {
+        "calories": 52, "protein": 0.3, "fat": 0.2, "carbohydrates": 13.8,
+        "fiber": 2.4, "sugar": 10.4, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pear",
+      "name": "Груша",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["груши"],
+      "nutrition_per_100g": {
+        "calories": 57, "protein": 0.4, "fat": 0.1, "carbohydrates": 15.2,
+        "fiber": 3.1, "sugar": 9.8, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "banana",
+      "name": "Банан",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["бананы"],
+      "nutrition_per_100g": {
+        "calories": 89, "protein": 1.1, "fat": 0.3, "carbohydrates": 22.8,
+        "fiber": 2.6, "sugar": 12.2, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "orange",
+      "name": "Апельсин",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["апельсины"],
+      "nutrition_per_100g": {
+        "calories": 47, "protein": 0.9, "fat": 0.1, "carbohydrates": 11.8,
+        "fiber": 2.4, "sugar": 9.4, "sodium": 0
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "mandarin",
+      "name": "Мандарин",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["мандарины"],
+      "nutrition_per_100g": {
+        "calories": 53, "protein": 0.8, "fat": 0.3, "carbohydrates": 13.3,
+        "fiber": 1.8, "sugar": 10.6, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "lemon",
+      "name": "Лимон",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": ["лимоны"],
+      "nutrition_per_100g": {
+        "calories": 29, "protein": 1.1, "fat": 0.3, "carbohydrates": 9.3,
+        "fiber": 2.8, "sugar": 2.5, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "grape",
+      "name": "Виноград",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 69, "protein": 0.7, "fat": 0.2, "carbohydrates": 18.1,
+        "fiber": 0.9, "sugar": 15.5, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "strawberry",
+      "name": "Клубника",
+      "category": "Ягоды",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 32, "protein": 0.7, "fat": 0.3, "carbohydrates": 7.7,
+        "fiber": 2.0, "sugar": 4.9, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "raspberry",
+      "name": "Малина",
+      "category": "Ягоды",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 52, "protein": 1.2, "fat": 0.7, "carbohydrates": 11.9,
+        "fiber": 6.5, "sugar": 4.4, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "blueberry",
+      "name": "Черника",
+      "category": "Ягоды",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 57, "protein": 0.7, "fat": 0.3, "carbohydrates": 14.5,
+        "fiber": 2.4, "sugar": 10.0, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "currant_black",
+      "name": "Смородина чёрная",
+      "category": "Ягоды",
+      "kind": "weighted",
+      "aliases": ["чёрная смородина"],
+      "nutrition_per_100g": {
+        "calories": 63, "protein": 1.4, "fat": 0.4, "carbohydrates": 15.4,
+        "fiber": 4.3, "sugar": 8.0, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cherry",
+      "name": "Вишня",
+      "category": "Ягоды",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 50, "protein": 1.0, "fat": 0.3, "carbohydrates": 12.2,
+        "fiber": 1.6, "sugar": 8.5, "sodium": 3
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "peach",
+      "name": "Персик",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 39, "protein": 0.9, "fat": 0.3, "carbohydrates": 9.5,
+        "fiber": 1.5, "sugar": 8.4, "sodium": 0
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "apricot",
+      "name": "Абрикос",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 48, "protein": 1.4, "fat": 0.4, "carbohydrates": 11.1,
+        "fiber": 2.0, "sugar": 9.2, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "watermelon",
+      "name": "Арбуз",
+      "category": "Фрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 30, "protein": 0.6, "fat": 0.2, "carbohydrates": 7.6,
+        "fiber": 0.4, "sugar": 6.2, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "raisin",
+      "name": "Изюм",
+      "category": "Сухофрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 299, "protein": 3.1, "fat": 0.5, "carbohydrates": 79.2,
+        "fiber": 3.7, "sugar": 59.2, "sodium": 11
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "dried_apricot",
+      "name": "Курага",
+      "category": "Сухофрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 241, "protein": 3.4, "fat": 0.5, "carbohydrates": 62.6,
+        "fiber": 7.3, "sugar": 53.4, "sodium": 10
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "prunes",
+      "name": "Чернослив",
+      "category": "Сухофрукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 240, "protein": 2.2, "fat": 0.4, "carbohydrates": 63.9,
+        "fiber": 7.1, "sugar": 38.1, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "beef",
+      "name": "Говядина",
+      "category": "Мясо",
+      "kind": "weighted",
+      "aliases": ["говядина без кости"],
+      "nutrition_per_100g": {
+        "calories": 187, "protein": 18.6, "fat": 12.4, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 55
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pork",
+      "name": "Свинина",
+      "category": "Мясо",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 263, "protein": 17.1, "fat": 21.5, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 51
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "lamb",
+      "name": "Баранина",
+      "category": "Мясо",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 203, "protein": 16.2, "fat": 15.3, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 58
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "chicken_breast",
+      "name": "Куриная грудка",
+      "category": "Птица",
+      "kind": "weighted",
+      "aliases": ["куриное филе", "филе курицы", "грудка куриная"],
+      "nutrition_per_100g": {
+        "calories": 113, "protein": 23.6, "fat": 1.9, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 45
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "chicken_thigh",
+      "name": "Куриное бедро",
+      "category": "Птица",
+      "kind": "weighted",
+      "aliases": ["бедро куриное", "куриные бёдра"],
+      "nutrition_per_100g": {
+        "calories": 185, "protein": 19.4, "fat": 11.4, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 85
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "turkey",
+      "name": "Индейка",
+      "category": "Птица",
+      "kind": "weighted",
+      "aliases": ["индейка филе"],
+      "nutrition_per_100g": {
+        "calories": 104, "protein": 21.6, "fat": 1.5, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 63
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "salmon",
+      "name": "Лосось",
+      "category": "Рыба",
+      "kind": "weighted",
+      "aliases": ["семга", "сёмга", "красная рыба"],
+      "nutrition_per_100g": {
+        "calories": 208, "protein": 20.4, "fat": 13.4, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 59
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "tuna",
+      "name": "Тунец",
+      "category": "Рыба",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 144, "protein": 23.3, "fat": 4.9, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 50
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cod",
+      "name": "Треска",
+      "category": "Рыба",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 82, "protein": 17.8, "fat": 0.7, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 54
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pollock",
+      "name": "Минтай",
+      "category": "Рыба",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 72, "protein": 15.9, "fat": 0.9, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 100
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "herring",
+      "name": "Сельдь",
+      "category": "Рыба",
+      "kind": "weighted",
+      "aliases": ["селедка", "селёдка"],
+      "nutrition_per_100g": {
+        "calories": 158, "protein": 18.0, "fat": 9.0, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 100
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "shrimp",
+      "name": "Креветки",
+      "category": "Морепродукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 99, "protein": 24.0, "fat": 0.3, "carbohydrates": 0.2,
+        "fiber": 0, "sugar": 0, "sodium": 111
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "squid",
+      "name": "Кальмар",
+      "category": "Морепродукты",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 92, "protein": 15.6, "fat": 1.4, "carbohydrates": 3.1,
+        "fiber": 0, "sugar": 0, "sodium": 44
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "egg_chicken",
+      "name": "Яйцо куриное",
+      "category": "Яйца",
+      "kind": "weighted",
+      "aliases": ["яйцо", "яйца"],
+      "nutrition_per_100g": {
+        "calories": 143, "protein": 12.6, "fat": 9.5, "carbohydrates": 0.7,
+        "fiber": 0, "sugar": 0.4, "sodium": 142
+      },
+      "default_unit": "шт"
+    },
+    {
+      "key": "egg_quail",
+      "name": "Яйцо перепелиное",
+      "category": "Яйца",
+      "kind": "weighted",
+      "aliases": ["перепелиное яйцо"],
+      "nutrition_per_100g": {
+        "calories": 168, "protein": 13.1, "fat": 11.1, "carbohydrates": 0.4,
+        "fiber": 0, "sugar": 0.4, "sodium": 129
+      },
+      "default_unit": "шт"
+    },
+    {
+      "key": "milk_2_5",
+      "name": "Молоко 2.5%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["молоко"],
+      "nutrition_per_100g": {
+        "calories": 52, "protein": 2.9, "fat": 2.5, "carbohydrates": 4.7,
+        "fiber": 0, "sugar": 4.7, "sodium": 50
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "milk_3_2",
+      "name": "Молоко 3.2%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 60, "protein": 2.9, "fat": 3.2, "carbohydrates": 4.7,
+        "fiber": 0, "sugar": 4.7, "sodium": 50
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "kefir_2_5",
+      "name": "Кефир 2.5%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["кефир"],
+      "nutrition_per_100g": {
+        "calories": 51, "protein": 2.8, "fat": 2.5, "carbohydrates": 3.9,
+        "fiber": 0, "sugar": 3.9, "sodium": 50
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "yogurt_greek_2",
+      "name": "Йогурт греческий 2%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["греческий йогурт 2%", "греч. йогурт 2%", "йогурт греческий"],
+      "nutrition_per_100g": {
+        "calories": 73, "protein": 9.0, "fat": 2.0, "carbohydrates": 4.0,
+        "fiber": 0, "sugar": 4.0, "sodium": 36
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "yogurt_natural",
+      "name": "Йогурт натуральный",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["йогурт без добавок", "натуральный йогурт"],
+      "nutrition_per_100g": {
+        "calories": 66, "protein": 4.3, "fat": 3.2, "carbohydrates": 5.0,
+        "fiber": 0, "sugar": 5.0, "sodium": 45
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sour_cream_15",
+      "name": "Сметана 15%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["сметана"],
+      "nutrition_per_100g": {
+        "calories": 162, "protein": 2.6, "fat": 15.0, "carbohydrates": 3.6,
+        "fiber": 0, "sugar": 3.6, "sodium": 35
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sour_cream_20",
+      "name": "Сметана 20%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 206, "protein": 2.5, "fat": 20.0, "carbohydrates": 3.4,
+        "fiber": 0, "sugar": 3.4, "sodium": 35
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cottage_5",
+      "name": "Творог 5%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["творог"],
+      "nutrition_per_100g": {
+        "calories": 121, "protein": 17.0, "fat": 5.0, "carbohydrates": 1.8,
+        "fiber": 0, "sugar": 1.8, "sodium": 41
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cottage_9",
+      "name": "Творог 9%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 159, "protein": 16.0, "fat": 9.0, "carbohydrates": 2.0,
+        "fiber": 0, "sugar": 2.0, "sodium": 41
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cottage_grain_6",
+      "name": "Творог зернёный 6%",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["зернёный творог"],
+      "nutrition_per_100g": {
+        "calories": 157, "protein": 16.0, "fat": 9.0, "carbohydrates": 3.0,
+        "fiber": 0, "sugar": 3.0, "sodium": 41
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cheese_hard",
+      "name": "Сыр твёрдый",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["сыр"],
+      "nutrition_per_100g": {
+        "calories": 364, "protein": 25.0, "fat": 29.0, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 650
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "mozzarella",
+      "name": "Сыр моцарелла",
+      "category": "Молочное",
+      "kind": "packaged",
+      "aliases": ["моцарелла"],
+      "nutrition_per_100g": {
+        "calories": 240, "protein": 18.0, "fat": 18.0, "carbohydrates": 2.2,
+        "fiber": 0, "sugar": 1.0, "sodium": 373
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "butter",
+      "name": "Масло сливочное",
+      "category": "Жиры и масла",
+      "kind": "packaged",
+      "aliases": ["сливочное масло"],
+      "nutrition_per_100g": {
+        "calories": 748, "protein": 0.5, "fat": 82.5, "carbohydrates": 0.8,
+        "fiber": 0, "sugar": 0.8, "sodium": 15
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "oil_sunflower",
+      "name": "Масло подсолнечное",
+      "category": "Жиры и масла",
+      "kind": "packaged",
+      "aliases": ["подсолнечное масло", "растительное масло"],
+      "nutrition_per_100g": {
+        "calories": 899, "protein": 0, "fat": 99.9, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 0
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "oil_olive",
+      "name": "Масло оливковое",
+      "category": "Жиры и масла",
+      "kind": "packaged",
+      "aliases": ["оливковое масло"],
+      "nutrition_per_100g": {
+        "calories": 898, "protein": 0, "fat": 99.8, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 2
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "rice_white",
+      "name": "Рис белый",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["рис"],
+      "nutrition_per_100g": {
+        "calories": 344, "protein": 6.7, "fat": 0.7, "carbohydrates": 78.9,
+        "fiber": 1.3, "sugar": 0.1, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "rice_brown",
+      "name": "Рис бурый",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["бурый рис", "коричневый рис"],
+      "nutrition_per_100g": {
+        "calories": 337, "protein": 7.4, "fat": 1.8, "carbohydrates": 72.9,
+        "fiber": 3.5, "sugar": 0.7, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "buckwheat",
+      "name": "Гречка",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["гречневая крупа", "греча"],
+      "nutrition_per_100g": {
+        "calories": 343, "protein": 12.6, "fat": 3.3, "carbohydrates": 71.5,
+        "fiber": 10.0, "sugar": 0.0, "sodium": 3
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "oats",
+      "name": "Овсянка",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["овсяные хлопья", "геркулес"],
+      "nutrition_per_100g": {
+        "calories": 366, "protein": 12.3, "fat": 6.1, "carbohydrates": 59.5,
+        "fiber": 8.0, "sugar": 1.0, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "millet",
+      "name": "Пшено",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 348, "protein": 11.5, "fat": 3.3, "carbohydrates": 69.3,
+        "fiber": 3.6, "sugar": 0.0, "sodium": 10
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pearl_barley",
+      "name": "Перловка",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["перловая крупа", "перловка"],
+      "nutrition_per_100g": {
+        "calories": 315, "protein": 9.3, "fat": 1.1, "carbohydrates": 73.7,
+        "fiber": 7.8, "sugar": 0.9, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "couscous",
+      "name": "Кускус",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 376, "protein": 12.8, "fat": 0.6, "carbohydrates": 77.4,
+        "fiber": 5.0, "sugar": 0.0, "sodium": 10
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "bulgur",
+      "name": "Булгур",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 342, "protein": 12.3, "fat": 1.3, "carbohydrates": 75.9,
+        "fiber": 12.5, "sugar": 0.4, "sodium": 17
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "quinoa",
+      "name": "Киноа",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 368, "protein": 14.1, "fat": 6.1, "carbohydrates": 64.2,
+        "fiber": 7.0, "sugar": 0.0, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "semolina",
+      "name": "Манка",
+      "category": "Крупы",
+      "kind": "packaged",
+      "aliases": ["манная крупа"],
+      "nutrition_per_100g": {
+        "calories": 333, "protein": 10.3, "fat": 1.0, "carbohydrates": 70.6,
+        "fiber": 3.6, "sugar": 0.0, "sodium": 3
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pasta",
+      "name": "Макароны",
+      "category": "Макароны",
+      "kind": "packaged",
+      "aliases": ["паста", "спагетти", "пенне"],
+      "nutrition_per_100g": {
+        "calories": 350, "protein": 12.5, "fat": 1.5, "carbohydrates": 70.5,
+        "fiber": 3.0, "sugar": 2.5, "sodium": 6
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "flour_wheat",
+      "name": "Мука пшеничная",
+      "category": "Мука",
+      "kind": "packaged",
+      "aliases": ["мука"],
+      "nutrition_per_100g": {
+        "calories": 334, "protein": 10.3, "fat": 1.1, "carbohydrates": 70.6,
+        "fiber": 2.7, "sugar": 0.2, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "flour_rice",
+      "name": "Мука рисовая",
+      "category": "Мука",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 366, "protein": 5.9, "fat": 1.4, "carbohydrates": 80.1,
+        "fiber": 2.4, "sugar": 0.1, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "flour_corn",
+      "name": "Мука кукурузная",
+      "category": "Мука",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 361, "protein": 6.9, "fat": 3.9, "carbohydrates": 76.9,
+        "fiber": 7.3, "sugar": 0.6, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "beans_red",
+      "name": "Фасоль красная",
+      "category": "Бобовые",
+      "kind": "packaged",
+      "aliases": ["фасоль"],
+      "nutrition_per_100g": {
+        "calories": 333, "protein": 23.6, "fat": 0.8, "carbohydrates": 60.0,
+        "fiber": 15.2, "sugar": 2.1, "sodium": 15
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "peas",
+      "name": "Горох",
+      "category": "Бобовые",
+      "kind": "packaged",
+      "aliases": ["горошек сушёный"],
+      "nutrition_per_100g": {
+        "calories": 298, "protein": 20.5, "fat": 2.0, "carbohydrates": 49.5,
+        "fiber": 10.7, "sugar": 0.0, "sodium": 33
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "lentils",
+      "name": "Чечевица",
+      "category": "Бобовые",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 352, "protein": 24.6, "fat": 1.1, "carbohydrates": 60.1,
+        "fiber": 10.7, "sugar": 2.0, "sodium": 6
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "chickpeas",
+      "name": "Нут",
+      "category": "Бобовые",
+      "kind": "packaged",
+      "aliases": ["турецкий горох"],
+      "nutrition_per_100g": {
+        "calories": 378, "protein": 20.1, "fat": 6.0, "carbohydrates": 63.0,
+        "fiber": 12.2, "sugar": 10.7, "sodium": 24
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "bread_white",
+      "name": "Хлеб белый",
+      "category": "Хлеб",
+      "kind": "packaged",
+      "aliases": ["батон"],
+      "nutrition_per_100g": {
+        "calories": 266, "protein": 8.2, "fat": 3.2, "carbohydrates": 49.0,
+        "fiber": 2.5, "sugar": 4.5, "sodium": 480
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "bread_black",
+      "name": "Хлеб чёрный",
+      "category": "Хлеб",
+      "kind": "packaged",
+      "aliases": ["ржаной хлеб", "бородинский"],
+      "nutrition_per_100g": {
+        "calories": 214, "protein": 6.8, "fat": 1.2, "carbohydrates": 42.7,
+        "fiber": 6.0, "sugar": 2.0, "sodium": 400
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "lavash",
+      "name": "Лаваш",
+      "category": "Хлеб",
+      "kind": "packaged",
+      "aliases": ["лаваш армянский", "тонкий лаваш"],
+      "nutrition_per_100g": {
+        "calories": 277, "protein": 9.1, "fat": 1.2, "carbohydrates": 57.4,
+        "fiber": 2.0, "sugar": 2.0, "sodium": 480
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "walnut",
+      "name": "Грецкий орех",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": ["грецкие орехи"],
+      "nutrition_per_100g": {
+        "calories": 654, "protein": 15.2, "fat": 65.2, "carbohydrates": 13.7,
+        "fiber": 6.7, "sugar": 2.6, "sodium": 2
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "almond",
+      "name": "Миндаль",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": ["миндальные орехи"],
+      "nutrition_per_100g": {
+        "calories": 575, "protein": 21.2, "fat": 49.4, "carbohydrates": 21.7,
+        "fiber": 12.5, "sugar": 4.3, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "cashew",
+      "name": "Кешью",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 553, "protein": 18.2, "fat": 43.8, "carbohydrates": 30.2,
+        "fiber": 3.3, "sugar": 5.9, "sodium": 12
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "peanut",
+      "name": "Арахис",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": ["земляной орех"],
+      "nutrition_per_100g": {
+        "calories": 567, "protein": 25.8, "fat": 49.2, "carbohydrates": 16.1,
+        "fiber": 8.5, "sugar": 4.7, "sodium": 18
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sunflower_seeds",
+      "name": "Семечки подсолнечника",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": ["семечки"],
+      "nutrition_per_100g": {
+        "calories": 584, "protein": 20.8, "fat": 51.5, "carbohydrates": 20.0,
+        "fiber": 8.6, "sugar": 2.6, "sodium": 9
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sesame",
+      "name": "Кунжут",
+      "category": "Орехи",
+      "kind": "weighted",
+      "aliases": ["кунжутное семя"],
+      "nutrition_per_100g": {
+        "calories": 573, "protein": 17.7, "fat": 49.7, "carbohydrates": 23.4,
+        "fiber": 11.8, "sugar": 0.3, "sodium": 11
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "mayonnaise",
+      "name": "Майонез",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 621, "protein": 0.3, "fat": 67.0, "carbohydrates": 2.6,
+        "fiber": 0, "sugar": 1.0, "sodium": 635
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "ketchup",
+      "name": "Кетчуп",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": ["томатный соус"],
+      "nutrition_per_100g": {
+        "calories": 97, "protein": 1.2, "fat": 0.2, "carbohydrates": 22.2,
+        "fiber": 0.5, "sugar": 18.0, "sodium": 900
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "soy_sauce",
+      "name": "Соевый соус",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 53, "protein": 8.1, "fat": 0.1, "carbohydrates": 4.9,
+        "fiber": 0.8, "sugar": 0.4, "sodium": 5493
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "mustard",
+      "name": "Горчица",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 143, "protein": 5.7, "fat": 6.4, "carbohydrates": 22.0,
+        "fiber": 3.3, "sugar": 4.0, "sodium": 1135
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "tomato_paste",
+      "name": "Томатная паста",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": ["паста томатная"],
+      "nutrition_per_100g": {
+        "calories": 92, "protein": 4.9, "fat": 0.5, "carbohydrates": 19.0,
+        "fiber": 3.0, "sugar": 12.0, "sodium": 60
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "vinegar_9",
+      "name": "Уксус 9%",
+      "category": "Соусы",
+      "kind": "packaged",
+      "aliases": ["уксус"],
+      "nutrition_per_100g": {
+        "calories": 20, "protein": 0, "fat": 0, "carbohydrates": 3.0,
+        "fiber": 0, "sugar": 0, "sodium": 5
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "salt",
+      "name": "Соль",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["соль поваренная"],
+      "nutrition_per_100g": {
+        "calories": 0, "protein": 0, "fat": 0, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 38758
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "pepper_black",
+      "name": "Перец чёрный молотый",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["чёрный перец"],
+      "nutrition_per_100g": {
+        "calories": 251, "protein": 10.4, "fat": 3.3, "carbohydrates": 38.6,
+        "fiber": 25.3, "sugar": 0.6, "sodium": 20
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "paprika_smoked",
+      "name": "Паприка копчёная",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["паприка"],
+      "nutrition_per_100g": {
+        "calories": 282, "protein": 14.1, "fat": 12.9, "carbohydrates": 53.9,
+        "fiber": 34.9, "sugar": 10.3, "sodium": 68
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "basil_dry",
+      "name": "Базилик сушёный",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["сушёный базилик"],
+      "nutrition_per_100g": {
+        "calories": 233, "protein": 23.0, "fat": 4.1, "carbohydrates": 47.8,
+        "fiber": 37.7, "sugar": 1.7, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "oregano",
+      "name": "Орегано",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["душица"],
+      "nutrition_per_100g": {
+        "calories": 265, "protein": 9.0, "fat": 4.3, "carbohydrates": 68.9,
+        "fiber": 42.5, "sugar": 4.1, "sodium": 25
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "bay_leaf",
+      "name": "Лавровый лист",
+      "category": "Специи",
+      "kind": "packaged",
+      "aliases": ["лаврушка"],
+      "nutrition_per_100g": {
+        "calories": 313, "protein": 7.6, "fat": 8.4, "carbohydrates": 74.9,
+        "fiber": 26.3, "sugar": 0.0, "sodium": 23
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sugar",
+      "name": "Сахар",
+      "category": "Сладости",
+      "kind": "packaged",
+      "aliases": ["сахарный песок"],
+      "nutrition_per_100g": {
+        "calories": 387, "protein": 0, "fat": 0, "carbohydrates": 99.8,
+        "fiber": 0, "sugar": 99.8, "sodium": 1
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "honey",
+      "name": "Мёд",
+      "category": "Сладости",
+      "kind": "packaged",
+      "aliases": ["мед"],
+      "nutrition_per_100g": {
+        "calories": 304, "protein": 0.3, "fat": 0, "carbohydrates": 82.4,
+        "fiber": 0.2, "sugar": 82.1, "sodium": 4
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "chocolate_dark",
+      "name": "Шоколад тёмный",
+      "category": "Сладости",
+      "kind": "packaged",
+      "aliases": ["горький шоколад"],
+      "nutrition_per_100g": {
+        "calories": 546, "protein": 4.9, "fat": 31.3, "carbohydrates": 61.2,
+        "fiber": 7.0, "sugar": 47.9, "sodium": 20
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "chocolate_milk",
+      "name": "Шоколад молочный",
+      "category": "Сладости",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 535, "protein": 7.6, "fat": 29.7, "carbohydrates": 59.4,
+        "fiber": 3.4, "sugar": 51.5, "sodium": 79
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "jam_strawberry",
+      "name": "Джем клубничный",
+      "category": "Сладости",
+      "kind": "packaged",
+      "aliases": ["клубничный джем"],
+      "nutrition_per_100g": {
+        "calories": 273, "protein": 0.0, "fat": 0.0, "carbohydrates": 68.0,
+        "fiber": 0.5, "sugar": 65.0, "sodium": 15
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "water",
+      "name": "Вода",
+      "category": "Напитки",
+      "kind": "packaged",
+      "aliases": ["вода питьевая"],
+      "nutrition_per_100g": {
+        "calories": 0, "protein": 0, "fat": 0, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 0
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "tea_black",
+      "name": "Чай чёрный",
+      "category": "Напитки",
+      "kind": "packaged",
+      "aliases": ["чёрный чай"],
+      "nutrition_per_100g": {
+        "calories": 1, "protein": 0, "fat": 0, "carbohydrates": 0.3,
+        "fiber": 0, "sugar": 0, "sodium": 3
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "coffee_brewed",
+      "name": "Кофе",
+      "category": "Напитки",
+      "kind": "packaged",
+      "aliases": ["кофе сваренный", "эспрессо"],
+      "nutrition_per_100g": {
+        "calories": 1, "protein": 0.1, "fat": 0, "carbohydrates": 0,
+        "fiber": 0, "sugar": 0, "sodium": 2
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "orange_juice",
+      "name": "Сок апельсиновый",
+      "category": "Напитки",
+      "kind": "packaged",
+      "aliases": ["апельсиновый сок"],
+      "nutrition_per_100g": {
+        "calories": 45, "protein": 0.7, "fat": 0.2, "carbohydrates": 10.4,
+        "fiber": 0.2, "sugar": 8.4, "sodium": 1
+      },
+      "default_unit": "мл"
+    },
+    {
+      "key": "champignon",
+      "name": "Шампиньоны",
+      "category": "Грибы",
+      "kind": "weighted",
+      "aliases": ["грибы шампиньоны"],
+      "nutrition_per_100g": {
+        "calories": 27, "protein": 4.3, "fat": 1.0, "carbohydrates": 0.1,
+        "fiber": 1.0, "sugar": 2.0, "sodium": 6
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "porcini",
+      "name": "Белые грибы",
+      "category": "Грибы",
+      "kind": "weighted",
+      "aliases": ["белый гриб", "боровик"],
+      "nutrition_per_100g": {
+        "calories": 34, "protein": 3.7, "fat": 1.7, "carbohydrates": 1.1,
+        "fiber": 2.3, "sugar": 1.0, "sodium": 5
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "tofu",
+      "name": "Тофу",
+      "category": "Готовое",
+      "kind": "packaged",
+      "aliases": ["соевый творог"],
+      "nutrition_per_100g": {
+        "calories": 76, "protein": 8.1, "fat": 4.8, "carbohydrates": 1.9,
+        "fiber": 0.3, "sugar": 0.6, "sodium": 7
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "hummus",
+      "name": "Хумус",
+      "category": "Готовое",
+      "kind": "packaged",
+      "aliases": [],
+      "nutrition_per_100g": {
+        "calories": 166, "protein": 7.9, "fat": 9.6, "carbohydrates": 14.3,
+        "fiber": 6.0, "sugar": 0.3, "sodium": 379
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sausage_boiled",
+      "name": "Колбаса варёная",
+      "category": "Готовое",
+      "kind": "packaged",
+      "aliases": ["докторская колбаса"],
+      "nutrition_per_100g": {
+        "calories": 257, "protein": 12.8, "fat": 22.2, "carbohydrates": 1.5,
+        "fiber": 0, "sugar": 1.0, "sodium": 900
+      },
+      "default_unit": "г"
+    },
+    {
+      "key": "sausages",
+      "name": "Сосиски",
+      "category": "Готовое",
+      "kind": "packaged",
+      "aliases": ["сосиска"],
+      "nutrition_per_100g": {
+        "calories": 266, "protein": 11.5, "fat": 23.5, "carbohydrates": 1.8,
+        "fiber": 0, "sugar": 1.0, "sodium": 900
+      },
+      "default_unit": "г"
+    }
+  ]
+}

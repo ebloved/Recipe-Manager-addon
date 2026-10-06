@@ -1,45 +1,14 @@
-"""Хранилище продуктов (ingredients.json).
+"""Хранилище справочника продуктов.
 
-Структура файла:
-    {
-        "schema_version": 1,
-        "installation_id": "<uuid4>",
-        "products": [
-            {
-                "product_id": "<uuid4>",
-                "barcode": "4607123456789" | null,
-                "name": "Греческий йогурт 2%",
-                "brand": "Parmalat" | null,
-                "image_url": "https://..." | null,
-                "category": "Молочные продукты" | null,
-                "source": "openfoodfacts" | "manual" | "recipe",
-                "nutrition_per_100g": {
-                    "calories": 73,
-                    "protein": 9,
-                    "fat": 2,
-                    "carbohydrates": 4,
-                    "fiber": null,
-                    "sugar": null,
-                    "sodium": null
-                } | null,
-                "serving_size_g": 125 | null,
-                "aliases": ["йогурт греческий 2%", "греч. йогурт"],
-                "vectors": {
-                    "gemini-embedding-001:768": [...],
-                    "all-MiniLM-L6-v2:384": [...]
-                },
-                "created_at": "<iso>",
-                "updated_at": "<iso>",
-                "deleted": false,
-                "installation_id": "<uuid4 создателя>"
-            }
-        ]
-    }
+- Инициализация из base_products.json при первом запуске.
+- Детерминированные UUID для базовых продуктов и продуктов OFF.
+- CRUD, мягкое удаление, алиасы, векторы.
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,416 +16,402 @@ from typing import Any
 
 import aiofiles
 
-from config import INGREDIENTS_FILE
+from config import BASE_PRODUCTS_FILE, INGREDIENTS_FILE
 
 
-SCHEMA_VERSION = 1
+# --- Детерминированные UUID ------------------------------------------------
+
+_BASE_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "recipe-manager:base")
+_OFF_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "recipe-manager:off")
+
+
+def base_product_id(key: str) -> str:
+    """UUID базового продукта. Стабилен между версиями плагина."""
+    return str(uuid.uuid5(_BASE_NAMESPACE, key))
+
+
+def off_product_id(barcode: str) -> str:
+    """UUID продукта, пришедшего из OpenFoodFacts (по штрих-коду)."""
+    return str(uuid.uuid5(_OFF_NAMESPACE, str(barcode).strip()))
+
+
+def new_product_id() -> str:
+    """UUID для продукта, созданного пользователем."""
+    return str(uuid.uuid4())
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _normalize_name(name: str) -> str:
-    """Нормализация имени для поиска алиасов."""
-    return (name or "").strip().lower().replace("ё", "е")
+# --- Нормализация имён -----------------------------------------------------
+
+_WS_RE = re.compile(r"\s+")
 
 
-class IngredientStore:
-    """Хранилище продуктов и их связок."""
+def normalize_name(name: str) -> str:
+    """Базовая нормализация для поиска по имени/алиасу.
 
-    def __init__(self, path: Path) -> None:
+    lowercase + схлопывание пробелов + обрезка.
+    Стемминг и остальное — задача matcher-каскада, здесь только минимум.
+    """
+    if not name:
+        return ""
+    s = name.strip().lower()
+    s = _WS_RE.sub(" ", s)
+    return s
+
+
+# --- EAN-13 --------------------------------------------------------------
+
+def is_internal_barcode(barcode: str) -> bool:
+    """Внутренний код магазина (весовой товар). Префикс 20–29 по GS1."""
+    b = (barcode or "").strip()
+    if len(b) < 2 or not b.isdigit():
+        return False
+    return b[:2] in {f"2{i}" for i in range(10)}
+
+
+# --- Хранилище ------------------------------------------------------------
+
+class IngredientsStore:
+    SCHEMA_VERSION = 1
+
+    def __init__(self, path: Path = INGREDIENTS_FILE) -> None:
         self.path = path
-        self.schema_version: int = SCHEMA_VERSION
-        self.installation_id: str = ""
-        self.products: list[dict[str, Any]] = []
+        self.products: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
-    # ------------------------------------------------------------------
-    # Load / save
-    # ------------------------------------------------------------------
+    # --- Загрузка / сохранение ----------------------------------------
 
     async def load(self) -> None:
-        """Загружает файл. Если файла нет — создаёт пустую базу."""
-        if not self.path.exists():
-            self.installation_id = str(uuid.uuid4())
-            self.products = []
-            await self.save()
-            print(f"[ingredients] created new store, installation_id={self.installation_id}")
-            return
+        if self.path.exists():
+            await self._load_from_file()
+        else:
+            await self._init_from_base()
+        added = await self._merge_from_base()
+        print(
+            f"[ingredients] loaded {len(self.products)} products"
+            + (f" (+{added} from base)" if added else "")
+        )
 
+    async def _load_from_file(self) -> None:
         try:
             async with aiofiles.open(self.path, "r", encoding="utf-8") as f:
                 data = json.loads(await f.read())
+            items = data.get("products", [])
+            self.products = {p["id"]: p for p in items if p.get("id")}
         except Exception as exc:  # noqa: BLE001
             print(f"[ingredients] failed to load: {exc}")
-            self.installation_id = str(uuid.uuid4())
-            self.products = []
+            self.products = {}
+
+    async def _init_from_base(self) -> None:
+        """Первичная инициализация из base_products.json."""
+        if not BASE_PRODUCTS_FILE.exists():
+            print(f"[ingredients] base file not found: {BASE_PRODUCTS_FILE}")
+            self.products = {}
+            return
+        try:
+            async with aiofiles.open(BASE_PRODUCTS_FILE, "r", encoding="utf-8") as f:
+                data = json.loads(await f.read())
+        except Exception as exc:  # noqa: BLE001
+            print(f"[ingredients] failed to init from base: {exc}")
+            self.products = {}
             return
 
-        self.schema_version = int(data.get("schema_version", SCHEMA_VERSION))
-        self.installation_id = data.get("installation_id") or str(uuid.uuid4())
-        self.products = data.get("products", []) or []
+        now = _now()
+        for item in data.get("products", []):
+            key = item.get("key")
+            if not key:
+                continue
+            product = self._base_item_to_product(item, now)
+            self.products[product["id"]] = product
+        await self._save_to_file()
 
-        await self._migrate()
+    async def _merge_from_base(self) -> int:
+        """Добавляет новые продукты из base, которых нет локально по key.
 
-    async def save(self) -> None:
+        Существующие не трогает — это позволяет пользователю редактировать
+        базовые продукты, не теряя свои правки при обновлении плагина.
+        Удалённые (soft delete) не воскрешает.
+        """
+        if not BASE_PRODUCTS_FILE.exists():
+            return 0
+        try:
+            async with aiofiles.open(BASE_PRODUCTS_FILE, "r", encoding="utf-8") as f:
+                data = json.loads(await f.read())
+        except Exception as exc:  # noqa: BLE001
+            print(f"[ingredients] failed to read base for merge: {exc}")
+            return 0
+
+        existing_keys = {p.get("key") for p in self.products.values() if p.get("key")}
+        now = _now()
+        added = 0
+        for item in data.get("products", []):
+            key = item.get("key")
+            if not key or key in existing_keys:
+                continue
+            product = self._base_item_to_product(item, now)
+            self.products[product["id"]] = product
+            added += 1
+
+        if added:
+            await self._save_to_file()
+        return added
+
+    def _base_item_to_product(self, item: dict[str, Any], now: str) -> dict[str, Any]:
+        """Преобразует запись base_products.json в полноценный продукт."""
+        key = item["key"]
+        return {
+            "id": base_product_id(key),
+            "key": key,
+            "name": item.get("name", ""),
+            "category": item.get("category"),
+            "kind": item.get("kind", "weighted"),
+            "barcode": None,
+            "brand": None,
+            "aliases": list(item.get("aliases") or []),
+            "nutrition_per_100g": dict(item.get("nutrition_per_100g") or {}),
+            "default_unit": item.get("default_unit", "г"),
+            "image_url": None,
+            "source": "base",
+            "off_last_sync": None,
+            "deleted": False,
+            "created_at": now,
+            "updated_at": now,
+            "vectors": {},
+        }
+
+    async def _save_to_file(self) -> None:
         async with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".tmp")
             payload = {
-                "schema_version": self.schema_version,
-                "installation_id": self.installation_id,
-                "products": self.products,
+                "schema_version": self.SCHEMA_VERSION,
+                "products": list(self.products.values()),
             }
             async with aiofiles.open(tmp, "w", encoding="utf-8") as f:
                 await f.write(json.dumps(payload, ensure_ascii=False, indent=2))
             tmp.replace(self.path)
 
-    async def _migrate(self) -> None:
-        """Применяет миграции схемы. Сейчас ничего не делает, но структура готова."""
-        if self.schema_version == SCHEMA_VERSION:
-            return
-        # Пример будущей миграции:
-        # if self.schema_version == 1:
-        #     ... преобразование ...
-        #     self.schema_version = 2
-        self.schema_version = SCHEMA_VERSION
-        await self.save()
+    async def save(self) -> None:
+        await self._save_to_file()
 
-    # ------------------------------------------------------------------
-    # Query
-    # ------------------------------------------------------------------
+    # --- Чтение --------------------------------------------------------
 
-    def get(self, product_id: str) -> dict[str, Any] | None:
-        """Возвращает продукт по product_id (включая удалённые)."""
-        return next((p for p in self.products if p.get("product_id") == product_id), None)
-
-    def get_active(self, product_id: str) -> dict[str, Any] | None:
-        """Возвращает продукт по product_id, если он не удалён."""
-        p = self.get(product_id)
-        if p and not p.get("deleted"):
-            return p
-        return None
-
-    def get_by_barcode(self, barcode: str) -> dict[str, Any] | None:
-        """Поиск продукта по штрих-коду (только активные)."""
-        if not barcode:
-            return None
-        code = str(barcode).strip()
-        return next(
-            (p for p in self.products
-             if not p.get("deleted") and p.get("barcode") == code),
-            None,
+    def get_all(self, include_deleted: bool = False) -> list[dict[str, Any]]:
+        items = list(self.products.values())
+        if not include_deleted:
+            items = [p for p in items if not p.get("deleted")]
+        return sorted(
+            items,
+            key=lambda p: ((p.get("category") or ""), (p.get("name") or "").lower()),
         )
 
-    def find_by_name(self, name: str, include_aliases: bool = True) -> dict[str, Any] | None:
-        """Точный поиск по имени или алиасу (только активные)."""
-        needle = _normalize_name(name)
-        if not needle:
-            return None
+    def get(self, product_id: str) -> dict[str, Any] | None:
+        return self.products.get(product_id)
 
-        for p in self.products:
-            if p.get("deleted"):
-                continue
-            if _normalize_name(p.get("name") or "") == needle:
+    def find_by_barcode(self, barcode: str) -> dict[str, Any] | None:
+        b = (barcode or "").strip()
+        if not b:
+            return None
+        for p in self.products.values():
+            if not p.get("deleted") and p.get("barcode") == b:
                 return p
-            if include_aliases:
-                for alias in p.get("aliases") or []:
-                    if _normalize_name(alias) == needle:
-                        return p
         return None
 
-    def list_all(self, include_deleted: bool = False) -> list[dict[str, Any]]:
-        if include_deleted:
-            return list(self.products)
-        return [p for p in self.products if not p.get("deleted")]
+    def find_by_key(self, key: str) -> dict[str, Any] | None:
+        for p in self.products.values():
+            if not p.get("deleted") and p.get("key") == key:
+                return p
+        return None
 
-    def count(self) -> int:
-        return sum(1 for p in self.products if not p.get("deleted"))
+    def find_by_name(self, name: str) -> dict[str, Any] | None:
+        """Точное совпадение по нормализованному имени или алиасу."""
+        needle = normalize_name(name)
+        if not needle:
+            return None
+        for p in self.products.values():
+            if p.get("deleted"):
+                continue
+            if normalize_name(p.get("name") or "") == needle:
+                return p
+            for alias in p.get("aliases") or []:
+                if normalize_name(alias) == needle:
+                    return p
+        return None
 
-    # ------------------------------------------------------------------
-    # Mutations
-    # ------------------------------------------------------------------
+    def search(self, query: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Простой подстрочный поиск по name и aliases."""
+        q = normalize_name(query)
+        if not q:
+            return self.get_all()[:limit]
+        result: list[dict[str, Any]] = []
+        for p in self.products.values():
+            if p.get("deleted"):
+                continue
+            if q in normalize_name(p.get("name") or ""):
+                result.append(p)
+                if len(result) >= limit:
+                    break
+                continue
+            for alias in p.get("aliases") or []:
+                if q in normalize_name(alias):
+                    result.append(p)
+                    break
+            if len(result) >= limit:
+                break
+        return result
+
+    def all_categories(self) -> list[str]:
+        cats: set[str] = set()
+        for p in self.products.values():
+            if p.get("deleted"):
+                continue
+            c = p.get("category")
+            if c:
+                cats.add(c)
+        return sorted(cats)
+
+    # --- Изменение ----------------------------------------------------
 
     async def add(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Создаёт новый продукт. Генерирует product_id, created_at, updated_at."""
-        name = (data.get("name") or "").strip()
-        if not name:
-            raise ValueError("'name' is required")
-
         now = _now()
+        product_id = data.get("id")
+        if not product_id:
+            barcode = (data.get("barcode") or "").strip()
+            if barcode:
+                product_id = off_product_id(barcode)
+            else:
+                product_id = new_product_id()
+
         product = {
-            "product_id": str(uuid.uuid4()),
-            "barcode": (str(data["barcode"]).strip() if data.get("barcode") else None),
-            "name": name,
-            "brand": data.get("brand") or None,
-            "image_url": data.get("image_url") or None,
-            "category": data.get("category") or None,
-            "source": data.get("source") or "manual",
-            "nutrition_per_100g": data.get("nutrition_per_100g") or None,
-            "serving_size_g": data.get("serving_size_g"),
-            "aliases": list(dict.fromkeys(data.get("aliases") or [])),  # дедуп
-            "vectors": {},
+            "id": product_id,
+            "key": data.get("key"),
+            "name": (data.get("name") or "").strip(),
+            "category": data.get("category"),
+            "kind": data.get("kind", "manual"),
+            "barcode": (data.get("barcode") or "").strip() or None,
+            "brand": data.get("brand"),
+            "aliases": list(data.get("aliases") or []),
+            "nutrition_per_100g": dict(data.get("nutrition_per_100g") or {}),
+            "default_unit": data.get("default_unit") or "г",
+            "image_url": data.get("image_url"),
+            "source": data.get("source", "manual"),
+            "off_last_sync": data.get("off_last_sync"),
+            "deleted": False,
             "created_at": now,
             "updated_at": now,
-            "deleted": False,
-            "installation_id": self.installation_id,
+            "vectors": dict(data.get("vectors") or {}),
         }
-        self.products.append(product)
-        await self.save()
+        self.products[product_id] = product
+        await self._save_to_file()
         return product
 
     async def update(self, product_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
+        p = self.products.get(product_id)
+        if not p:
+            return None
+
         allowed = {
-            "barcode", "name", "brand", "image_url", "category",
-            "source", "nutrition_per_100g", "serving_size_g", "aliases",
+            "name", "category", "kind", "barcode", "brand", "aliases",
+            "nutrition_per_100g", "default_unit", "image_url",
+            "off_last_sync", "deleted", "vectors",
         }
-        clean = {k: v for k, v in patch.items() if k in allowed}
+        for k, v in patch.items():
+            if k in allowed:
+                p[k] = v
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return p
 
-        for i, p in enumerate(self.products):
-            if p.get("product_id") == product_id:
-                updated = {**p, **clean, "updated_at": _now()}
-                # нормализуем aliases: дедуп + не включаем сам name
-                if "aliases" in clean:
-                    norm_name = _normalize_name(updated.get("name") or "")
-                    seen = set()
-                    aliases = []
-                    for a in updated.get("aliases") or []:
-                        a_norm = _normalize_name(a)
-                        if not a_norm or a_norm == norm_name or a_norm in seen:
-                            continue
-                        seen.add(a_norm)
-                        aliases.append(a)
-                    updated["aliases"] = aliases
-                self.products[i] = updated
-                await self.save()
-                return updated
-        return None
+    async def soft_delete(self, product_id: str) -> bool:
+        p = self.products.get(product_id)
+        if not p:
+            return False
+        p["deleted"] = True
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
 
-    async def delete(self, product_id: str, soft: bool = True) -> bool:
-        """Мягкое удаление: ставит deleted=True, продукт остаётся в файле."""
-        for i, p in enumerate(self.products):
-            if p.get("product_id") == product_id:
-                if soft:
-                    self.products[i] = {**p, "deleted": True, "updated_at": _now()}
-                else:
-                    self.products.pop(i)
-                await self.save()
-                return True
+    async def restore(self, product_id: str) -> bool:
+        p = self.products.get(product_id)
+        if not p:
+            return False
+        p["deleted"] = False
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
+
+    async def hard_delete(self, product_id: str) -> bool:
+        if product_id in self.products:
+            del self.products[product_id]
+            await self._save_to_file()
+            return True
         return False
 
-    async def restore(self, product_id: str) -> dict[str, Any] | None:
-        for i, p in enumerate(self.products):
-            if p.get("product_id") == product_id:
-                restored = {**p, "deleted": False, "updated_at": _now()}
-                self.products[i] = restored
-                await self.save()
-                return restored
-        return None
+    # --- Алиасы -------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # Aliases
-    # ------------------------------------------------------------------
-
-    async def add_alias(self, product_id: str, alias: str) -> dict[str, Any] | None:
+    async def add_alias(self, product_id: str, alias: str) -> bool:
+        p = self.products.get(product_id)
+        if not p:
+            return False
         a = (alias or "").strip()
         if not a:
-            return None
+            return False
+        aliases = list(p.get("aliases") or [])
+        if a in aliases:
+            return False
+        aliases.append(a)
+        p["aliases"] = aliases
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
 
-        product = self.get_active(product_id)
-        if not product:
-            return None
+    async def remove_alias(self, product_id: str, alias: str) -> bool:
+        p = self.products.get(product_id)
+        if not p:
+            return False
+        aliases = list(p.get("aliases") or [])
+        if alias not in aliases:
+            return False
+        aliases.remove(alias)
+        p["aliases"] = aliases
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
 
-        norm_a = _normalize_name(a)
-        norm_name = _normalize_name(product.get("name") or "")
-        if norm_a == norm_name:
-            return product
-
-        # Проверим, не занят ли алиас другим продуктом
-        other = self.find_by_name(a)
-        if other and other.get("product_id") != product_id:
-            raise ValueError(
-                f"Алиас '{a}' уже принадлежит продукту '{other.get('name')}'"
-            )
-
-        aliases = list(product.get("aliases") or [])
-        if a not in aliases:
-            aliases.append(a)
-        return await self.update(product_id, {"aliases": aliases})
-
-    async def remove_alias(self, product_id: str, alias: str) -> dict[str, Any] | None:
-        product = self.get_active(product_id)
-        if not product:
-            return None
-        aliases = [a for a in (product.get("aliases") or []) if a != alias]
-        return await self.update(product_id, {"aliases": aliases})
-
-    # ------------------------------------------------------------------
-    # Vectors
-    # ------------------------------------------------------------------
+    # --- Векторы ------------------------------------------------------
 
     def get_vector(self, product_id: str, model_key: str) -> list[float] | None:
-        """model_key вида 'gemini-embedding-001:768' или 'all-MiniLM-L6-v2:384'."""
-        p = self.get(product_id)
+        p = self.products.get(product_id)
         if not p:
             return None
         return (p.get("vectors") or {}).get(model_key)
 
-    async def set_vector(self, product_id: str, model_key: str, vector: list[float]) -> None:
-        for i, p in enumerate(self.products):
-            if p.get("product_id") == product_id:
-                vectors = dict(p.get("vectors") or {})
-                vectors[model_key] = list(vector)
-                self.products[i] = {**p, "vectors": vectors, "updated_at": _now()}
-                await self.save()
-                return
+    async def set_vector(
+        self, product_id: str, model_key: str, vector: list[float]
+    ) -> bool:
+        p = self.products.get(product_id)
+        if not p:
+            return False
+        vectors = dict(p.get("vectors") or {})
+        vectors[model_key] = vector
+        p["vectors"] = vectors
+        p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
 
-    def list_vectors(self, model_key: str) -> list[tuple[str, list[float]]]:
-        """Возвращает [(product_id, vector), ...] для активных продуктов с этим вектором."""
-        out = []
-        for p in self.products:
+    def all_vectors(self, model_key: str) -> list[tuple[str, list[float]]]:
+        """[(product_id, vector), ...] для активной embedding-модели."""
+        result: list[tuple[str, list[float]]] = []
+        for pid, p in self.products.items():
             if p.get("deleted"):
                 continue
             v = (p.get("vectors") or {}).get(model_key)
             if v:
-                out.append((p["product_id"], v))
-        return out
-
-    # ------------------------------------------------------------------
-    # Merge (для синхронизации с GitHub)
-    # ------------------------------------------------------------------
-
-    def merge_from(
-        self,
-        other: dict[str, Any],
-        strategy: str = "last-write-wins",
-    ) -> dict[str, int]:
-        """Мержит другой ingredients.json в текущий. Возвращает статистику.
-
-        Приоритет сопоставления продуктов:
-          1. Совпадение product_id.
-          2. Совпадение barcode.
-          3. Совпадение нормализованного name (или алиасов).
-
-        strategy:
-          - 'last-write-wins'  — свежий updated_at перезаписывает старый.
-          - 'local-wins'       — локальные записи не перезаписываются.
-          - 'remote-wins'      — удалённые записи перезаписывают локальные.
-        """
-        stats = {"added": 0, "updated": 0, "merged_aliases": 0, "skipped": 0, "conflicts": 0}
-
-        remote_products = (other or {}).get("products", []) or []
-        for rp in remote_products:
-            if not isinstance(rp, dict):
-                continue
-
-            local = self._find_match(rp)
-            if local is None:
-                # добавим как новый, сохранив product_id от удалённого
-                self.products.append(rp)
-                stats["added"] += 1
-                continue
-
-            # нашли совпадение
-            if local.get("product_id") == rp.get("product_id"):
-                # полное совпадение — просто мерж по updated_at
-                if self._should_overwrite(local, rp, strategy):
-                    self.products[self.products.index(local)] = {**local, **rp}
-                    stats["updated"] += 1
-                else:
-                    stats["skipped"] += 1
-            else:
-                # совпало по barcode или name — но product_id разные
-                # оставляем тот, у которого updated_at свежее, ко второму дописываем алиасы
-                if self._should_overwrite(local, rp, strategy):
-                    merged_aliases = self._merge_aliases(local, rp)
-                    self.products[self.products.index(local)] = {
-                        **local,
-                        **rp,
-                        "aliases": merged_aliases,
-                    }
-                    stats["updated"] += 1
-                    if len(merged_aliases) > len(local.get("aliases") or []):
-                        stats["merged_aliases"] += 1
-                else:
-                    # локальный свежее — но алиасы удалённого всё равно подберём
-                    merged_aliases = self._merge_aliases(local, rp)
-                    if merged_aliases != (local.get("aliases") or []):
-                        idx = self.products.index(local)
-                        self.products[idx] = {**local, "aliases": merged_aliases}
-                        stats["merged_aliases"] += 1
-
-        return stats
-
-    def _find_match(self, remote_product: dict[str, Any]) -> dict[str, Any] | None:
-        # 1. product_id
-        pid = remote_product.get("product_id")
-        if pid:
-            p = self.get(pid)
-            if p:
-                return p
-        # 2. barcode
-        bc = remote_product.get("barcode")
-        if bc:
-            p = self.get_by_barcode(str(bc))
-            if p:
-                return p
-        # 3. name (включая алиасы)
-        name = remote_product.get("name")
-        if name:
-            p = self.find_by_name(name)
-            if p:
-                return p
-        return None
-
-    @staticmethod
-    def _should_overwrite(local: dict[str, Any], remote: dict[str, Any], strategy: str) -> bool:
-        if strategy == "local-wins":
-            return False
-        if strategy == "remote-wins":
-            return True
-        # last-write-wins
-        local_ts = local.get("updated_at") or ""
-        remote_ts = remote.get("updated_at") or ""
-        return remote_ts > local_ts
-
-    @staticmethod
-    def _merge_aliases(local: dict[str, Any], remote: dict[str, Any]) -> list[str]:
-        """Объединяет алиасы + добавляет имена обоих как алиасы."""
-        aliases: list[str] = []
-        seen: set[str] = set()
-
-        def add(x: str | None) -> None:
-            if not x:
-                return
-            norm = _normalize_name(x)
-            if not norm or norm in seen:
-                return
-            seen.add(norm)
-            aliases.append(x)
-
-        for a in (local.get("aliases") or []):
-            add(a)
-        for a in (remote.get("aliases") or []):
-            add(a)
-        # имена — тоже алиасы друг друга
-        if remote.get("name") and remote.get("name") != local.get("name"):
-            add(remote["name"])
-        return aliases
-
-    # ------------------------------------------------------------------
-    # Export
-    # ------------------------------------------------------------------
-
-    def export(self) -> dict[str, Any]:
-        """Возвращает весь файл как dict для синка/бэкапа."""
-        return {
-            "schema_version": self.schema_version,
-            "installation_id": self.installation_id,
-            "products": self.products,
-        }
+                result.append((pid, v))
+        return result
 
 
-# Синглтон
-ingredients_store = IngredientStore(INGREDIENTS_FILE)
+ingredients_store = IngredientsStore()
