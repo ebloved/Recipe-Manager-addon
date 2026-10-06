@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=20">
+<link rel="stylesheet" href="static/css/style.css?v=22">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -446,12 +446,22 @@ servings: 4
 
     <!-- Панель: штрих-код -->
     <div class="pp-pane" id="pp-pane-barcode" style="display:none">
-      <div class="pp-barcode-row">
+    <div class="pp-barcode-row">
         <input type="text" id="pp-barcode-input" inputmode="numeric"
-               placeholder="4600…" class="pp-barcode-input">
+            placeholder="4600…" class="pp-barcode-input">
+        <button class="btn" id="pp-barcode-scan" title="Сканировать камерой">📷</button>
         <button class="btn primary" id="pp-barcode-search">Найти</button>
-      </div>
-      <div class="pp-barcode-result" id="pp-barcode-result"></div>
+    </div>
+    <div class="barcode-scanner" id="pp-barcode-scanner" style="display:none">
+        <video id="pp-barcode-video" autoplay playsinline muted></video>
+        <div class="barcode-scanner-overlay">
+        <div class="barcode-scan-hint" id="pp-barcode-scan-hint">Наведите камеру на штрих-код</div>
+        <div class="barcode-scan-frame"></div>
+        <div class="barcode-scan-status" id="pp-barcode-scan-status"></div>
+        <button class="btn" id="pp-barcode-scan-stop">Остановить</button>
+        </div>
+    </div>
+    <div class="pp-barcode-result" id="pp-barcode-result"></div>
     </div>
 
     <!-- Панель: новый продукт -->
@@ -607,24 +617,24 @@ servings: 4
 <!-- ==================================================== Editor overlay (recipe) -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=20"></script>
-<script src="static/js/api.js?v=20"></script>
-<script src="static/js/state.js?v=20"></script>
-<script src="static/js/tabs.js?v=20"></script>
-<script src="static/js/youtube.js?v=20"></script>
-<script src="static/js/imports.js?v=20"></script>
-<script src="static/js/recipes.js?v=20"></script>
-<script src="static/js/detail.js?v=20"></script>
-<script src="static/js/editor.js?v=20"></script>
-<script src="static/js/plan-picker.js?v=20"></script>
-<script src="static/js/planner.js?v=20"></script>
-<script src="static/js/recipe-picker.js?v=20"></script>
-<script src="static/js/shopping.js?v=20"></script>
-<script src="static/js/products.js?v=20"></script>
-<script src="static/js/product-picker.js?v=20"></script>
-<script src="static/js/profiles.js?v=20"></script>
-<script src="static/js/sync.js?v=20"></script>
-<script src="static/js/live-sync.js?v=20"></script>
-<script src="static/js/app.js?v=20"></script>
+<script src="static/js/utils.js?v=22"></script>
+<script src="static/js/api.js?v=22"></script>
+<script src="static/js/state.js?v=22"></script>
+<script src="static/js/tabs.js?v=22"></script>
+<script src="static/js/youtube.js?v=22"></script>
+<script src="static/js/imports.js?v=22"></script>
+<script src="static/js/recipes.js?v=22"></script>
+<script src="static/js/detail.js?v=22"></script>
+<script src="static/js/editor.js?v=22"></script>
+<script src="static/js/plan-picker.js?v=22"></script>
+<script src="static/js/planner.js?v=22"></script>
+<script src="static/js/recipe-picker.js?v=22"></script>
+<script src="static/js/shopping.js?v=22"></script>
+<script src="static/js/products.js?v=22"></script>
+<script src="static/js/product-picker.js?v=22"></script>
+<script src="static/js/profiles.js?v=22"></script>
+<script src="static/js/sync.js?v=22"></script>
+<script src="static/js/live-sync.js?v=22"></script>
+<script src="static/js/app.js?v=22"></script>
 </body>
 </html>

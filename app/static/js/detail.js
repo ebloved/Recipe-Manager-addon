@@ -5,7 +5,7 @@
   const state = RM.state;
 
   // Кэш продуктов, связанных с текущим рецептом.
-  // Ключ — product_id, значение — объект продукта из /api/products/{id}.
+  // Ключ — product_id, значение — объект продукта из /api/ingredients/{id}.
   // Заполняется при открытии detail-view.
   state.productCache = state.productCache || {};
 
@@ -61,7 +61,7 @@
     // Параллельно запрашиваем каждый продукт
     const tasks = [...missing].map(async (id) => {
       try {
-        const data = await getJSON(`api/products/${id}`);
+        const data = await getJSON(`api/ingredients/${id}`);
         return [id, data.product];
       } catch (err) {
         // Продукт мог быть удалён — не считаем это ошибкой
