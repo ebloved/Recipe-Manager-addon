@@ -68,6 +68,8 @@ MATCHER_EXTERNAL_ENABLED = os.environ.get("MATCHER_EXTERNAL_ENABLED", "false").s
 MATCHER_EXTERNAL_URL = os.environ.get("MATCHER_EXTERNAL_URL", "").strip().rstrip("/")
 MATCHER_EXTERNAL_KEY = os.environ.get("MATCHER_EXTERNAL_KEY", "")
 MATCHER_EXTERNAL_MODEL = os.environ.get("MATCHER_EXTERNAL_MODEL", "hermes-agent").strip()
+MATCHER_EXTERNAL_EMBEDDING_MODEL = os.environ.get("MATCHER_EXTERNAL_EMBEDDING_MODEL", "").strip()
+MATCHER_EXTERNAL_TIMEOUT = float(os.environ.get("MATCHER_EXTERNAL_TIMEOUT", "15") or 15)
 
 MATCHER_DAILY_LIMIT = int(os.environ.get("MATCHER_DAILY_LIMIT", "200") or 200)
 MATCHER_AUTO_THRESHOLD = float(os.environ.get("MATCHER_AUTO_THRESHOLD", "0.95") or 0.95)
@@ -77,6 +79,16 @@ MATCHER_CONFIRM_MODE = os.environ.get("MATCHER_CONFIRM_MODE", "single").strip().
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001").strip()
 EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "768") or 768)
 
+# --- Локальный эмбеддер (sentence-transformers + ONNX) ---------------------
+
+LOCAL_EMBEDDER_ENABLED = os.environ.get("LOCAL_EMBEDDER_ENABLED", "false").strip().lower() == "true"
+LOCAL_EMBEDDER_MODEL = os.environ.get(
+    "LOCAL_EMBEDDER_MODEL",
+    "sentence-transformers/all-MiniLM-L6-v2",
+).strip()
+LOCAL_EMBEDDER_ONNX = os.environ.get("LOCAL_EMBEDDER_ONNX", "true").strip().lower() == "true"
+LOCAL_EMBEDDER_MAX_CONCURRENT = int(os.environ.get("LOCAL_EMBEDDER_MAX_CONCURRENT", "1") or 1)
+
 # --- GitHub sync ------------------------------------------------------------
 
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "").strip()
@@ -84,8 +96,6 @@ GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME", "").strip()
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main").strip() or "main"
 GITHUB_PATH = os.environ.get("GITHUB_PATH", "recipes.json").strip() or "recipes.json"
-
-# Синхронизация справочника продуктов (второй файл в том же коммите)
 GITHUB_INGREDIENTS_ENABLED = (
     os.environ.get("GITHUB_INGREDIENTS_ENABLED", "true").strip().lower() == "true"
 )

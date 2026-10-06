@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.4.2"
+version: "1.4.3"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -36,6 +36,7 @@ options:
   off_user_id: ""
   off_password: ""
 
+  # --- Матчинг ингредиентов ---
   matcher_provider: "auto"
   matcher_confirm_mode: "single"
   matcher_auto_threshold: 0.95
@@ -46,10 +47,19 @@ options:
   matcher_external_url: ""
   matcher_external_key: ""
   matcher_external_model: "hermes-agent"
+  matcher_external_embedding_model: ""
+  matcher_external_timeout: 15
 
   embedding_model: "gemini-embedding-001"
   embedding_dim: 768
 
+  # --- Локальный эмбеддер (sentence-transformers, CPU) ---
+  local_embedder_enabled: false
+  local_embedder_model: "sentence-transformers/all-MiniLM-L6-v2"
+  local_embedder_onnx: true
+  local_embedder_max_concurrent: 1
+
+  # --- GitHub sync ---
   github_repo: ""
   github_username: ""
   github_token: ""
@@ -88,9 +98,16 @@ schema:
   matcher_external_url: "str?"
   matcher_external_key: "password?"
   matcher_external_model: "str?"
+  matcher_external_embedding_model: "str?"
+  matcher_external_timeout: "float(1.0,120.0)"
 
   embedding_model: "str"
   embedding_dim: "int(64,4096)"
+
+  local_embedder_enabled: "bool"
+  local_embedder_model: "str"
+  local_embedder_onnx: "bool"
+  local_embedder_max_concurrent: "int(1,8)"
 
   github_repo: "str?"
   github_username: "str?"

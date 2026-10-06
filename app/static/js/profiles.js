@@ -3,7 +3,7 @@
  * Требуемые id в index.html:
  *   profile-selector         — контейнер в шапке
  *   profile-selector-icon    — иконка активного профиля
- *   profile-select            — <select> активного профиля
+ *   profile-select           — <select> активного профиля
  *   profile-manage-btn       — кнопка "⚙️ Управление"
  *   profiles-overlay         — оверлей модалки управления
  *   profiles-close           — закрыть модалку
@@ -36,18 +36,15 @@
   // =====================================================================
 
   function setup() {
-    // Селектор в шапке
     $("profile-select").addEventListener("change", onSelectActive);
     $("profile-manage-btn").addEventListener("click", openManager);
 
-    // Модалка управления
     $("profiles-close").addEventListener("click", closeManager);
     $("profiles-overlay").addEventListener("click", (e) => {
       if (e.target === $("profiles-overlay")) closeManager();
     });
     $("profiles-add").addEventListener("click", () => openEditor(null));
 
-    // Редактор
     $("profile-save").addEventListener("click", onSave);
     $("profile-cancel").addEventListener("click", closeEditor);
     $("profile-delete").addEventListener("click", onDelete);
@@ -68,7 +65,6 @@
       }
     } catch (err) {
       console.warn("[profiles] load failed:", err.message);
-      // Тихая деградация — если фича выключена, просто пустой селект
       state.profiles = [];
       state.activeProfileId = null;
       renderSelector();
@@ -109,7 +105,6 @@
     }
   }
 
-  // Возвращает активный профиль или null
   function getActive() {
     if (!state.activeProfileId) return null;
     return state.profiles.find((p) => p.id === state.activeProfileId) || null;
@@ -171,8 +166,7 @@
           if (p) openEditor(p);
           return;
         }
-        // Клик по карточке — сделать активной
-        setActive(id(card));
+        setActive(card.dataset.profileId);
       });
     });
 
@@ -185,10 +179,6 @@
       } catch (err) {
         alert("Ошибка: " + err.message);
       }
-    }
-
-    function id(card) {
-      return card.dataset.profileId;
     }
   }
 
@@ -221,6 +211,12 @@
 
     const delBtn = $("profile-delete");
     delBtn.style.display = isNew ? "none" : "inline-flex";
+
+    // Сброс кнопки "Сохранить" — иначе она остаётся в состоянии
+    // "Сохранение…" после предыдущего успешного сохранения.
+    const saveBtn = $("profile-save");
+    saveBtn.disabled = false;
+    saveBtn.textContent = "💾 Сохранить";
 
     clearStatus($("profile-editor-status"));
     $("profiles-list").style.display = "none";

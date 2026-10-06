@@ -9,6 +9,7 @@ from . import (
     sync,
     ingredients,
     profiles,
+    matcher,
     recipes,
     misc,
 )
@@ -21,6 +22,7 @@ api_router.include_router(shopping.router)
 api_router.include_router(sync.router)
 api_router.include_router(ingredients.router)
 api_router.include_router(profiles.router)
+api_router.include_router(matcher.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 

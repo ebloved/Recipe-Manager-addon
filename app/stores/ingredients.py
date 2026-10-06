@@ -3,6 +3,9 @@
 - Инициализация из base_products.json при первом запуске.
 - Детерминированные UUID для базовых продуктов и продуктов OFF.
 - CRUD, мягкое удаление, алиасы, векторы.
+- Совместимость с matcher: каждый продукт возвращается с ключом
+  `product_id` (дублирует `id`). Это позволяет матчеру работать с любым
+  представлением продукта единообразно.
 """
 from __future__ import annotations
 
@@ -50,11 +53,7 @@ _WS_RE = re.compile(r"\s+")
 
 
 def normalize_name(name: str) -> str:
-    """Базовая нормализация для поиска по имени/алиасу.
-
-    lowercase + схлопывание пробелов + обрезка.
-    Стемминг и остальное — задача matcher-каскада, здесь только минимум.
-    """
+    """Базовая нормализация для поиска по имени/алиасу."""
     if not name:
         return ""
     s = name.strip().lower()
@@ -62,7 +61,7 @@ def normalize_name(name: str) -> str:
     return s
 
 
-# --- EAN-13 --------------------------------------------------------------
+# --- EAN-13 ----------------------------------------------------------------
 
 def is_internal_barcode(barcode: str) -> bool:
     """Внутренний код магазина (весовой товар). Префикс 20–29 по GS1."""
@@ -72,7 +71,7 @@ def is_internal_barcode(barcode: str) -> bool:
     return b[:2] in {f"2{i}" for i in range(10)}
 
 
-# --- Хранилище ------------------------------------------------------------
+# --- Хранилище -------------------------------------------------------------
 
 class IngredientsStore:
     SCHEMA_VERSION = 1
@@ -82,6 +81,24 @@ class IngredientsStore:
         self.products: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
+    # --- Совместимость: product_id как alias для id --------------------
+
+    @staticmethod
+    def _with_pid(p: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Добавляет ключ `product_id`, дублирующий `id`.
+
+        Матчер и часть каскада ожидают `product_id`. Фронтенд и CRUD
+        работают с `id`. Храним оба ключа, чтобы не переписывать фронт.
+        """
+        if p is None:
+            return None
+        if "product_id" in p:
+            return p
+        pid = p.get("id")
+        if pid:
+            p["product_id"] = pid
+        return p
+
     # --- Загрузка / сохранение ----------------------------------------
 
     async def load(self) -> None:
@@ -90,6 +107,9 @@ class IngredientsStore:
         else:
             await self._init_from_base()
         added = await self._merge_from_base()
+        # Гарантируем product_id у всех загруженных
+        for p in self.products.values():
+            self._with_pid(p)
         print(
             f"[ingredients] loaded {len(self.products)} products"
             + (f" (+{added} from base)" if added else "")
@@ -106,7 +126,6 @@ class IngredientsStore:
             self.products = {}
 
     async def _init_from_base(self) -> None:
-        """Первичная инициализация из base_products.json."""
         if not BASE_PRODUCTS_FILE.exists():
             print(f"[ingredients] base file not found: {BASE_PRODUCTS_FILE}")
             self.products = {}
@@ -129,12 +148,6 @@ class IngredientsStore:
         await self._save_to_file()
 
     async def _merge_from_base(self) -> int:
-        """Добавляет новые продукты из base, которых нет локально по key.
-
-        Существующие не трогает — это позволяет пользователю редактировать
-        базовые продукты, не теряя свои правки при обновлении плагина.
-        Удалённые (soft delete) не воскрешает.
-        """
         if not BASE_PRODUCTS_FILE.exists():
             return 0
         try:
@@ -160,10 +173,11 @@ class IngredientsStore:
         return added
 
     def _base_item_to_product(self, item: dict[str, Any], now: str) -> dict[str, Any]:
-        """Преобразует запись base_products.json в полноценный продукт."""
         key = item["key"]
+        pid = base_product_id(key)
         return {
-            "id": base_product_id(key),
+            "id": pid,
+            "product_id": pid,
             "key": key,
             "name": item.get("name", ""),
             "category": item.get("category"),
@@ -197,19 +211,38 @@ class IngredientsStore:
     async def save(self) -> None:
         await self._save_to_file()
 
-    # --- Чтение --------------------------------------------------------
+    # --- Чтение (matcher-совместимое) ---------------------------------
 
     def get_all(self, include_deleted: bool = False) -> list[dict[str, Any]]:
         items = list(self.products.values())
         if not include_deleted:
             items = [p for p in items if not p.get("deleted")]
+        for p in items:
+            self._with_pid(p)
         return sorted(
             items,
             key=lambda p: ((p.get("category") or ""), (p.get("name") or "").lower()),
         )
 
+    def list_all(self) -> list[dict[str, Any]]:
+        """Alias для get_all(False). Используется matcher'ом."""
+        return self.get_all(include_deleted=False)
+
     def get(self, product_id: str) -> dict[str, Any] | None:
-        return self.products.get(product_id)
+        p = self.products.get(product_id)
+        return self._with_pid(p)
+
+    def get_active(self, product_id: str) -> dict[str, Any] | None:
+        """Возвращает продукт, если он есть и не удалён. Иначе None."""
+        p = self.products.get(product_id)
+        if not p or p.get("deleted"):
+            return None
+        return self._with_pid(p)
+
+    def count(self, include_deleted: bool = False) -> int:
+        if include_deleted:
+            return len(self.products)
+        return sum(1 for p in self.products.values() if not p.get("deleted"))
 
     def find_by_barcode(self, barcode: str) -> dict[str, Any] | None:
         b = (barcode or "").strip()
@@ -217,13 +250,13 @@ class IngredientsStore:
             return None
         for p in self.products.values():
             if not p.get("deleted") and p.get("barcode") == b:
-                return p
+                return self._with_pid(p)
         return None
 
     def find_by_key(self, key: str) -> dict[str, Any] | None:
         for p in self.products.values():
             if not p.get("deleted") and p.get("key") == key:
-                return p
+                return self._with_pid(p)
         return None
 
     def find_by_name(self, name: str) -> dict[str, Any] | None:
@@ -235,14 +268,13 @@ class IngredientsStore:
             if p.get("deleted"):
                 continue
             if normalize_name(p.get("name") or "") == needle:
-                return p
+                return self._with_pid(p)
             for alias in p.get("aliases") or []:
                 if normalize_name(alias) == needle:
-                    return p
+                    return self._with_pid(p)
         return None
 
     def search(self, query: str, limit: int = 50) -> list[dict[str, Any]]:
-        """Простой подстрочный поиск по name и aliases."""
         q = normalize_name(query)
         if not q:
             return self.get_all()[:limit]
@@ -251,13 +283,13 @@ class IngredientsStore:
             if p.get("deleted"):
                 continue
             if q in normalize_name(p.get("name") or ""):
-                result.append(p)
+                result.append(self._with_pid(p))
                 if len(result) >= limit:
                     break
                 continue
             for alias in p.get("aliases") or []:
                 if q in normalize_name(alias):
-                    result.append(p)
+                    result.append(self._with_pid(p))
                     break
             if len(result) >= limit:
                 break
@@ -287,6 +319,7 @@ class IngredientsStore:
 
         product = {
             "id": product_id,
+            "product_id": product_id,
             "key": data.get("key"),
             "name": (data.get("name") or "").strip(),
             "category": data.get("category"),
@@ -323,7 +356,7 @@ class IngredientsStore:
                 p[k] = v
         p["updated_at"] = _now()
         await self._save_to_file()
-        return p
+        return self._with_pid(p)
 
     async def soft_delete(self, product_id: str) -> bool:
         p = self.products.get(product_id)
@@ -351,35 +384,63 @@ class IngredientsStore:
         return False
 
     # --- Алиасы -------------------------------------------------------
+    # add_alias/remove_alias возвращают обновлённый продукт (или None),
+    # чтобы routes/matcher.py мог отдать его в ответе confirm.
 
-    async def add_alias(self, product_id: str, alias: str) -> bool:
+    async def add_alias(self, product_id: str, alias: str) -> dict[str, Any] | None:
+        """Добавляет алиас и возвращает продукт.
+
+        Возвращает None, если продукт не найден.
+        Бросает ValueError, если алиас уже занят другим продуктом.
+        """
         p = self.products.get(product_id)
         if not p:
-            return False
+            return None
+
         a = (alias or "").strip()
         if not a:
-            return False
+            return self._with_pid(p)
+
+        # Проверка на конфликт: алиас уже принадлежит другому продукту?
+        a_norm = normalize_name(a)
+        for other_id, other in self.products.items():
+            if other_id == product_id or other.get("deleted"):
+                continue
+            if normalize_name(other.get("name") or "") == a_norm:
+                raise ValueError(
+                    f"Алиас '{a}' совпадает с именем продукта "
+                    f"'{other.get('name')}' ({other_id})"
+                )
+            for other_alias in other.get("aliases") or []:
+                if normalize_name(other_alias) == a_norm:
+                    raise ValueError(
+                        f"Алиас '{a}' уже используется продуктом "
+                        f"'{other.get('name')}' ({other_id})"
+                    )
+
         aliases = list(p.get("aliases") or [])
         if a in aliases:
-            return False
+            return self._with_pid(p)
+
         aliases.append(a)
         p["aliases"] = aliases
         p["updated_at"] = _now()
         await self._save_to_file()
-        return True
+        return self._with_pid(p)
 
-    async def remove_alias(self, product_id: str, alias: str) -> bool:
+    async def remove_alias(self, product_id: str, alias: str) -> dict[str, Any] | None:
+        """Убирает алиас и возвращает продукт. None, если продукт не найден."""
         p = self.products.get(product_id)
         if not p:
-            return False
+            return None
         aliases = list(p.get("aliases") or [])
         if alias not in aliases:
-            return False
+            return self._with_pid(p)
         aliases.remove(alias)
         p["aliases"] = aliases
         p["updated_at"] = _now()
         await self._save_to_file()
-        return True
+        return self._with_pid(p)
 
     # --- Векторы ------------------------------------------------------
 
@@ -412,6 +473,10 @@ class IngredientsStore:
             if v:
                 result.append((pid, v))
         return result
+
+    def list_vectors(self, model_key: str) -> list[tuple[str, list[float]]]:
+        """Alias для all_vectors. Используется matcher'ом."""
+        return self.all_vectors(model_key)
 
 
 ingredients_store = IngredientsStore()

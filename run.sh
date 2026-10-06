@@ -35,9 +35,17 @@ export MATCHER_EXTERNAL_ENABLED="$(jq --raw-output '.matcher_external_enabled //
 export MATCHER_EXTERNAL_URL="$(jq --raw-output '.matcher_external_url // ""' $CONFIG_PATH)"
 export MATCHER_EXTERNAL_KEY="$(jq --raw-output '.matcher_external_key // ""' $CONFIG_PATH)"
 export MATCHER_EXTERNAL_MODEL="$(jq --raw-output '.matcher_external_model // "hermes-agent"' $CONFIG_PATH)"
+export MATCHER_EXTERNAL_EMBEDDING_MODEL="$(jq --raw-output '.matcher_external_embedding_model // ""' $CONFIG_PATH)"
+export MATCHER_EXTERNAL_TIMEOUT="$(jq --raw-output '.matcher_external_timeout // 15' $CONFIG_PATH)"
 
 export EMBEDDING_MODEL="$(jq --raw-output '.embedding_model // "gemini-embedding-001"' $CONFIG_PATH)"
 export EMBEDDING_DIM="$(jq --raw-output '.embedding_dim // 768' $CONFIG_PATH)"
+
+# --- Локальный эмбеддер ---------------------------------------------------
+export LOCAL_EMBEDDER_ENABLED="$(jq --raw-output '.local_embedder_enabled // false' $CONFIG_PATH)"
+export LOCAL_EMBEDDER_MODEL="$(jq --raw-output '.local_embedder_model // "sentence-transformers/all-MiniLM-L6-v2"' $CONFIG_PATH)"
+export LOCAL_EMBEDDER_ONNX="$(jq --raw-output '.local_embedder_onnx // true' $CONFIG_PATH)"
+export LOCAL_EMBEDDER_MAX_CONCURRENT="$(jq --raw-output '.local_embedder_max_concurrent // 1' $CONFIG_PATH)"
 
 # --- GitHub sync ----------------------------------------------------------
 export GITHUB_REPO="$(jq --raw-output '.github_repo // ""' $CONFIG_PATH)"
@@ -45,7 +53,6 @@ export GITHUB_USERNAME="$(jq --raw-output '.github_username // ""' $CONFIG_PATH)
 export GITHUB_TOKEN="$(jq --raw-output '.github_token // ""' $CONFIG_PATH)"
 export GITHUB_BRANCH="$(jq --raw-output '.github_branch // "main"' $CONFIG_PATH)"
 export GITHUB_PATH="$(jq --raw-output '.github_path // "recipes.json"' $CONFIG_PATH)"
-
 export GITHUB_INGREDIENTS_ENABLED="$(jq --raw-output '.github_ingredients_enabled // true' $CONFIG_PATH)"
 export GITHUB_INGREDIENTS_PATH="$(jq --raw-output '.github_ingredients_path // "ingredients.json"' $CONFIG_PATH)"
 
@@ -91,6 +98,7 @@ bashio::log.info "Sub langs: ${SUB_LANGS}"
 bashio::log.info "Open Food Facts: $([ "${OFF_ENABLED}" = "true" ] && echo "enabled (${OFF_SUBDOMAIN})" || echo "disabled")"
 bashio::log.info "OFF contribute: $([ "${OFF_CONTRIBUTE_ENABLED}" = "true" ] && echo "yes" || echo "no")"
 bashio::log.info "Matcher: ${MATCHER_PROVIDER}$([ "${MATCHER_EXTERNAL_ENABLED}" = "true" ] && echo " + external" || echo "")"
+bashio::log.info "Local embedder: $([ "${LOCAL_EMBEDDER_ENABLED}" = "true" ] && echo "enabled (${LOCAL_EMBEDDER_MODEL})" || echo "disabled")"
 bashio::log.info "GitHub: $([ -n "${GITHUB_REPO}" ] && echo "${GITHUB_REPO}@${GITHUB_BRANCH}" || echo 'not configured')"
 bashio::log.info "GitHub ingredients sync: $([ "${GITHUB_INGREDIENTS_ENABLED}" = "true" ] && echo "yes (${GITHUB_INGREDIENTS_PATH})" || echo "no")"
 bashio::log.info "Features: products=${FEATURE_PRODUCTS} matcher=${FEATURE_MATCHER} profiles=${FEATURE_PROFILES} generator=${FEATURE_GENERATOR}"
