@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Node.js 22 (для yt-dlp n-challenge) -----------------------------------
-# Debian-репозиторий содержит устаревший Node.js, ставим свежий из NodeSource.
+
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -47,7 +47,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY app/ /app/
 
-RUN mkdir -p /downloads /data
+RUN mkdir -p /downloads /data /data/.extra_packages
 
 EXPOSE 8099
 
