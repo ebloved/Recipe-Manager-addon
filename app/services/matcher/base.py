@@ -245,6 +245,21 @@ class EmbeddingProvider(ABC):
     name: str = ""
     model_key: str = ""                # "gemini-embedding-001:768"
 
+    # «Фоновое» косинусное сходство между семантически далёкими текстами.
+    #
+    # У разных моделей оно разное:
+    #   - OpenAI text-embedding-3: ~0.0–0.2
+    #   - sentence-transformers MiniLM: ~0.0–0.3
+    #   - Gemini embedding-001: ~0.75 (модель «сжимает» все тексты
+    #     в узкий конус, поэтому даже случайные пары дают 0.6–0.85)
+    #
+    # Каскад использует это значение, чтобы нормализовать score:
+    #   adjusted = (raw - baseline) / (1 - baseline)
+    #
+    # Без нормализации Gemini будет давать 0.85 для «чтотонесуществующее»
+    # и «вода», что превышает порог suggest и создаёт мусорные кандидаты.
+    baseline_similarity: float = 0.0
+
     @abstractmethod
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Возвращает вектора для списка текстов.

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=18">
+<link rel="stylesheet" href="static/css/style.css?v=20">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -409,6 +409,80 @@ servings: 4
   </div>
 </div>
 
+<!-- ==================================================== Product picker modal -->
+<div class="product-picker-overlay" id="product-picker-overlay">
+  <div class="product-picker-panel">
+    <div class="product-picker-header">
+      <div>
+        <h3 id="pp-title">Связать с продуктом</h3>
+        <div class="pp-subtitle" id="pp-subtitle"></div>
+      </div>
+      <button class="product-editor-close" id="pp-close">×</button>
+    </div>
+
+    <div class="status" id="pp-status"></div>
+
+    <!-- Текущая связка -->
+    <div class="pp-current" id="pp-current" style="display:none">
+      <div class="pp-current-info" id="pp-current-info"></div>
+      <button class="btn danger" id="pp-current-unlink">Отвязать</button>
+    </div>
+
+    <!-- Табы -->
+    <div class="pp-tabs" id="pp-tabs">
+      <button class="pp-tab active" data-pp-tab="search">🔍 Поиск</button>
+      <button class="pp-tab" data-pp-tab="barcode">📷 Штрих-код</button>
+      <button class="pp-tab" data-pp-tab="create">✏️ Новый</button>
+    </div>
+
+    <!-- Панель: поиск -->
+    <div class="pp-pane" id="pp-pane-search" style="display:block">
+      <div class="pp-search-wrap">
+        <input type="text" id="pp-search-input" class="pp-search-input"
+               placeholder="Поиск по названию, бренду или barcode…">
+      </div>
+      <div class="pp-search-results" id="pp-search-results"></div>
+    </div>
+
+    <!-- Панель: штрих-код -->
+    <div class="pp-pane" id="pp-pane-barcode" style="display:none">
+      <div class="pp-barcode-row">
+        <input type="text" id="pp-barcode-input" inputmode="numeric"
+               placeholder="4600…" class="pp-barcode-input">
+        <button class="btn primary" id="pp-barcode-search">Найти</button>
+      </div>
+      <div class="pp-barcode-result" id="pp-barcode-result"></div>
+    </div>
+
+    <!-- Панель: новый продукт -->
+    <div class="pp-pane" id="pp-pane-create" style="display:none">
+      <div class="field">
+        <label for="pp-new-name">Название *</label>
+        <input type="text" id="pp-new-name">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="pp-new-brand">Бренд</label>
+          <input type="text" id="pp-new-brand">
+        </div>
+        <div class="field">
+          <label for="pp-new-barcode">Штрих-код</label>
+          <input type="text" id="pp-new-barcode" inputmode="numeric">
+        </div>
+      </div>
+      <div class="field">
+        <label for="pp-new-category">Категория</label>
+        <input type="text" id="pp-new-category">
+      </div>
+      <div class="field">
+        <label for="pp-new-aliases">Алиасы (через запятую)</label>
+        <input type="text" id="pp-new-aliases">
+      </div>
+      <button class="btn primary pp-create-btn" id="pp-new-create">💾 Создать и связать</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================================================== Gen profiles manager modal -->
 <div class="profiles-overlay" id="profiles-overlay">
   <div class="profiles-panel">
@@ -533,23 +607,24 @@ servings: 4
 <!-- ==================================================== Editor overlay (recipe) -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=18"></script>
-<script src="static/js/api.js?v=18"></script>
-<script src="static/js/state.js?v=18"></script>
-<script src="static/js/tabs.js?v=18"></script>
-<script src="static/js/youtube.js?v=18"></script>
-<script src="static/js/imports.js?v=18"></script>
-<script src="static/js/recipes.js?v=18"></script>
-<script src="static/js/detail.js?v=18"></script>
-<script src="static/js/editor.js?v=18"></script>
-<script src="static/js/plan-picker.js?v=18"></script>
-<script src="static/js/planner.js?v=18"></script>
-<script src="static/js/recipe-picker.js?v=18"></script>
-<script src="static/js/shopping.js?v=18"></script>
-<script src="static/js/products.js?v=18"></script>
-<script src="static/js/profiles.js?v=18"></script>
-<script src="static/js/sync.js?v=18"></script>
-<script src="static/js/live-sync.js?v=18"></script>
-<script src="static/js/app.js?v=18"></script>
+<script src="static/js/utils.js?v=20"></script>
+<script src="static/js/api.js?v=20"></script>
+<script src="static/js/state.js?v=20"></script>
+<script src="static/js/tabs.js?v=20"></script>
+<script src="static/js/youtube.js?v=20"></script>
+<script src="static/js/imports.js?v=20"></script>
+<script src="static/js/recipes.js?v=20"></script>
+<script src="static/js/detail.js?v=20"></script>
+<script src="static/js/editor.js?v=20"></script>
+<script src="static/js/plan-picker.js?v=20"></script>
+<script src="static/js/planner.js?v=20"></script>
+<script src="static/js/recipe-picker.js?v=20"></script>
+<script src="static/js/shopping.js?v=20"></script>
+<script src="static/js/products.js?v=20"></script>
+<script src="static/js/product-picker.js?v=20"></script>
+<script src="static/js/profiles.js?v=20"></script>
+<script src="static/js/sync.js?v=20"></script>
+<script src="static/js/live-sync.js?v=20"></script>
+<script src="static/js/app.js?v=20"></script>
 </body>
 </html>

@@ -66,12 +66,15 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
     model = _GENERATIVE_FALLBACK_MODEL
     model_key = f"gemini:{_EMBEDDING_MODEL}:{_EMBEDDING_DIM}"
 
-    def __init__(self) -> None:
-        self._api_key = GEMINI_API_KEY
-        self._proxy = GEMINI_PROXY
-        self._generative_model = (
-            GEMINI_MODELS[0] if GEMINI_MODELS else _GENERATIVE_FALLBACK_MODEL
-        )
+    # Gemini embedding-001 даёт высокое «фоновое» сходство между
+    # семантически далёкими текстами: 0.6–0.85 для случайных пар.
+    # Это уводит даже мусорных кандидатов выше порога suggest (0.80).
+    #
+    # Значение 0.75 эмпирически отсекает шум, но оставляет рабочий
+    # диапазон для реальных совпадений. Каскад нормализует score:
+    #   adjusted = (raw - baseline) / (1 - baseline)
+    # Например: 0.85 → 0.40, 0.90 → 0.60, 0.95 → 0.80, 0.99 → 0.96.
+    baseline_similarity = 0.75
 
     # ------------------------------------------------------------------
     # Embeddings

@@ -468,12 +468,22 @@ async def _match_internal(
 
 
 async def _vector_match(name: str, thr: Thresholds) -> list[MatchCandidate]:
-    """Уровень B: через эмбеддинги. Возвращает кандидатов."""
+    """Уровень B: через эмбеддинги. Возвращает кандидатов.
+
+    Score нормализуется через provider.baseline_similarity: разные
+    embedding-модели дают разное «фоновое» сходство между семантически
+    далёкими текстами. Например, Gemini embedding-001 для случайных пар
+    обычно выдаёт 0.6–0.85, тогда как OpenAI и MiniLM — 0.0–0.3.
+
+    Без нормализации Gemini засоряет выдачу мусорными кандидатами
+    с score 0.85, которые ошибочно попадают в диапазон suggest.
+    """
     provider = await _get_embedding_provider()
     if provider is None:
         return []
 
     model_key = provider.model_key
+    baseline = float(getattr(provider, "baseline_similarity", 0.0) or 0.0)
 
     # Вектор запроса (с кэшем)
     query_vec = await _embed_one(provider, name, model_key)
@@ -490,24 +500,74 @@ async def _vector_match(name: str, thr: Thresholds) -> list[MatchCandidate]:
     if not stored:
         return []
 
+    # Предварительный порог применяем к «сырому» score с учётом baseline:
+    # отсекаем всё, что ниже (suggest - 0.05) после нормализации.
+    raw_threshold = _denormalize_score(thr.suggest - 0.05, baseline)
+
     scored: list[MatchCandidate] = []
     for product_id, vec in stored:
         try:
-            score = cosine_similarity(query_vec, vec)
+            raw_score = cosine_similarity(query_vec, vec)
         except ValueError:
             continue
-        if score < thr.suggest - 0.05:
+
+        if raw_score < raw_threshold:
             continue
+
+        adjusted = _normalize_score(raw_score, baseline)
+        if adjusted <= 0.0:
+            continue
+
         product = ingredients_store.get_active(product_id)
         if not product:
             continue
         scored.append(_candidate_from_product(
-            product, score=score, method=MatchMethod.VECTOR, provider=provider.name,
+            product, score=adjusted, method=MatchMethod.VECTOR, provider=provider.name,
         ))
 
     scored.sort(key=lambda c: -c.score)
     return scored[:5]
 
+
+def _normalize_score(raw: float, baseline: float) -> float:
+    """Приводит «сырое» косинусное сходство к единому диапазону [0, 1].
+
+    Формула: adjusted = (raw - baseline) / (1 - baseline)
+
+    Примеры для baseline=0.75:
+        0.60 → 0.00 (ниже фона, отсекается)
+        0.75 → 0.00
+        0.85 → 0.40
+        0.90 → 0.60
+        0.95 → 0.80
+        0.99 → 0.96
+
+    Для baseline=0.0 (модели типа OpenAI/MiniLM) формула вырождается
+    в тождество: adjusted = raw.
+    """
+    if baseline <= 0.0:
+        return raw
+    if baseline >= 1.0:
+        return 0.0
+    adjusted = (raw - baseline) / (1.0 - baseline)
+    if adjusted < 0.0:
+        return 0.0
+    if adjusted > 1.0:
+        return 1.0
+    return adjusted
+
+
+def _denormalize_score(adjusted: float, baseline: float) -> float:
+    """Обратная операция к _normalize_score.
+
+    Нужна для предварительного отсечения: мы хотим применять порог
+    к «сырому» score, не считая косинус для всех продуктов.
+
+    Формула: raw = adjusted * (1 - baseline) + baseline
+    """
+    if baseline <= 0.0:
+        return adjusted
+    return adjusted * (1.0 - baseline) + baseline
 
 async def _get_embedding_provider() -> Any:
     """Возвращает первый доступный embedding-провайдер по приоритету."""

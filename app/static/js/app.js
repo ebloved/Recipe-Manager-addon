@@ -19,6 +19,9 @@
     // Продукты
     if (RM.products) RM.products.setup();
 
+    // Пикер продукта для ингредиентов (используется в detail.js и editor.js)
+    if (RM.productPicker) RM.productPicker.setup();
+
     // Профили генерации
     if (RM.profiles) {
       RM.profiles.setup();
