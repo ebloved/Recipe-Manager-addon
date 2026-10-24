@@ -7,6 +7,24 @@
 
 ---
 
+## [1.8.1] — 2026-10-25
+
+Hotfix: `GeminiProvider.health()` / `embed()` ссылались на несуществующие
+атрибуты инстанса — B5 это наконец показал.
+
+### Fixed
+
+- **`GeminiProvider`** — `self._api_key`, `self._proxy`,
+  `self._generative_model` нигде не присваиваются, но используются в
+  `health()`, `embed()` и ещё нескольких методах (в `complete()` были
+  заменены ещё в v1.6.5). Теперь везде используется модульный конфиг:
+  `GEMINI_API_KEY`, `GEMINI_PROXY`, `self.model`.
+- **`[matcher] health: ...`** больше не показывает
+  `gemini=unavailable('GeminiProvider' object has no attribute ...)`.
+  Ожидаемо: `gemini=ok`.
+
+---
+
 ## [1.8.0] — 2026-10-25
 
 B2: фикс имён ингредиентов в списке покупок.

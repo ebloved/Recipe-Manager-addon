@@ -99,7 +99,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Возвращает нормализованные эмбеддинги для списка текстов."""
-        if not self._api_key:
+        if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
         clean = [t if t else " " for t in texts]
@@ -119,12 +119,12 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         }
         headers = {
             "Content-Type": "application/json",
-            "x-goog-api-key": self._api_key,
+            "x-goog-api-key": GEMINI_API_KEY,
         }
 
         client_kwargs: dict = {"timeout": _TIMEOUT}
-        if self._proxy:
-            client_kwargs["proxy"] = self._proxy
+        if GEMINI_PROXY:
+            client_kwargs["proxy"] = GEMINI_PROXY
 
         try:
             async with httpx.AsyncClient(**client_kwargs) as client:
@@ -552,7 +552,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         """Быстрая проверка: ключ задан и API отвечает на минимальный запрос."""
         now = datetime.now(timezone.utc).isoformat()
 
-        if not self._api_key:
+        if not GEMINI_API_KEY:
             return ProviderInfo(
                 name=self.name,
                 kind=ProviderKind.EMBEDDING,
@@ -572,12 +572,12 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         }
         headers = {
             "Content-Type": "application/json",
-            "x-goog-api-key": self._api_key,
+            "x-goog-api-key": GEMINI_API_KEY,
         }
 
         client_kwargs: dict = {"timeout": httpx.Timeout(10.0)}
-        if self._proxy:
-            client_kwargs["proxy"] = self._proxy
+        if GEMINI_PROXY:
+            client_kwargs["proxy"] = GEMINI_PROXY
 
         try:
             async with httpx.AsyncClient(**client_kwargs) as client:
@@ -599,7 +599,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                 model_key=self.model_key,
                 latency_ms=round(latency_ms, 1),
                 last_check=now,
-                notes=f"embed={_EMBEDDING_MODEL}, chat={self._generative_model}",
+                notes=f"embed={_EMBEDDING_MODEL}, chat={self.model}",
             )
 
         if resp.status_code == 429:
