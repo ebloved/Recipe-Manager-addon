@@ -7,6 +7,25 @@
 
 ---
 
+## [1.5.2] — 2026-10-06
+
+Фикс: `GeminiProvider.complete()` использовал hardcoded `gemini-2.0-flash`
+вместо списка из конфига.
+
+### Fixed
+
+- **`GeminiProvider.complete()`** после фикса 1.5.1 корректно обращался
+  к module-level конфигу, но модель брал из `self.model =
+  _GENERATIVE_FALLBACK_MODEL` (`gemini-2.0-flash`), которую Gemini уже
+  вывел из обращения → `404 models/gemini-2.0-flash is no longer
+  available` → `502` на `POST /api/generator/run`. Теперь модель
+  берётся из `GEMINI_MODELS[0]` (по умолчанию `gemini-3.8-flash` из
+  `config.yaml`), с fallback на `self.model` если список пуст.
+- **`/api/generator/status`** теперь показывает актуальную модель
+  Gemini (`GEMINI_MODELS[0]`) вместо устаревшего class-attr.
+
+---
+
 ## [1.5.1] — 2026-10-06
 
 Фикс сломанного `GeminiProvider.complete()` — генератор (1.5.0) теперь

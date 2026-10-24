@@ -14,6 +14,7 @@ from typing import Any
 
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODELS,
     MATCHER_EXTERNAL_ENABLED,
     MATCHER_EXTERNAL_URL,
 )
@@ -58,7 +59,9 @@ def _gemini_available() -> bool:
 
 
 def _model_name(provider: Any) -> str:
-    """Достаёт осмысленное имя модели из провайдера (Hermes → chat_model, Gemini → model_key)."""
+    """Реально используемая модель: Gemini → GEMINI_MODELS[0], Hermes → chat_model."""
+    if getattr(provider, "name", None) == "gemini" and GEMINI_MODELS:
+        return GEMINI_MODELS[0]
     for attr in ("model", "chat_model", "model_key"):
         v = getattr(provider, attr, None)
         if v:

@@ -191,7 +191,8 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
-        url = f"{_API_BASE}/models/{self.model}:generateContent"
+        _model = GEMINI_MODELS[0] if GEMINI_MODELS else self.model
+        url = f"{_API_BASE}/models/{_model}:generateContent"
         body: dict = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
