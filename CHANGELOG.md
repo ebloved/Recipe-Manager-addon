@@ -7,6 +7,31 @@
 
 ---
 
+## [1.6.5] — 2026-10-24
+
+Hotfix: `SyntaxError` в `gemini_embedder.py`.
+
+### Fixed
+
+- **Порядок imports.** v1.6.4-скрипт при добавлении `import logging`
+  и `logger = ...` вставил их **перед** docstring и
+  `from __future__ import annotations`. Python требует, чтобы
+  future-импорт шёл первым (после docstring) → `SyntaxError:
+  from __future__ imports must occur at the beginning of the
+  file`. Модуль не импортировался, `providers.py` тихо превращал
+  `gemini_embedder` в `None`, `/run` возвращал `503 Нет
+  доступных LLM-провайдеров`. Docstring и `from __future__`
+  восстановлены в начало файла; `import logging` и `logger`
+  перенесены в блок imports перед `class GeminiProvider`.
+
+### Notes
+
+- `ast.parse()` этот класс ошибок не ловит (`PyCF_ONLY_AST`
+  пропускает проверку `__future__`). Hotfix-скрипт проверяет
+  через `compile()`, который ловит.
+
+---
+
 ## [1.6.4] — 2026-10-24
 
 Cascade теперь срабатывает на timeout + подробный лог.

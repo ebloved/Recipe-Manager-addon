@@ -1,6 +1,3 @@
-import logging
-
-logger = logging.getLogger(__name__)
 """Провайдер Gemini: эмбеддинги + генеративная валидация.
 
 Реализует два интерфейса сразу:
@@ -19,6 +16,7 @@ embed_chunked переопределён — вставляет паузу ме�
 """
 from __future__ import annotations
 
+import logging
 import asyncio
 import math
 from datetime import datetime, timezone
@@ -72,6 +70,9 @@ _GENERATE_TIMEOUT = httpx.Timeout(120.0, connect=15.0)
 # у оставшихся много запаса; если timeout — режем и пробуем следующую.
 _PER_MODEL_TIMEOUT = 90.0
 _TOTAL_DEADLINE = 240.0
+
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiProvider(EmbeddingProvider, GenerativeProvider):
