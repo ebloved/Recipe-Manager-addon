@@ -6,6 +6,9 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from config import (
+    ADDON_VERSION,
+    GEMINI_MODELS,
+    GEMINI_PROXY,
     GENERATOR_DEFAULT_COUNT,
     GENERATOR_DEFAULT_SAMPLES,
     GENERATOR_MAX_COUNT,
@@ -82,4 +85,32 @@ async def reject_suggestion(sid: str):
 
 @router.get("/status")
 async def generator_status():
-    return get_providers_status()
+    from services.generator.generator import get_last_attempt
+    s = get_providers_status()
+    s["version"] = ADDON_VERSION
+    s["last_attempt"] = get_last_attempt()
+    return s
+
+
+@router.get("/diag")
+async def generator_diag():
+    """Диагностика без shell-доступа в контейнер."""
+    from services.generator.generator import get_last_attempt
+    try:
+        from services.matcher.gemini_embedder import _GENERATE_TIMEOUT
+        t = {"total_s": _GENERATE_TIMEOUT.read,
+             "connect_s": _GENERATE_TIMEOUT.connect}
+    except Exception as e:  # noqa: BLE001
+        t = {"error": str(e)}
+    return {
+        "addon_version": ADDON_VERSION,
+        "gemini_models": GEMINI_MODELS,
+        "gemini_proxy_set": bool(GEMINI_PROXY),
+        "complete_timeout": t,
+        "default_count": GENERATOR_DEFAULT_COUNT,
+        "default_samples": GENERATOR_DEFAULT_SAMPLES,
+        "max_count": GENERATOR_MAX_COUNT,
+        "samples_max": GENERATOR_SAMPLES_MAX,
+        "last_attempt": get_last_attempt(),
+        "nginx_hint": "HA ingress cuts at ~60s; keep Gemini call <50s",
+    }

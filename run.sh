@@ -3,6 +3,8 @@ set -e
 
 CONFIG_PATH=/data/options.json
 
+export ADDON_VERSION="$(bashio::addon.version 2>/dev/null || echo unknown)"
+
 # --- Пути для опциональной установки зависимостей -------------------------
 EXTRA_PACKAGES_DIR="/data/.extra_packages"
 EXTRA_MARKER="${EXTRA_PACKAGES_DIR}/.installed"
@@ -64,7 +66,7 @@ export GITHUB_INGREDIENTS_PATH="$(jq --raw-output '.github_ingredients_path // "
 export GENERATOR_MAX_COUNT="$(jq --raw-output '.generator_max_count // 5' $CONFIG_PATH)"
 export GENERATOR_DEFAULT_COUNT="$(jq --raw-output '.generator_default_count // 1' $CONFIG_PATH)"
 export GENERATOR_SAMPLES_MAX="$(jq --raw-output '.generator_samples_max // 10' $CONFIG_PATH)"
-export GENERATOR_DEFAULT_SAMPLES="$(jq --raw-output '.generator_default_samples // 3' $CONFIG_PATH)"
+export GENERATOR_DEFAULT_SAMPLES="$(jq --raw-output '.generator_default_samples // 0' $CONFIG_PATH)"
 
 # --- Прочее ---------------------------------------------------------------
 export LOG_LEVEL="$(jq --raw-output '.log_level // "info"' $CONFIG_PATH)"

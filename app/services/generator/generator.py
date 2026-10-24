@@ -18,6 +18,14 @@ from .providers import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
+_LAST_ATTEMPT: dict[str, Any] = {}
+
+def _record_attempt(**kwargs: Any) -> None:
+    _LAST_ATTEMPT.clear(); _LAST_ATTEMPT.update(kwargs)
+
+def get_last_attempt() -> dict[str, Any]:
+    return dict(_LAST_ATTEMPT)
+
 
 _SPLIT_RE = re.compile(r"\n\s*-{3,}\s*SPLIT\s*-{3,}\s*\n", re.IGNORECASE)
 
@@ -123,16 +131,25 @@ async def generate_suggestions(
         provider_name, count, len(samples), (profile or {}).get("name"),
     )
 
+    import time as _time
+    _t0 = _time.monotonic()
     try:
         raw_response = await provider.complete(
-            prompt=user,
-            system=system,
-            max_tokens=2500,
-            temperature=0.7,
+            prompt=user, system=system,
+            max_tokens=1200, temperature=0.7,
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("[generator] provider %s failed: %s", provider_name, exc)
+        _elapsed = round(_time.monotonic() - _t0, 2)
+        _record_attempt(status="error", provider=provider_name,
+                        model=_model_name(provider), elapsed_s=_elapsed,
+                        error=str(exc)[:300], at=_now())
+        logger.warning("[generator] provider %s failed (%.1fs): %s",
+                       provider_name, _elapsed, exc)
         raise HTTPException(502, f"LLM вернул ошибку: {exc}") from exc
+    _elapsed = round(_time.monotonic() - _t0, 2)
+    _record_attempt(status="ok", provider=provider_name,
+                    model=_model_name(provider), elapsed_s=_elapsed,
+                    error=None, at=_now())
 
     raw_response = _clean_md(raw_response)
     if not raw_response:

@@ -110,7 +110,7 @@ GITHUB_INGREDIENTS_PATH = (
 GENERATOR_MAX_COUNT = int(os.environ.get("GENERATOR_MAX_COUNT", "5") or 5)
 GENERATOR_DEFAULT_COUNT = int(os.environ.get("GENERATOR_DEFAULT_COUNT", "1") or 1)
 GENERATOR_SAMPLES_MAX = int(os.environ.get("GENERATOR_SAMPLES_MAX", "10") or 10)
-GENERATOR_DEFAULT_SAMPLES = int(os.environ.get("GENERATOR_DEFAULT_SAMPLES", "3") or 3)
+GENERATOR_DEFAULT_SAMPLES = int(os.environ.get("GENERATOR_DEFAULT_SAMPLES", "0") or 0)
 
 # --- Feature flags ---------------------------------------------------------
 
@@ -122,3 +122,5 @@ FEATURE_GENERATOR = os.environ.get("FEATURE_GENERATOR", "false").strip().lower()
 # --- Режим работы ----------------------------------------------------------
 
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "standard").strip().lower() or "standard"
+
+ADDON_VERSION = os.environ.get("ADDON_VERSION", "unknown")

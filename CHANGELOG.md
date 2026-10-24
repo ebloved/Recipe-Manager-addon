@@ -7,6 +7,33 @@
 
 ---
 
+## [1.5.4] — 2026-10-06
+
+Уменьшение синхронной нагрузки + диагностика для no-shell окружения.
+
+### Added
+
+- **`GET /api/generator/diag`** — версия аддона, `GEMINI_MODELS`,
+  флаг `GEMINI_PROXY`, таймауты `complete()`, `last_attempt`
+  (provider, model, elapsed_s, error, at).
+- **`/api/generator/status`** — расширен полями `version`,
+  `last_attempt`.
+- **`ADDON_VERSION`** — env из `bashio::addon.version` в `run.sh`.
+
+### Changed
+
+- `max_tokens` 2500 → 1200, `generator_default_samples` 3 → 0.
+  Цель — уложиться в <50 с ответа Gemini, чтобы не упираться в
+  таймаут HA ingress nginx (~60 с), который отдаёт браузеру
+  `504 Gateway Time-out` раньше нашего 120-секундного таймаута.
+
+### Notes
+
+- Асинхронный шаблон (202 + polling через `/jobs/{id}`) —
+  отдельная итерация, если синхронный режим продолжит упираться.
+
+---
+
 ## [1.5.3] — 2026-10-06
 
 Фикс: таймаут `GeminiProvider.complete()` увеличен с 30 до 120 секунд.

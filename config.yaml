@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.5.3"
+version: "1.5.4"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -72,7 +72,7 @@ options:
   generator_max_count: 5
   generator_default_count: 1
   generator_samples_max: 10
-  generator_default_samples: 3
+  generator_default_samples: 0
 
   log_level: "info"
 
