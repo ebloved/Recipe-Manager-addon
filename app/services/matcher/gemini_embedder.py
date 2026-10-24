@@ -188,10 +188,10 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         temperature: float = 0.0,
     ) -> str:
         """Отправляет запрос в generateContent и возвращает текст ответа."""
-        if not self._api_key:
+        if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
-        url = f"{_API_BASE}/models/{self._generative_model}:generateContent"
+        url = f"{_API_BASE}/models/{self.model}:generateContent"
         body: dict = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -204,12 +204,12 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
         headers = {
             "Content-Type": "application/json",
-            "x-goog-api-key": self._api_key,
+            "x-goog-api-key": GEMINI_API_KEY,
         }
 
         client_kwargs: dict = {"timeout": _TIMEOUT}
-        if self._proxy:
-            client_kwargs["proxy"] = self._proxy
+        if GEMINI_PROXY:
+            client_kwargs["proxy"] = GEMINI_PROXY
 
         try:
             async with httpx.AsyncClient(**client_kwargs) as client:
