@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException
 
 from services.product_lookup import lookup_barcode
-from stores import recipe_store, shopping_store
+from stores import ingredients_store, recipe_store, shopping_store
 
 router = APIRouter(prefix="/api/shopping", tags=["shopping"])
 
@@ -120,6 +120,16 @@ async def add_from_recipe(payload: dict[str, Any] = Body(...)):
         wanted = set(int(i) for i in indices)
         selected = [(idx, normalized[idx]) for idx in wanted if 0 <= idx < len(normalized)]
 
+    # B2: resolve product names for ingredients with product_id
+    _products_by_id: dict[str, dict[str, Any]] = {}
+    try:
+        for _p in (getattr(ingredients_store, "products", None) or []):
+            _pid = _p.get("id")
+            if _pid:
+                _products_by_id[_pid] = _p
+    except Exception:  # noqa: BLE001
+        _products_by_id = {}
+
     added = 0
     merged = 0
     for _, ing in selected:
@@ -129,15 +139,23 @@ async def add_from_recipe(payload: dict[str, Any] = Body(...)):
         amount = ing.get("amount")
         if amount and multiplier != 1:
             amount = _scale_amount(amount, multiplier)
-        item_data = {
-            "name": name,
+        product = _products_by_id.get(ing.get("product_id")) if ing.get("product_id") else None
+        resolved_name = (product.get("name") or "").strip() if product else ""
+        item_data: dict[str, Any] = {
+            "name": resolved_name or name,
             "amount": amount,
             "unit": ing.get("unit"),
             "note": ing.get("notes"),
             "recipe_id": recipe_id,
             "recipe_name": recipe.get("name"),
             "source": "recipe",
+            "product_id": ing.get("product_id") or None,
         }
+        if product:
+            item_data["brand"] = product.get("brand")
+            item_data["barcode"] = product.get("barcode")
+            item_data["image_url"] = product.get("image_url")
+            item_data["category"] = product.get("category")
         _, was_merged = await shopping_store.add_or_merge(item_data)
         if was_merged:
             merged += 1

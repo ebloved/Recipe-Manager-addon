@@ -20,7 +20,7 @@ class ShoppingStore:
         {
             id, name, amount, unit, brand, barcode, image_url,
             category, note, checked, recipe_id, recipe_name,
-            source, created_at
+            source, product_id, created_at
         }
     """
 
@@ -87,6 +87,7 @@ class ShoppingStore:
             "recipe_id": data.get("recipe_id"),
             "recipe_name": data.get("recipe_name"),
             "source": data.get("source") or "manual",
+            "product_id": data.get("product_id"),
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.items.append(item)
@@ -130,6 +131,7 @@ class ShoppingStore:
         allowed = {
             "name", "amount", "unit", "brand", "barcode", "image_url",
             "category", "note", "checked", "recipe_id", "recipe_name", "source",
+            "product_id",
         }
         clean = {k: v for k, v in patch.items() if k in allowed}
 

@@ -64,6 +64,19 @@ async def lifespan(app: FastAPI):
                     f"confirm={MATCHER_CONFIRM_MODE}, "
                     f"registered={names}"
                 )
+
+                # B5: health-check всех провайдеров на старте
+                try:
+                    health_results = await provider_registry.health_all()
+                    health_str = ", ".join(
+                        f"{h.get('name', '?')}="
+                        + ("ok" if h.get("available") else "unavailable")
+                        + (f"({str(h.get('error', ''))[:40]})" if h.get("error") else "")
+                        for h in health_results
+                    )
+                    print(f"[matcher] health: {health_str}")
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[matcher] health check failed: {exc}")
             except Exception as exc:  # noqa: BLE001
                 print(f"[matcher] initialization failed: {exc}")
 

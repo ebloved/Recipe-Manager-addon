@@ -7,6 +7,36 @@
 
 ---
 
+## [1.8.0] — 2026-10-25
+
+B2: фикс имён ингредиентов в списке покупок.
+B5: health-check matcher-провайдеров на старте аддона.
+
+### Added
+
+- **B5: health-check провайдеров на старте.** `main.py:lifespan` после
+  `provider_registry.initialize()` вызывает `await provider_registry.health_all()`
+  и логирует результат: `[matcher] health: local_fuzzy=ok, gemini=ok, ...`.
+  Видно в HA-логе сразу после строки `[matcher] provider=...`.
+
+### Fixed
+
+- **B2: имена ингредиентов в списке покупок.** При `POST /api/shopping/from-recipe`
+  ингредиенты с `product_id` теперь разрешаются через `ingredients_store`:
+  в shopping item попадает `product.name` (а не сырое `ingredient.name` из
+  рецепта), плюс `brand`, `barcode`, `image_url`, `category`, `product_id`.
+  Раньше два рецепта с одним продуктом («греческий йогурт» / «греч. йогурт»)
+  создавали два item-а; теперь — один, с каноничным именем из справочника.
+
+### Notes
+
+- Генератор использует in-memory `JobsStore`. При рестарте аддона
+  незавершённые задачи теряются; UI при поллинге получает 404 и показывает
+  «задача потеряна». Это by design (v1.6.0), документация — в
+  `app/stores/jobs.py`.
+
+---
+
 ## [1.7.3] — 2026-10-24
 
 Hotfix: обработка пустого `error` от Interactions API + восстановление
