@@ -17,6 +17,7 @@ embed_chunked переопределён — вставляет паузу ме�
 from __future__ import annotations
 
 import logging
+import json
 import asyncio
 import math
 from datetime import datetime, timezone
@@ -258,7 +259,13 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
                 # status == "failed" или "cancelled"
                 msg = final_error or f"status={status}"
-                retriable = self._is_retriable(msg)
+                retriable = (
+                    self._is_retriable(msg)
+                    or status in ("incomplete", "cancelled", "requires_action")
+                    or not msg
+                    or msg == "{}"
+                    or "empty error" in msg.lower()
+                )
                 self._last_usage["attempts"].append({
                     "model": model, "status": "error",
                     "elapsed_s": round(elapsed, 2),
@@ -430,12 +437,31 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                         print(f"[gemini] {model} completed but text is empty! keys={list(data.keys())}")
                     return out, "completed", None
 
-                if status in ("failed", "cancelled", "requires_action"):
+                if status in ("failed", "cancelled", "requires_action", "incomplete"):
                     err = data.get("error") or {}
                     if isinstance(err, dict):
-                        err_msg = err.get("message") or str(err)
+                        err_msg = err.get("message") or str(err) or ""
                     else:
-                        err_msg = str(err) or f"status={status}"
+                        err_msg = str(err) or ""
+
+                    # Диагностика: пустой error ({}) — логируем полный ответ
+                    if not err_msg or err_msg == "{}":
+                        print(
+                            f"[gemini] {model} status={status} empty error. "
+                            f"Full response: {json.dumps(data, ensure_ascii=False)[:1000]}"
+                        )
+                        err_msg = f"status={status} (empty error, likely transient)"
+
+                    # Для incomplete — покажем сколько текста успело прийти
+                    if status == "incomplete":
+                        partial_len = 0
+                        for step in (data.get("steps") or []):
+                            if step.get("type") == "model_output":
+                                for item in (step.get("content") or []):
+                                    if item.get("type") == "text":
+                                        partial_len += len(item.get("text", ""))
+                        err_msg = f"incomplete (partial {partial_len} chars): {err_msg}"
+
                     return "", status, err_msg
 
                 await asyncio.sleep(_POLL_INTERVAL)

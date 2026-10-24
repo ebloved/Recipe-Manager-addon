@@ -7,6 +7,32 @@
 
 ---
 
+## [1.7.3] — 2026-10-24
+
+Hotfix: обработка пустого `error` от Interactions API + восстановление
+потерянных патчей (incomplete, max_tokens).
+
+### Fixed
+
+- **`incomplete` — терминальный статус.** Ранее `incomplete` не входил
+  в список terminal, поллинг продолжался до 300–600 с, в логе копилось
+  `still incomplete (78s)`, `still incomplete (355s)`.
+- **`failed` с пустым `error` (`{}`) — retriable.** Google иногда
+  возвращает `status="failed"` без деталей (rate limit / safety /
+  транспортный сбой). Раньше это останавливало каскад с `FATAL`.
+  Теперь — переключение на следующую модель.
+- **Логирование полного JSON** при пустом `error` для диагностики.
+- **`max_tokens` 3000 → 15000** в `generator.py`: thinking-модель
+  тратит reasoning-токены внутри `max_output_tokens`, 3000 не хватало.
+  `GENERATOR_MAX_TOKENS` в `config.py` (если ещё не было).
+
+### Notes
+
+- `_poll_interaction` возвращает 3-tuple `(out, status, err_msg)`
+  (без изменений сигнатуры). Логика retriable — в `complete()`.
+
+---
+
 ## [1.7.1] — 2026-10-24
 
 Hotfix: авто-починка YAML (двоеточия в description/title, inline-списки).
