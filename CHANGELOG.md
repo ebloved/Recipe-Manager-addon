@@ -7,6 +7,24 @@
 
 ---
 
+## [1.6.8] — 2026-10-24
+
+Hotfix: извлечение ответа из нового формата Interactions API (steps).
+
+### Fixed
+
+- **`_poll_interaction`**: при `status="completed"` текст
+  извлекался из `output_text` / `outputs[]`, но в новом формате
+  API (Api-Revision: 2026-05-20) текст лежит внутри
+  `steps[]` → `type="model_output"` → `content[]` → `type="text"`.
+  Из-за этого `complete()` возвращал пустую строку, и джоб падал с
+  `LLM вернул пустой ответ`. Добавлен парсинг `steps` с fallback
+  на `output_text`/`outputs` для совместимости.
+- Если текст не найден ни одним способом — в лог пишется
+  `completed but text is empty! keys=[...]` для диагностики.
+
+---
+
 ## [1.6.7] — 2026-10-24
 
 Background Execution через Gemini Interactions API — никаких таймаутов на «размышления» модели.

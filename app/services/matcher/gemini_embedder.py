@@ -405,14 +405,28 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                     print(f"[gemini] {model} still {status} ({elapsed:.0f}s)")
 
                 if status == "completed":
-                    out = data.get("output_text") or ""
+                    # Новый формат: текст в steps[] → type=model_output → content[] → text
+                    out = ""
+                    steps = data.get("steps") or []
+                    for step in steps:
+                        if step.get("type") == "model_output":
+                            for item in (step.get("content") or []):
+                                if item.get("type") == "text":
+                                    out += item.get("text", "")
+
+                    # Fallback на старый формат (output_text / outputs)
                     if not out:
-                        # fallback: склеить outputs[-1].text
+                        out = data.get("output_text") or ""
+                    if not out:
                         outputs = data.get("outputs") or []
                         if outputs:
                             last = outputs[-1]
                             if isinstance(last, dict):
                                 out = last.get("text", "")
+
+                    out = out.strip()
+                    if not out:
+                        print(f"[gemini] {model} completed but text is empty! keys={list(data.keys())}")
                     return out, "completed", None
 
                 if status in ("failed", "cancelled", "requires_action"):
