@@ -7,6 +7,33 @@
 
 ---
 
+## [1.5.1] — 2026-10-06
+
+Фикс сломанного `GeminiProvider.complete()` — генератор (1.5.0) теперь
+реально может вызывать Gemini.
+
+### Fixed
+
+- **`GeminiProvider.complete()`** ссылался на `self._api_key`,
+  `self._proxy`, `self._generative_model`, которые не устанавливаются
+  ни в `GeminiProvider.__init__`, ни в `EmbeddingProvider.__init__`.
+  Метод никогда не вызывался матчером (использовался только
+  эмбеддинг-путь), но генератор 1.5.0 дёрнул — получили
+  `AttributeError: 'GeminiProvider' object has no attribute '_api_key'`
+  → `502 Bad Gateway` на `POST /api/generator/run`.
+  Замена внутри `complete()`: `GEMINI_API_KEY`, `GEMINI_PROXY`,
+  `self.model`. Эмбеддинг-путь (`embed()`, health) не тронут.
+
+### Known issues
+
+- `GeminiProvider.embed()` и healthcheck используют те же
+  несуществующие атрибуты (`self._api_key` / `_proxy` /
+  `_generative_model`). В проде не проявляется, пока
+  `matcher_provider=gemini` не активируется вручную. Починим
+  отдельной итерацией.
+
+---
+
 ## [1.5.0] — 2026-10-06
 
 Генератор рецептов через LLM с очередью предложений.
