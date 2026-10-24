@@ -153,9 +153,11 @@ async def generate_suggestions(
         )
     except Exception as exc:  # noqa: BLE001
         _elapsed = round(_time.monotonic() - _t0, 2)
+        _usage = getattr(provider, "_last_usage", None) or {}
         _record_attempt(status="error", provider=provider_name,
                         model=_model_name(provider), elapsed_s=_elapsed,
-                        error=str(exc)[:300], at=_now())
+                        error=str(exc)[:300], at=_now(),
+                        usage=_usage)
         logger.warning("[generator] provider %s failed (%.1fs): %s",
                        provider_name, _elapsed, exc)
         raise HTTPException(502, f"LLM вернул ошибку: {exc}") from exc
@@ -165,7 +167,7 @@ async def generate_suggestions(
                     model=_model_name(provider), elapsed_s=_elapsed,
                     error=None, at=_now(),
                     finish_reason=_usage.get("finish_reason"),
-                    usage=_usage.get("usage"))
+                    usage=_usage)  # весь объект: attempts, models_tried, usage
 
     raw_response = _clean_md(raw_response)
     if not raw_response:

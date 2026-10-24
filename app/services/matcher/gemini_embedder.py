@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger(__name__)
 """Провайдер Gemini: эмбеддинги + генеративная валидация.
 
 Реализует два интерфейса сразу:
@@ -62,6 +65,13 @@ _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 # таймаут эмбеддингов для complete() мал. Отдельная константа, чтобы
 # не влиять на embed()/health.
 _GENERATE_TIMEOUT = httpx.Timeout(120.0, connect=15.0)
+
+# Per-model budget и общий deadline для complete(). Async-job снимает
+# ограничение nginx, но бесконечно висеть тоже нельзя. 3 модели × 90с
+# с общим лимитом 240с: если первая отвалилась быстро (503 за 8с),
+# у оставшихся много запаса; если timeout — режем и пробуем следующую.
+_PER_MODEL_TIMEOUT = 90.0
+_TOTAL_DEADLINE = 240.0
 
 
 class GeminiProvider(EmbeddingProvider, GenerativeProvider):
@@ -192,48 +202,125 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         max_tokens: int = 200,
         temperature: float = 0.0,
     ) -> str:
-        """Cascade по GEMINI_MODELS: при 404/429/5xx пробуем следующую модель.
+        """Cascade по GEMINI_MODELS с per-model timeout и общим дедлайном.
 
-        Timeout и auth НЕ retry'ются — это не про модель.
+        Timeout / 404 / 429 / 5xx — retriable (пробуем следующую модель).
+        Auth / network / bad request — fatal (пробрасываем наверх).
         """
         if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
         models = list(GEMINI_MODELS) or [self.model]
-        self._last_usage = {"models_tried": []}
+        self._last_usage = {
+            "models_tried": [],
+            "attempts": [],
+            "prompt_chars": len(prompt or ""),
+        }
         errors: list[str] = []
+        start = asyncio.get_event_loop().time()
+
+        logger.info(
+            "[gemini] start: prompt=%dchars, max_tokens=%d, models=%s, "
+            "per_model=%.0fs, deadline=%.0fs",
+            len(prompt or ""), max_tokens, models,
+            _PER_MODEL_TIMEOUT, _TOTAL_DEADLINE,
+        )
 
         for model in models:
+            elapsed_total = asyncio.get_event_loop().time() - start
+            remaining = _TOTAL_DEADLINE - elapsed_total
+            if remaining < 10.0:
+                self._last_usage["attempts"].append({
+                    "model": model, "status": "skipped",
+                    "reason": f"deadline (remaining {remaining:.0f}s)",
+                })
+                errors.append(f"{model}: skipped (deadline)")
+                logger.warning(
+                    "[gemini] %s skipped: only %.0fs left", model, remaining)
+                continue
+
+            budget = min(_PER_MODEL_TIMEOUT, remaining)
             self._last_usage["models_tried"].append(model)
+            t0 = asyncio.get_event_loop().time()
+            logger.info(
+                "[gemini] try %s (budget %.0fs, total_remaining %.0fs)",
+                model, budget, remaining)
+
             try:
-                return await self._complete_one(
-                    model, prompt, system, max_tokens, temperature,
+                result = await asyncio.wait_for(
+                    self._complete_one(
+                        model, prompt, system, max_tokens, temperature),
+                    timeout=budget,
                 )
+                elapsed = asyncio.get_event_loop().time() - t0
+                self._last_usage["attempts"].append({
+                    "model": model, "status": "ok",
+                    "elapsed_s": round(elapsed, 2),
+                })
+                logger.info("[gemini] %s ok in %.1fs", model, elapsed)
+                return result
+
+            except (asyncio.TimeoutError, TimeoutError):
+                elapsed = asyncio.get_event_loop().time() - t0
+                self._last_usage["attempts"].append({
+                    "model": model, "status": "timeout",
+                    "elapsed_s": round(elapsed, 2),
+                })
+                errors.append(f"{model}: timeout at {elapsed:.0f}s")
+                logger.warning(
+                    "[gemini] %s TIMEOUT at %.1fs — try next model",
+                    model, elapsed)
+                continue
+
             except Exception as exc:  # noqa: BLE001
-                msg = str(exc)
-                if self._is_retriable(msg):
+                elapsed = asyncio.get_event_loop().time() - t0
+                msg = str(exc) or type(exc).__name__
+                retriable = self._is_retriable(msg)
+                self._last_usage["attempts"].append({
+                    "model": model, "status": "error",
+                    "elapsed_s": round(elapsed, 2),
+                    "error": msg[:200], "retriable": retriable,
+                })
+                logger.warning(
+                    "[gemini] %s failed in %.1fs: %s (%s)",
+                    model, elapsed, msg,
+                    "retriable" if retriable else "FATAL")
+                if retriable:
                     errors.append(f"{model}: {msg}")
                     continue
                 raise
 
-        # Спец-обработка «все модели 503»: Google перегружен, retry
-        # сразу не поможет — пользователю важнее понятная подсказка.
+        total_elapsed = asyncio.get_event_loop().time() - start
+        logger.error(
+            "[gemini] ALL models failed in %.0fs: %s",
+            total_elapsed, "; ".join(errors))
+
+        if errors and all("timeout" in e for e in errors):
+            raise ProviderUnavailable(
+                f"Все {len(models)} модели Gemini не ответили за "
+                f"{_PER_MODEL_TIMEOUT:.0f}s каждая (итого {total_elapsed:.0f}s). "
+                f"Промпт {len(prompt or '')} символов, max_tokens={max_tokens}. "
+                f"Попробуйте уменьшить samples или повторите через минуту."
+            )
         if errors and all(
             ("503" in e or "server error" in e) for e in errors
         ):
             raise ProviderUnavailable(
                 f"Gemini перегружен (503) — все {len(models)} модели вернули "
-                f"server error. Попробуйте через 1–2 минуты."
+                f"server error за {total_elapsed:.0f}s. Попробуйте через 1–2 минуты."
             )
         raise ProviderUnavailable(
-            f"All {len(models)} models failed: " + "; ".join(errors)
+            f"All {len(models)} models failed ({total_elapsed:.0f}s): "
+            + "; ".join(errors)
         )
 
     @staticmethod
     def _is_retriable(msg: str) -> bool:
-        return any(k in msg for k in (
-            "server error", "HTTP 404", "HTTP 429",
-            "HTTP 500", "HTTP 502", "HTTP 503",
+        m = msg.lower()
+        return any(k in m for k in (
+            "server error", "http 404", "http 429",
+            "http 500", "http 502", "http 503",
+            "timeout",
         ))
 
     async def _complete_one(

@@ -7,6 +7,44 @@
 
 ---
 
+## [1.6.4] — 2026-10-24
+
+Cascade теперь срабатывает на timeout + подробный лог.
+
+### Fixed
+
+- **`GeminiProvider.complete()`**: timeout от модели не попадал в
+  `_is_retriable()` (проверялись только `HTTP 4xx/5xx` и
+  `server error`) → cascade не пробовал следующую модель.
+  Теперь `timeout` в списке retriable.
+- **Пустое сообщение `Gemini timeout:`**: `httpx.TimeoutException`
+  имеет пустой `__str__()`. Теперь любая ошибка логируется с именем
+  модели и её `elapsed` (например, `gemini-3.8-flash: timeout at
+  90s`).
+
+### Changed
+
+- **Per-model budget 90 с, общий deadline 240 с.** Каждый вызов
+  `_complete_one` обёрнут в `asyncio.wait_for(timeout=90s)`. Если
+  первая модель отдала 503 за 8 с — у следующих полный бюджет;
+  если timeout — переключаемся на следующую, а не висим 130 с
+  на первой.
+- **Подробный лог cascade:** на каждую модель `try`/`ok`/
+  `TIMEOUT`/`failed` с бюджетом, elapsed, retriable/fatal.
+- **`/diag → last_attempt.usage.attempts`** — массив
+  `{model, status, elapsed_s, error?, retriable?}` с результатом
+  каждой попытки. Видно прямо в браузере, кто и почему упал.
+
+### Notes
+
+- Если после v1.6.4 все модели стабильно timeout на 90 с — это
+  уже не про cascade, а про payload: samples=2 × ~1000 токенов
+  примеров + 3000 max_tokens output. Следующий шаг диагностики —
+  уменьшить samples=1 или max_tokens=2000, или проверить
+  `thoughtsTokenCount` (thinking-модель тратит бюджет на reasoning).
+
+---
+
 ## [1.6.3] — 2026-10-24
 
 Возврат few-shot образцов по умолчанию (async делает это безопасным).
