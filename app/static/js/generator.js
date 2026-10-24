@@ -105,8 +105,8 @@
         return;
       }
       // pending / in_progress — просто продолжаем поллинг
-      if (elapsed > 600) {
-        setStatus(status, "Ошибка: превышен лимит 10 минут", "error");
+      if (elapsed > 900) {
+        setStatus(status, "Ошибка: превышен лимит 15 минут", "error");
         return;
       }
     }
