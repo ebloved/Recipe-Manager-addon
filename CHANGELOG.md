@@ -7,6 +7,21 @@
 
 ---
 
+## [1.5.6] — 2026-10-24
+
+Hotfix: `NameError: GEMINI_MODELS is not defined` в `generator.py`.
+
+### Fixed
+
+- **`generator.py`** ссылался на `GEMINI_MODELS` в `_model_name()`
+  (добавлено в v1.5.5), но импорт `from config import GEMINI_MODELS`
+  не был добавлен: скрипт v1.5.5 молча пропустил шаг из-за
+  слишком умного условия. `NameError` срабатывал в `except`-ветке
+  при любом провале провайдера и маскировал реальную ошибку
+  (например, `Gemini: server error 503`).
+
+---
+
 ## [1.5.5] — 2026-10-24
 
 Фикс обрезанного ответа Gemini, отображения модели и наблюдаемость.

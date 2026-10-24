@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from recipe_manager.importer import parse_markdown_recipe
+from config import GEMINI_MODELS
 from stores import gen_profiles_store, recipe_store
 
 from .prompt import build_prompt
