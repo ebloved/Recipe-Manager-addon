@@ -26,6 +26,7 @@ import httpx
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODELS,
+    GENERATOR_MAX_TOKENS,
     GEMINI_PROXY,
 )
 
@@ -199,7 +200,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         self,
         prompt: str,
         system: str | None = None,
-        max_tokens: int = 3000,
+        max_tokens: int = GENERATOR_MAX_TOKENS,
         temperature: float = 0.7,
     ) -> str:
         """Background Execution через Interactions API с polling.

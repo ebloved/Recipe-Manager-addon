@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from recipe_manager.importer import parse_markdown_recipe
-from config import GEMINI_MODELS
+from config import GEMINI_MODELS, GENERATOR_MAX_TOKENS
 from stores import gen_profiles_store, recipe_store
 
 from .prompt import build_prompt
@@ -149,7 +149,7 @@ async def generate_suggestions(
     try:
         raw_response = await provider.complete(
             prompt=user, system=system,
-            max_tokens=3000, temperature=0.7,
+            max_tokens=GENERATOR_MAX_TOKENS, temperature=0.7,
         )
     except Exception as exc:  # noqa: BLE001
         _elapsed = round(_time.monotonic() - _t0, 2)
