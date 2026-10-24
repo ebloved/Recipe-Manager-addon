@@ -36,11 +36,21 @@ def _now() -> str:
 
 
 def _clean_md(raw: str) -> str:
-    """Убирает ``` вокруг ответа, если LLM их добавила."""
+    """Убирает ``` вокруг ответа и чинит формат перед парсингом."""
     s = (raw or "").strip()
     if s.startswith("```"):
         s = re.sub(r"^```[a-zA-Z]*\n", "", s)
         s = re.sub(r"\n```$", "", s)
+    s = s.strip()
+
+    # Auto-heal: LLM иногда пишет текст перед YAML — режем до первого ---
+    if not s.startswith("---") and not s.startswith("#"):
+        idx = s.find("---")
+        if idx > 0:
+            s = s[idx:]
+
+    # Auto-heal: Gemini иногда пишет "item:" вместо "name:" в ингредиентах
+    s = re.sub(r"^(\s*)-(\s*)item:", r"\1-\2name:", s, flags=re.MULTILINE)
     return s.strip()
 
 
