@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from . import (
     imports,
     youtube,
+    generator,
     meal_plan,
     shopping,
     sync,
@@ -22,6 +23,7 @@ api_router.include_router(shopping.router)
 api_router.include_router(sync.router)
 api_router.include_router(ingredients.router)
 api_router.include_router(profiles.router)
+api_router.include_router(generator.router)
 api_router.include_router(matcher.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)

@@ -21,6 +21,7 @@ INGREDIENTS_FILE = DATA_DIR / "ingredients.json"
 GEN_PROFILES_FILE = DATA_DIR / "gen_profiles.json"
 OFF_CACHE_FILE = DATA_DIR / "off_cache.json"
 EMBEDDINGS_CACHE_FILE = DATA_DIR / "embeddings_cache.json"
+SUGGESTIONS_FILE = DATA_DIR / "suggestions.json"
 
 # --- Шаблоны и статика -----------------------------------------------------
 
@@ -103,6 +104,13 @@ GITHUB_INGREDIENTS_PATH = (
     os.environ.get("GITHUB_INGREDIENTS_PATH", "ingredients.json").strip()
     or "ingredients.json"
 )
+
+# --- Generator ------------------------------------------------------------
+
+GENERATOR_MAX_COUNT = int(os.environ.get("GENERATOR_MAX_COUNT", "5") or 5)
+GENERATOR_DEFAULT_COUNT = int(os.environ.get("GENERATOR_DEFAULT_COUNT", "1") or 1)
+GENERATOR_SAMPLES_MAX = int(os.environ.get("GENERATOR_SAMPLES_MAX", "10") or 10)
+GENERATOR_DEFAULT_SAMPLES = int(os.environ.get("GENERATOR_DEFAULT_SAMPLES", "3") or 3)
 
 # --- Feature flags ---------------------------------------------------------
 

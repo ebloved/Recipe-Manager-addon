@@ -16,6 +16,9 @@
     RM.youtube.setup();
     RM.imports.setup();
 
+    // Генератор
+    if (RM.generator) RM.generator.setup();
+
     // Продукты
     if (RM.products) RM.products.setup();
 

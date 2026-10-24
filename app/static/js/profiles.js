@@ -313,5 +313,17 @@
   // Экспорт
   // =====================================================================
 
+  // ---- Generator profile select mirroring ----
+  function _syncGenSelect() {
+    const genSel = document.getElementById("gen-profile-select");
+    if (!genSel) return;
+    const prev = genSel.value;
+    genSel.innerHTML = `<option value="">— как в шапке (активный) —</option>` +
+      state.profiles.map((p) => `<option value="${escHtml(p.id)}">${escHtml((p.icon ? p.icon + " " : "") + p.name)}</option>`).join("");
+    genSel.value = prev;
+  }
+  const _origRenderSelector = renderSelector;
+  renderSelector = function () { _origRenderSelector(); _syncGenSelect(); };
+
   RM.profiles = { setup, load, render: renderList, getActive };
 })(window.RM);

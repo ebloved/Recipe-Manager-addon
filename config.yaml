@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "1.4.8"
+version: "1.5.0"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"
@@ -68,6 +68,12 @@ options:
   github_ingredients_enabled: true
   github_ingredients_path: "ingredients.json"
 
+  # --- Generator ---
+  generator_max_count: 5
+  generator_default_count: 1
+  generator_samples_max: 10
+  generator_default_samples: 3
+
   log_level: "info"
 
 schema:
@@ -116,6 +122,11 @@ schema:
   github_path: "str?"
   github_ingredients_enabled: "bool"
   github_ingredients_path: "str?"
+
+  generator_max_count: "int(1,20)"
+  generator_default_count: "int(1,10)"
+  generator_samples_max: "int(0,50)"
+  generator_default_samples: "int(0,20)"
 
   log_level: "list(trace|debug|info|notice|warning|error|fatal)"
 

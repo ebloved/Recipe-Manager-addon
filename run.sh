@@ -60,6 +60,12 @@ export GITHUB_PATH="$(jq --raw-output '.github_path // "recipes.json"' $CONFIG_P
 export GITHUB_INGREDIENTS_ENABLED="$(jq --raw-output '.github_ingredients_enabled // true' $CONFIG_PATH)"
 export GITHUB_INGREDIENTS_PATH="$(jq --raw-output '.github_ingredients_path // "ingredients.json"' $CONFIG_PATH)"
 
+# --- Generator ------------------------------------------------------------
+export GENERATOR_MAX_COUNT="$(jq --raw-output '.generator_max_count // 5' $CONFIG_PATH)"
+export GENERATOR_DEFAULT_COUNT="$(jq --raw-output '.generator_default_count // 1' $CONFIG_PATH)"
+export GENERATOR_SAMPLES_MAX="$(jq --raw-output '.generator_samples_max // 10' $CONFIG_PATH)"
+export GENERATOR_DEFAULT_SAMPLES="$(jq --raw-output '.generator_default_samples // 3' $CONFIG_PATH)"
+
 # --- Прочее ---------------------------------------------------------------
 export LOG_LEVEL="$(jq --raw-output '.log_level // "info"' $CONFIG_PATH)"
 
@@ -155,6 +161,7 @@ bashio::log.info "Local embedder: $([ "${LOCAL_EMBEDDER_ENABLED}" = "true" ] && 
 bashio::log.info "GitHub: $([ -n "${GITHUB_REPO}" ] && echo "${GITHUB_REPO}@${GITHUB_BRANCH}" || echo 'not configured')"
 bashio::log.info "GitHub ingredients sync: $([ "${GITHUB_INGREDIENTS_ENABLED}" = "true" ] && echo "yes (${GITHUB_INGREDIENTS_PATH})" || echo "no")"
 bashio::log.info "Features: products=${FEATURE_PRODUCTS} matcher=${FEATURE_MATCHER} profiles=${FEATURE_PROFILES} generator=${FEATURE_GENERATOR}"
+bashio::log.info "Generator: default count=${GENERATOR_DEFAULT_COUNT}, samples=${GENERATOR_DEFAULT_SAMPLES}"
 
 exec /opt/venv/bin/uvicorn main:app \
     --host 0.0.0.0 \

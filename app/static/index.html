@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=23">
+<link rel="stylesheet" href="static/css/style.css?v=24">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -13,6 +13,7 @@
   <h1>Recipe Manager</h1>
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
+<button class="tab" data-panel="generator">✨ Генератор</button>
     <button class="tab" data-panel="products">🧺 Продукты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
@@ -41,6 +42,49 @@
       </div>
     </div>
   </section>
+  <!-- ==================================================== Generator -->
+  <section class="panel" id="panel-generator">
+    <div class="panel-inner">
+      <div class="card">
+        <div class="hint">
+          Генерация новых рецептов через LLM (Hermes или Gemini).
+          Используется активный профиль из шапки — можно переопределить ниже.
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="gen-profile-select">Профиль</label>
+            <select id="gen-profile-select">
+              <option value="">— как в шапке (активный) —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gen-topic">Тема (опционально)</label>
+            <input type="text" id="gen-topic" placeholder="например, лёгкий ужин с рыбой">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="gen-count">Сколько рецептов</label>
+            <input type="number" id="gen-count" min="1" max="5" value="1">
+          </div>
+          <div class="field">
+            <label for="gen-samples">Образцов из моих рецептов</label>
+            <input type="number" id="gen-samples" min="0" max="10" value="3">
+          </div>
+        </div>
+
+        <button class="btn primary" id="gen-run-btn">✨ Сгенерировать</button>
+        <div class="status" id="gen-status"></div>
+      </div>
+
+      <div id="gen-suggestions">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
 
   <!-- ==================================================== Products -->
   <section class="panel" id="panel-products">
@@ -617,24 +661,25 @@ servings: 4
 <!-- ==================================================== Editor overlay (recipe) -->
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=23"></script>
-<script src="static/js/api.js?v=23"></script>
-<script src="static/js/state.js?v=23"></script>
-<script src="static/js/tabs.js?v=23"></script>
-<script src="static/js/youtube.js?v=23"></script>
-<script src="static/js/imports.js?v=23"></script>
-<script src="static/js/recipes.js?v=23"></script>
-<script src="static/js/detail.js?v=23"></script>
-<script src="static/js/editor.js?v=23"></script>
-<script src="static/js/plan-picker.js?v=23"></script>
-<script src="static/js/planner.js?v=23"></script>
-<script src="static/js/recipe-picker.js?v=23"></script>
-<script src="static/js/shopping.js?v=23"></script>
-<script src="static/js/products.js?v=23"></script>
-<script src="static/js/product-picker.js?v=23"></script>
-<script src="static/js/profiles.js?v=23"></script>
-<script src="static/js/sync.js?v=23"></script>
-<script src="static/js/live-sync.js?v=23"></script>
-<script src="static/js/app.js?v=23"></script>
+<script src="static/js/utils.js?v=24"></script>
+<script src="static/js/api.js?v=24"></script>
+<script src="static/js/state.js?v=24"></script>
+<script src="static/js/tabs.js?v=24"></script>
+<script src="static/js/youtube.js?v=24"></script>
+<script src="static/js/imports.js?v=24"></script>
+<script src="static/js/recipes.js?v=24"></script>
+<script src="static/js/detail.js?v=24"></script>
+<script src="static/js/editor.js?v=24"></script>
+<script src="static/js/plan-picker.js?v=24"></script>
+<script src="static/js/planner.js?v=24"></script>
+<script src="static/js/recipe-picker.js?v=24"></script>
+<script src="static/js/shopping.js?v=24"></script>
+<script src="static/js/products.js?v=24"></script>
+<script src="static/js/product-picker.js?v=24"></script>
+<script src="static/js/generator.js?v=24"></script>
+<script src="static/js/profiles.js?v=24"></script>
+<script src="static/js/sync.js?v=24"></script>
+<script src="static/js/live-sync.js?v=24"></script>
+<script src="static/js/app.js?v=24"></script>
 </body>
 </html>

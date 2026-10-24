@@ -7,6 +7,38 @@
 
 ---
 
+## [1.5.0] — 2026-10-06
+
+Генератор рецептов через LLM с очередью предложений.
+
+### Added
+
+- **Вкладка «✨ Генератор».** Генерация новых рецептов через LLM
+  (Hermes / Gemini) с учётом активного профиля и few-shot образцов
+  из существующей библиотеки. Очередь предложений: принять
+  (→ `recipes.json`), отклонить, предпросмотр сырого Markdown.
+- **Провайдеры генерации.** Каскад: Hermes (OpenAI-совместимый)
+  → Gemini. Используются существующие классы из `services/matcher`.
+  Эндпоинт `/api/generator/status` показывает доступность и активного
+  провайдера.
+- **Хранилище предложений.** `/data/suggestions.json`, схема со
+  `status` (pending / accepted / rejected), сырым Markdown ответа
+  и результатом `parse_markdown_recipe`.
+- **API генератора.** `POST /api/generator/run`,
+  `GET /api/generator/suggestions`, `POST .../{id}/accept`,
+  `DELETE .../{id}`, `GET /api/generator/status`.
+- **Конфиг.** `generator_max_count`, `generator_default_count`,
+  `generator_samples_max`, `generator_default_samples` в
+  `config.yaml` и `run.sh`.
+
+### Notes
+
+- Периодический запуск (cron / scheduler) — отдельная итерация.
+- Фильтрация рецептов в списке по активному профилю — отдельная
+  итерация.
+
+---
+
 ## [1.3.0] — 2026-10-06
 
 Крупный релиз: база продуктов с открытой интеграцией в OpenFoodFacts,

@@ -1,1 +1,15 @@
 data/backups/
+md/*
+# Iteration-C backups (см. build/backups/)
+*.bak.iterC
+*.bak
+*.orig
+
+# Local scripts / workspace (не коммитим, но держим на диске)
+build/
+
+# Python venv
+.venv/
+venv/
+__pycache__/
+*.pyc
