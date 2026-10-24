@@ -220,11 +220,10 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         errors: list[str] = []
         start = asyncio.get_event_loop().time()
 
-        logger.info(
-            "[gemini] start: prompt=%dchars, max_tokens=%d, models=%s, "
-            "per_model=%.0fs, deadline=%.0fs",
-            len(prompt or ""), max_tokens, models,
-            _PER_MODEL_TIMEOUT, _TOTAL_DEADLINE,
+        print(
+            f"[gemini] start: prompt={len(prompt or '')}chars, "
+            f"max_tokens={max_tokens}, models={models}, "
+            f"per_model={_PER_MODEL_TIMEOUT:.0f}s, deadline={_TOTAL_DEADLINE:.0f}s"
         )
 
         for model in models:
@@ -243,9 +242,8 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
             budget = min(_PER_MODEL_TIMEOUT, remaining)
             self._last_usage["models_tried"].append(model)
             t0 = asyncio.get_event_loop().time()
-            logger.info(
-                "[gemini] try %s (budget %.0fs, total_remaining %.0fs)",
-                model, budget, remaining)
+            print(f"[gemini] try {model} (budget {budget:.0f}s, "
+                  f"total_remaining {remaining:.0f}s)")
 
             try:
                 result = await asyncio.wait_for(
@@ -258,7 +256,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                     "model": model, "status": "ok",
                     "elapsed_s": round(elapsed, 2),
                 })
-                logger.info("[gemini] %s ok in %.1fs", model, elapsed)
+                print(f"[gemini] {model} ok in {elapsed:.1f}s")
                 return result
 
             except (asyncio.TimeoutError, TimeoutError):
@@ -375,21 +373,20 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         except Exception as exc:  # noqa: BLE001
             raise ProviderUnavailable(f"Gemini: bad JSON — {exc}") from exc
 
-        self._last_usage = {}
         try:
             candidates = data.get("candidates") or []
             parts = candidates[0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts)
-            self._last_usage = {
+            self._last_usage.update({
                 "finish_reason": candidates[0].get("finishReason"),
                 "usage": data.get("usageMetadata") or {},
-            }
+            })
         except (KeyError, IndexError, TypeError):
             # Иногда Gemini возвращает пустой ответ из-за safety-фильтра
-            self._last_usage = {
+            self._last_usage.update({
                 "finish_reason": None,
                 "usage": data.get("usageMetadata") or {},
-            }
+            })
             return ""
 
         return text.strip()

@@ -3,7 +3,7 @@ set -e
 
 CONFIG_PATH=/data/options.json
 
-export ADDON_VERSION="$(bashio::addon.version 2>/dev/null || echo unknown)"
+export ADDON_VERSION="$(bashio::app.version 2>/dev/null || echo unknown)"
 
 # --- Пути для опциональной установки зависимостей -------------------------
 EXTRA_PACKAGES_DIR="/data/.extra_packages"

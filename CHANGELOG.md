@@ -7,6 +7,33 @@
 
 ---
 
+## [1.6.6] — 2026-10-24
+
+Hotfix: `KeyError 'attempts'` в cascade + логи cascade не видны.
+
+### Fixed
+
+- **`GeminiProvider._complete_one()`** перезаписывал
+  `self._last_usage` (словарь из `complete()` с ключами
+  `models_tried`/`attempts`/`prompt_chars`) на `{finish_reason, usage}`.
+  После успешного ответа `complete()` вызывал
+  `self._last_usage["attempts"].append(...)` → `KeyError 'attempts'`.
+  Исправлено: `_complete_one` использует `.update()` вместо `=`,
+  `self._last_usage = {}` из начала тела удалён.
+- **Логи cascade не появлялись.** `logger.info()` из
+  `services.matcher.gemini_embedder` не долетает — uvicorn настраивает
+  только свои логгеры, кастомные падают в `logging.lastResort`
+  (уровень WARNING). `logger.info` → `print()` (как в остальном
+  проекте: `[ingredients] loaded`, `[matcher] provider=...` и т.п.).
+  `logger.warning/error` — оставлены, они видны.
+
+### Changed
+
+- `run.sh`: `bashio::addon.version` → `bashio::app.version`
+  (первая задепрекейчена в текущей версии HA).
+
+---
+
 ## [1.6.5] — 2026-10-24
 
 Hotfix: `SyntaxError` в `gemini_embedder.py`.
