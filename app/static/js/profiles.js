@@ -60,6 +60,7 @@
       state.profiles = data.profiles || [];
       state.activeProfileId = data.active_id || null;
       renderSelector();
+      if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
       if ($("profiles-overlay").classList.contains("show")) {
         renderList();
       }
@@ -98,6 +99,7 @@
       await postJSON("api/profiles/active", { profile_id: id });
       state.activeProfileId = id;
       renderSelector();
+      if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
       if ($("profiles-overlay").classList.contains("show")) renderList();
     } catch (err) {
       alert("Не удалось переключить профиль: " + err.message);
@@ -176,6 +178,7 @@
         state.activeProfileId = id;
         renderSelector();
         renderList();
+        if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
       } catch (err) {
         alert("Ошибка: " + err.message);
       }

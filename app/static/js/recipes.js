@@ -5,48 +5,117 @@
   const state = RM.state;
 
   let searchTimer = null;
-
-  function setup() {
-    $("search").addEventListener("input", (e) => {
-      clearTimeout(searchTimer);
-      const q = e.target.value.trim();
-      searchTimer = setTimeout(() => filterAndRender(q), 200);
-    });
+  
+  function getActiveProfile() {
+    return (RM.profiles && RM.profiles.getActive) ? RM.profiles.getActive() : null;
   }
-
-  async function load() {
-    const container = $("recipes-container");
-    if (state.recipes.length) {
-      render(state.recipes);
+  
+  function fitsProfile(recipe, profile) {
+    if (!profile) return true;
+    const c = profile.constraints || {};
+    const num = (v) => (v === null || v === undefined || v === "") ? null : Number(v);
+    if (c.max_calories_per_serving != null) {
+      const cal = num((recipe.nutrition || {}).calories);
+      if (cal == null || cal > Number(c.max_calories_per_serving)) return false;
+    }
+    if (c.max_total_time_min != null) {
+      let t = num(recipe.total_time);
+      if (t == null) t = num(recipe.time);
+      if (t == null) {
+        const pc = (recipe.prep_time || 0) + (recipe.cook_time || 0);
+        t = pc > 0 ? pc : null;
+      }
+      if (t == null || t > Number(c.max_total_time_min)) return false;
+    }
+    if (c.max_active_time_min != null) {
+      let active = num(recipe.active_time);
+      if (active == null) active = num(recipe.prep_time);
+      if (active == null || active > Number(c.max_active_time_min)) return false;
+    }
+    if (c.min_protein_per_serving_g != null) {
+      const p = num((recipe.nutrition || {}).protein);
+      if (p == null || p < Number(c.min_protein_per_serving_g)) return false;
+    }
+    if (c.max_sugar_per_serving_g != null) {
+      const sg = num((recipe.nutrition || {}).sugar);
+      if (sg == null || sg > Number(c.max_sugar_per_serving_g)) return false;
+    }
+    return true;
+  }
+  
+  function toggleProfileFilter() {
+    state.profileFilterActive = !state.profileFilterActive;
+    filterAndRender();
+  }
+  
+  function updateFilterButton() {
+    const btn = $("profile-filter-btn");
+    if (!btn) return;
+    const active = getActiveProfile();
+    if (!active) {
+      btn.style.display = "none";
+      state.profileFilterActive = false;
       return;
     }
-    container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
-    try {
-      const data = await getJSON("api/recipes");
-      state.recipes = data.recipes || [];
-      render(state.recipes);
-    } catch (err) {
-      container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить: ${escHtml(err.message)}</p></div>`;
-    }
+    btn.style.display = "";
+    const total = state.recipes.length;
+    const fitting = state.recipes.filter((r) => fitsProfile(r, active)).length;
+    btn.textContent = `🎯 Только под профиль (${fitting}/${total})`;
+    btn.title = active.name || "Активный профиль";
+    if (state.profileFilterActive) btn.classList.add("profile-filter-active");
+    else btn.classList.remove("profile-filter-active");
   }
 
+  function setup() {
+      $("search").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => filterAndRender(), 200);
+      });
+      const filterBtn = $("profile-filter-btn");
+      if (filterBtn) filterBtn.addEventListener("click", toggleProfileFilter);
+    }
+
+  async function load() {
+      const container = $("recipes-container");
+      if (state.recipes.length) {
+        filterAndRender();
+        return;
+      }
+      container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
+      try {
+        const data = await getJSON("api/recipes");
+        state.recipes = data.recipes || [];
+        filterAndRender();
+      } catch (err) {
+        container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить: ${escHtml(err.message)}</p></div>`;
+      }
+    }
+
   function filterAndRender(q) {
-    if (!q) { render(state.recipes); return; }
-    const lower = q.toLowerCase();
-    const filtered = state.recipes.filter((r) => {
-      if ((r.name || "").toLowerCase().includes(lower)) return true;
-      if ((r.description || "").toLowerCase().includes(lower)) return true;
-      for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
-        if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
+      const query = (q !== undefined ? q : ($("search").value || "")).trim();
+      const active = getActiveProfile();
+      const applyProfile = state.profileFilterActive && active;
+
+      let filtered = state.recipes;
+      if (applyProfile) filtered = filtered.filter((r) => fitsProfile(r, active));
+      if (query) {
+        const lower = query.toLowerCase();
+        filtered = filtered.filter((r) => {
+          if ((r.name || "").toLowerCase().includes(lower)) return true;
+          if ((r.description || "").toLowerCase().includes(lower)) return true;
+          for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
+            if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
+          }
+          for (const ing of r.ingredients || []) {
+            const name = typeof ing === "string" ? ing : ing.name;
+            if (name && String(name).toLowerCase().includes(lower)) return true;
+          }
+          return false;
+        });
       }
-      for (const ing of r.ingredients || []) {
-        const name = typeof ing === "string" ? ing : ing.name;
-        if (name && String(name).toLowerCase().includes(lower)) return true;
-      }
-      return false;
-    });
-    render(filtered);
-  }
+      render(filtered);
+      updateFilterButton();
+    }
 
   function render(recipes) {
     const container = $("recipes-container");
@@ -99,6 +168,13 @@
 
     const meta = document.createElement("div");
     meta.className = "recipe-meta";
+    const _activeProfile = getActiveProfile();
+    if (_activeProfile && fitsProfile(r, _activeProfile)) {
+      const fitChip = chip("🎯", false);
+      fitChip.classList.add("fit");
+      fitChip.title = "Подходит под профиль: " + (_activeProfile.name || "");
+      meta.appendChild(fitChip);
+    }
     const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
     if (t) meta.appendChild(chip("⏱ " + formatTime(t), false));
     if (r.servings) meta.appendChild(chip("👥 " + r.servings, false));
@@ -115,5 +191,5 @@
     return el;
   }
 
-  RM.recipes = { setup, load, filterAndRender, render };
+  RM.recipes = { setup, load, filterAndRender, render, fitsProfile, updateFilterButton };
 })(window.RM);

@@ -11,6 +11,7 @@
     pickerWeekStart: null,
     pickerRecipe: null,
     pickerServings: 2,
+    profileFilterActive: false,
   };
 
   RM.MEALS = ["breakfast", "lunch", "snack", "dinner"];

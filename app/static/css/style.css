@@ -128,9 +128,14 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 /* ================================================================
    Recipes grid
    ================================================================ */
-.search-row { margin-bottom: 16px; }
+.search-row {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
 .search-row input {
-  width: 100%; background: var(--surface);
+  flex: 1; background: var(--surface);
   border: 1px solid var(--border); border-radius: 10px;
   color: var(--text); padding: 12px 14px; font-size: 15px;
 }
@@ -2791,3 +2796,14 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   margin-top: 6px;
 }
 
+
+.meta-chip.fit {
+  background: rgba(46,160,67,0.15);
+  color: var(--success);
+  font-weight: 600;
+}
+.btn.profile-filter-active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
