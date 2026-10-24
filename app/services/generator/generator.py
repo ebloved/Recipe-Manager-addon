@@ -51,6 +51,39 @@ def _clean_md(raw: str) -> str:
 
     # Auto-heal: Gemini иногда пишет "item:" вместо "name:" в ингредиентах
     s = re.sub(r"^(\s*)-(\s*)item:", r"\1-\2name:", s, flags=re.MULTILINE)
+
+    # Auto-heal description/title: quote values containing ': ' (YAML scanner)
+    def _quote_colon(m):
+        prefix = m.group(1)
+        val = m.group(2).strip()
+        if not (val.startswith('"') or val.startswith("'")):
+            val = val.replace('"', '\\"')
+            return prefix + '"' + val + '"'
+        return m.group(0)
+
+    s = re.sub(
+        r'^(description:\s+)([^"\n][^\n]*:\s+[^\n]*)$',
+        _quote_colon, s, flags=re.MULTILINE,
+    )
+    s = re.sub(
+        r'^(title:\s+)([^"\n][^\n]*:\s+[^\n]*)$',
+        _quote_colon, s, flags=re.MULTILINE,
+    )
+
+    # Auto-heal inline lists: tags: [a, b, c] -> tags: ["a", "b", "c"]
+    def _quote_flow(m):
+        prefix = m.group(1)
+        items = [x.strip() for x in m.group(2).split(",") if x.strip()]
+        if not items:
+            return prefix + "[]"
+        quoted = ", ".join('"' + x + '"' for x in items)
+        return prefix + "[" + quoted + "]"
+
+    s = re.sub(r'^(\w+:\s*)\[([^\]]+)\]', _quote_flow, s, flags=re.MULTILINE)
+
+    # Невидимые пробелы/ZWSP
+    s = s.replace(chr(160), " ").replace(chr(0x200b), "")
+
     return s.strip()
 
 
