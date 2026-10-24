@@ -216,6 +216,15 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                     continue
                 raise
 
+        # Спец-обработка «все модели 503»: Google перегружен, retry
+        # сразу не поможет — пользователю важнее понятная подсказка.
+        if errors and all(
+            ("503" in e or "server error" in e) for e in errors
+        ):
+            raise ProviderUnavailable(
+                f"Gemini перегружен (503) — все {len(models)} модели вернули "
+                f"server error. Попробуйте через 1–2 минуты."
+            )
         raise ProviderUnavailable(
             f"All {len(models)} models failed: " + "; ".join(errors)
         )

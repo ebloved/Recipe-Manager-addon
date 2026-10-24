@@ -61,12 +61,11 @@
         count,
         samples_count: samples,
       });
-      if (data && data.job_id) {
-        await pollJob(data.job_id);
-      } else {
-        setStatus(status, `✓ Создано ${data.created} предложений.`, "success");
-        await loadSuggestions();
+      if (!data || !data.job_id) {
+        setStatus(status, "Ошибка: неожиданный ответ сервера (нет job_id). Обновите страницу (Ctrl+Shift+R).", "error");
+        return;
       }
+      await pollJob(data.job_id);
     } catch (err) {
       setStatus(status, "Ошибка: " + err.message, "error");
     } finally {
