@@ -7,6 +7,27 @@
 
 ---
 
+## [1.5.3] — 2026-10-06
+
+Фикс: таймаут `GeminiProvider.complete()` увеличен с 30 до 120 секунд.
+
+### Fixed
+
+- **`GeminiProvider.complete()`** использовал `_TIMEOUT =
+  httpx.Timeout(30.0, connect=10.0)` — общий таймаут эмбеддинг-запросов
+  (200–500 мс). Генерация рецепта с `max_tokens=2500` занимает 15–60 с,
+  30 с не хватало → `Gemini timeout` → `502` на `POST /api/generator/run`.
+  Введена отдельная константа `_GENERATE_TIMEOUT =
+  httpx.Timeout(120.0, connect=15.0)`, используется только в `complete()`.
+  `embed()` / health остаются на 30-секундном `_TIMEOUT`.
+
+### Notes
+
+- `services/gemini.py::call_gemini` (YouTube-путь) использует 60 с. Унификация
+  таймаутов + cascade по `GEMINI_MODELS` при 404/5xx — отдельная итерация.
+
+---
+
 ## [1.5.2] — 2026-10-06
 
 Фикс: `GeminiProvider.complete()` использовал hardcoded `gemini-2.0-flash`

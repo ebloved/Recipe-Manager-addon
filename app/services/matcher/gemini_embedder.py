@@ -58,6 +58,11 @@ _CHUNK_DELAY_SEC = 4.2
 
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
+# Генерация рецепта (max_tokens=2500) занимает 15–60 с; 30-секундный
+# таймаут эмбеддингов для complete() мал. Отдельная константа, чтобы
+# не влиять на embed()/health.
+_GENERATE_TIMEOUT = httpx.Timeout(120.0, connect=15.0)
+
 
 class GeminiProvider(EmbeddingProvider, GenerativeProvider):
     """Провайдер Gemini: эмбеддинги + chat."""
@@ -208,7 +213,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
             "x-goog-api-key": GEMINI_API_KEY,
         }
 
-        client_kwargs: dict = {"timeout": _TIMEOUT}
+        client_kwargs: dict = {"timeout": _GENERATE_TIMEOUT}
         if GEMINI_PROXY:
             client_kwargs["proxy"] = GEMINI_PROXY
 
