@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import asyncio
+import logging
+
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from config import (
@@ -18,28 +21,70 @@ from services.generator import (
     generate_suggestions,
     get_providers_status,
 )
-from stores import recipe_store, suggestions_store
+from services.generator.generator import _now
+from stores import jobs_store, recipe_store, suggestions_store
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/generator", tags=["generator"])
 
 
-@router.post("/run")
+@router.post("/run", status_code=202)
 async def run_generation(payload: dict[str, Any] = Body(...)):
     profile_id = payload.get("profile_id")
     topic = payload.get("topic")
     count = int(payload.get("count") or GENERATOR_DEFAULT_COUNT)
     samples_count = int(payload.get("samples_count") or GENERATOR_DEFAULT_SAMPLES)
 
-    items = await generate_suggestions(
-        profile_id=profile_id,
-        topic=topic,
-        count=count,
-        samples_count=samples_count,
-        max_count=GENERATOR_MAX_COUNT,
-        samples_max=GENERATOR_SAMPLES_MAX,
-    )
-    await suggestions_store.add_many(items)
-    return {"created": len(items), "suggestions": items}
+    params = {
+        "profile_id": profile_id, "topic": topic,
+        "count": count, "samples_count": samples_count,
+    }
+    job = await jobs_store.create(params)
+    asyncio.create_task(_run_job(job["id"], **params))
+    return {"job_id": job["id"], "status": "pending", "created_at": job["created_at"]}
+
+
+async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
+    import time
+    t0 = time.monotonic()
+    try:
+        items = await generate_suggestions(
+            profile_id=profile_id, topic=topic,
+            count=count, samples_count=samples_count,
+            max_count=GENERATOR_MAX_COUNT, samples_max=GENERATOR_SAMPLES_MAX,
+        )
+        await suggestions_store.add_many(items)
+        elapsed = round(time.monotonic() - t0, 2)
+        await jobs_store.update(
+            job_id, status="done", created=len(items),
+            finished_at=_now(),
+        )
+        logger.info("[generator] job %s done in %.1fs, %d suggestions",
+                    job_id, elapsed, len(items))
+    except HTTPException as exc:
+        await jobs_store.update(
+            job_id, status="error", error=exc.detail, finished_at=_now())
+        logger.warning("[generator] job %s failed: %s", job_id, exc.detail)
+    except Exception as exc:  # noqa: BLE001
+        await jobs_store.update(
+            job_id, status="error", error=str(exc), finished_at=_now())
+        logger.exception("[generator] job %s crashed", job_id)
+
+
+@router.get("/jobs")
+async def list_jobs(status: str | None = Query(None)):
+    if status == "pending":
+        return {"jobs": jobs_store.list_pending()}
+    return {"jobs": jobs_store.list_all()}
+
+
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: str):
+    job = jobs_store.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
 
 
 @router.get("/suggestions")

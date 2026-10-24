@@ -192,12 +192,48 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         max_tokens: int = 200,
         temperature: float = 0.0,
     ) -> str:
-        """Отправляет запрос в generateContent и возвращает текст ответа."""
+        """Cascade по GEMINI_MODELS: при 404/429/5xx пробуем следующую модель.
+
+        Timeout и auth НЕ retry'ются — это не про модель.
+        """
         if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
-        _model = GEMINI_MODELS[0] if GEMINI_MODELS else self.model
-        url = f"{_API_BASE}/models/{_model}:generateContent"
+        models = list(GEMINI_MODELS) or [self.model]
+        self._last_usage = {"models_tried": []}
+        errors: list[str] = []
+
+        for model in models:
+            self._last_usage["models_tried"].append(model)
+            try:
+                return await self._complete_one(
+                    model, prompt, system, max_tokens, temperature,
+                )
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc)
+                if self._is_retriable(msg):
+                    errors.append(f"{model}: {msg}")
+                    continue
+                raise
+
+        raise ProviderUnavailable(
+            f"All {len(models)} models failed: " + "; ".join(errors)
+        )
+
+    @staticmethod
+    def _is_retriable(msg: str) -> bool:
+        return any(k in msg for k in (
+            "server error", "HTTP 404", "HTTP 429",
+            "HTTP 500", "HTTP 502", "HTTP 503",
+        ))
+
+    async def _complete_one(
+        self, model: str,
+        prompt: str, system: str | None,
+        max_tokens: int, temperature: float,
+    ) -> str:
+        """Отправляет запрос в generateContent и возвращает текст ответа."""
+        url = f"{_API_BASE}/models/{model}:generateContent"
         body: dict = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {

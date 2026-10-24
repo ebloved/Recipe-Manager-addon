@@ -7,6 +7,38 @@
 
 ---
 
+## [1.6.0] — 2026-10-24
+
+Async-режим генерации + cascade по моделям Gemini.
+
+### Added
+
+- **Async-задания.** `POST /api/generator/run` возвращает
+  `202 {job_id}` за ~200 мс и запускает `asyncio.Task` в фоне.
+  Клиент поллит `GET /api/generator/jobs/{id}` каждые 2 с.
+  Снимает ограничение HA ingress nginx (~60 с), из-за которого
+  пользователь видел `504 Gateway Time-out` при 94-секундном
+  ответе Gemini (v1.5.4).
+- **`GET /api/generator/jobs?status=pending`** — фронтенд
+  подхватывает незавершённую задачу при перезагрузке страницы
+  (resume).
+- **`JobsStore`** (`app/stores/jobs.py`) — in-memory, не
+  персистится. При рестарте аддона pending теряются (клиент
+  увидит 404). Завершённые старше часа чистятся лениво.
+- **Cascade в `GeminiProvider.complete()`.** При
+  `404`/`429`/`500`/`502`/`503` от модели провайдер пробует
+  следующую из `GEMINI_MODELS`. Timeout/auth НЕ retry'ются.
+  `last_attempt.usage.models_tried` в `/diag` показывает, какие
+  модели уже пробовали.
+
+### Changed
+
+- Фронтенд: живой счётчик «Генерирую… 12s»; при done —
+  «✓ Создано N предложений»; при error — текст из `job.error`.
+  Hard-limit поллинга — 5 минут.
+
+---
+
 ## [1.5.6] — 2026-10-24
 
 Hotfix: `NameError: GEMINI_MODELS is not defined` в `generator.py`.

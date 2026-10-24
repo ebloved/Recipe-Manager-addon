@@ -17,6 +17,7 @@ from .gen_profiles import (
     new_profile_id,
 )
 from .suggestions import suggestions_store, SuggestionsStore
+from .jobs import jobs_store, JobsStore
 
 __all__ = [
     # Recipes
@@ -34,4 +35,6 @@ __all__ = [
     "base_profile_id", "new_profile_id",
     # Suggestions
     "suggestions_store", "SuggestionsStore",
+    # Jobs
+    "jobs_store", "JobsStore",
 ]

@@ -30,6 +30,12 @@
       const data = await getJSON("api/generator/suggestions?status=all");
       state.generatorSuggestions = data.suggestions || [];
       renderSuggestions();
+      try {
+        const pending = await getJSON("api/generator/jobs?status=pending");
+        if (pending.jobs && pending.jobs.length) {
+          pollJob(pending.jobs[0].id);
+        }
+      } catch (_) { /* нет jobs endpoint — ок */ }
     } catch (err) {
       container.innerHTML = `<div class="empty"><p>Ошибка: ${escHtml(err.message)}</p></div>`;
     }
@@ -55,13 +61,52 @@
         count,
         samples_count: samples,
       });
-      setStatus(status, `✓ Создано ${data.created} предложений.`, "success");
-      await loadSuggestions();
+      if (data && data.job_id) {
+        await pollJob(data.job_id);
+      } else {
+        setStatus(status, `✓ Создано ${data.created} предложений.`, "success");
+        await loadSuggestions();
+      }
     } catch (err) {
       setStatus(status, "Ошибка: " + err.message, "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "✨ Сгенерировать";
+    }
+  }
+
+  function _sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+  async function pollJob(jobId) {
+    const status = $("gen-status");
+    const t0 = Date.now();
+    while (true) {
+      await _sleep(2000);
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      setStatus(status, `Генерирую… ${elapsed}s`, "info");
+      let j;
+      try {
+        j = await getJSON(`api/generator/jobs/${jobId}`);
+      } catch (err) {
+        if (/404|not found/i.test(err.message || "")) {
+          setStatus(status, "Ошибка: задача потеряна (перезапуск аддона?)", "error");
+          return;
+        }
+        continue;
+      }
+      if (j.status === "done") {
+        setStatus(status, `✓ Создано ${j.created} предложений.`, "success");
+        await loadSuggestions();
+        return;
+      }
+      if (j.status === "error") {
+        setStatus(status, "Ошибка: " + (j.error || "неизвестно"), "error");
+        return;
+      }
+      if (elapsed > 300) {
+        setStatus(status, "Ошибка: превышен лимит 5 минут", "error");
+        return;
+      }
     }
   }
 
