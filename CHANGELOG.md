@@ -7,6 +7,45 @@
 
 ---
 
+## [1.6.7] — 2026-10-24
+
+Background Execution через Gemini Interactions API — никаких таймаутов на «размышления» модели.
+
+### Added
+
+- **Background Execution.** `GeminiProvider.complete()` теперь использует
+  `/v1beta/interactions` с `"background": true`. API сразу возвращает
+  `interaction_id`, после чего бэкенд опрашивает статус каждые 5 секунд
+  через `GET /v1beta/interactions/{id}`. Жёсткого таймаута на одну модель
+  больше нет: модель может «думать» сколько угодно (safety-предел — 10 мин).
+- **Polling-логи.** Каждый опрос логирует смену статуса (`in_progress`,
+  `completed`, `failed`) и промежуточный прогресс. В HA-логе видно:
+  `[gemini] gemini-3.8-flash poll #3: status=in_progress (15s)`.
+- **Cascade по моделям сохранён.** Если interaction завершился `failed`
+  с 503/429/5xx — пробуем следующую модель из `GEMINI_MODELS`.
+  Ошибка показывается пользователю только если все модели упали
+  (и только если это 503/rate limit или `failed` от Gemini).
+
+### Changed
+
+- **UI:** индикатор выполнения показывает прошедшее время
+  («Генерирую… 42s»), при завершении — «✓ Создано N предложений»,
+  при ошибке — текст из `job.error`. Лимит поллинга фронтенда — 10 минут.
+- **`_last_usage.attempts`** в `/diag` для фоновых задач содержит
+  `model`, `status` (`ok` / `error`), `elapsed_s`, `error` (при наличии),
+  `retriable` (true/false).
+
+### Notes
+
+- Interactions API может вернуть `HTTP 400`, если `background: true`
+  передан без `store: true`. В запросе `store` не задаётся явно —
+  используется серверный default (`true`).
+- Если Gemini завершит interaction со статусом `requires_action`
+  (запрос ввода от пользователя), это трактуется как `failed` —
+  для генерации рецептов такого сценария быть не должно.
+
+---
+
 ## [1.6.6] — 2026-10-24
 
 Hotfix: `KeyError 'attempts'` в cascade + логи cascade не видны.

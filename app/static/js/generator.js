@@ -99,11 +99,14 @@
         return;
       }
       if (j.status === "error") {
-        setStatus(status, "Ошибка: " + (j.error || "неизвестно"), "error");
+        // Ошибка приходит как строка из job.error
+        const errMsg = j.error || "неизвестно";
+        setStatus(status, "Ошибка: " + errMsg, "error");
         return;
       }
-      if (elapsed > 300) {
-        setStatus(status, "Ошибка: превышен лимит 5 минут", "error");
+      // pending / in_progress — просто продолжаем поллинг
+      if (elapsed > 600) {
+        setStatus(status, "Ошибка: превышен лимит 10 минут", "error");
         return;
       }
     }

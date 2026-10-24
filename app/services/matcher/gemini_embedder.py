@@ -64,12 +64,11 @@ _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 # не влиять на embed()/health.
 _GENERATE_TIMEOUT = httpx.Timeout(120.0, connect=15.0)
 
-# Per-model budget и общий deadline для complete(). Async-job снимает
-# ограничение nginx, но бесконечно висеть тоже нельзя. 3 модели × 90с
-# с общим лимитом 240с: если первая отвалилась быстро (503 за 8с),
-# у оставшихся много запаса; если timeout — режем и пробуем следующую.
-_PER_MODEL_TIMEOUT = 90.0
-_TOTAL_DEADLINE = 240.0
+# Background Execution через Interactions API: создаём interaction
+# с background=true, затем опрашиваем статус. Модель может думать
+# сколько угодно — жёсткого таймаута на «размышления» нет.
+_POLL_INTERVAL = 5.0          # секунд между опросами
+_MAX_POLL_DURATION = 600.0    # 10 минут на одну модель (safety)
 
 
 logger = logging.getLogger(__name__)
@@ -200,13 +199,18 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         self,
         prompt: str,
         system: str | None = None,
-        max_tokens: int = 200,
-        temperature: float = 0.0,
+        max_tokens: int = 3000,
+        temperature: float = 0.7,
     ) -> str:
-        """Cascade по GEMINI_MODELS с per-model timeout и общим дедлайном.
+        """Background Execution через Interactions API с polling.
 
-        Timeout / 404 / 429 / 5xx — retriable (пробуем следующую модель).
-        Auth / network / bad request — fatal (пробрасываем наверх).
+        Для каждой модели из GEMINI_MODELS:
+          1. POST /v1beta/interactions  { background: true }
+          2. GET  /v1beta/interactions/{id}  пока status == in_progress
+          3. completed → вернуть output_text
+          4. failed (503/429/5xx) → следующая модель
+
+        Никаких жёстких таймаутов на «размышления» модели.
         """
         if not GEMINI_API_KEY:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
@@ -221,55 +225,50 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         start = asyncio.get_event_loop().time()
 
         print(
-            f"[gemini] start: prompt={len(prompt or '')}chars, "
-            f"max_tokens={max_tokens}, models={models}, "
-            f"per_model={_PER_MODEL_TIMEOUT:.0f}s, deadline={_TOTAL_DEADLINE:.0f}s"
+            f"[gemini] start (background): prompt={len(prompt or '')}chars, "
+            f"max_tokens={max_tokens}, models={models}"
         )
 
         for model in models:
-            elapsed_total = asyncio.get_event_loop().time() - start
-            remaining = _TOTAL_DEADLINE - elapsed_total
-            if remaining < 10.0:
-                self._last_usage["attempts"].append({
-                    "model": model, "status": "skipped",
-                    "reason": f"deadline (remaining {remaining:.0f}s)",
-                })
-                errors.append(f"{model}: skipped (deadline)")
-                logger.warning(
-                    "[gemini] %s skipped: only %.0fs left", model, remaining)
-                continue
-
-            budget = min(_PER_MODEL_TIMEOUT, remaining)
             self._last_usage["models_tried"].append(model)
             t0 = asyncio.get_event_loop().time()
-            print(f"[gemini] try {model} (budget {budget:.0f}s, "
-                  f"total_remaining {remaining:.0f}s)")
+            print(f"[gemini] try {model} (background, poll every {_POLL_INTERVAL:.0f}s)")
 
             try:
-                result = await asyncio.wait_for(
-                    self._complete_one(
-                        model, prompt, system, max_tokens, temperature),
-                    timeout=budget,
+                # 1. Создаём фоновую интеракцию
+                interaction_id = await self._start_background_interaction(
+                    model, prompt, system, max_tokens, temperature
+                )
+                print(f"[gemini] {model} interaction_id={interaction_id}")
+
+                # 2. Опрашиваем до терминального статуса
+                output_text, status, final_error = await self._poll_interaction(
+                    interaction_id, model
                 )
                 elapsed = asyncio.get_event_loop().time() - t0
-                self._last_usage["attempts"].append({
-                    "model": model, "status": "ok",
-                    "elapsed_s": round(elapsed, 2),
-                })
-                print(f"[gemini] {model} ok in {elapsed:.1f}s")
-                return result
 
-            except (asyncio.TimeoutError, TimeoutError):
-                elapsed = asyncio.get_event_loop().time() - t0
+                if status == "completed":
+                    self._last_usage["attempts"].append({
+                        "model": model, "status": "ok",
+                        "elapsed_s": round(elapsed, 2),
+                    })
+                    print(f"[gemini] {model} completed in {elapsed:.1f}s")
+                    return output_text
+
+                # status == "failed" или "cancelled"
+                msg = final_error or f"status={status}"
+                retriable = self._is_retriable(msg)
                 self._last_usage["attempts"].append({
-                    "model": model, "status": "timeout",
+                    "model": model, "status": "error",
                     "elapsed_s": round(elapsed, 2),
+                    "error": msg[:200], "retriable": retriable,
                 })
-                errors.append(f"{model}: timeout at {elapsed:.0f}s")
-                logger.warning(
-                    "[gemini] %s TIMEOUT at %.1fs — try next model",
-                    model, elapsed)
-                continue
+                print(f"[gemini] {model} failed in {elapsed:.1f}s: {msg} "
+                      f"({'retriable' if retriable else 'FATAL'})")
+                if retriable:
+                    errors.append(f"{model}: {msg}")
+                    continue
+                raise ProviderUnavailable(msg)
 
             except Exception as exc:  # noqa: BLE001
                 elapsed = asyncio.get_event_loop().time() - t0
@@ -280,38 +279,151 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
                     "elapsed_s": round(elapsed, 2),
                     "error": msg[:200], "retriable": retriable,
                 })
-                logger.warning(
-                    "[gemini] %s failed in %.1fs: %s (%s)",
-                    model, elapsed, msg,
-                    "retriable" if retriable else "FATAL")
+                print(f"[gemini] {model} failed in {elapsed:.1f}s: {msg} "
+                      f"({'retriable' if retriable else 'FATAL'})")
                 if retriable:
                     errors.append(f"{model}: {msg}")
                     continue
                 raise
 
         total_elapsed = asyncio.get_event_loop().time() - start
-        logger.error(
-            "[gemini] ALL models failed in %.0fs: %s",
-            total_elapsed, "; ".join(errors))
+        print(f"[gemini] ALL models failed in {total_elapsed:.0f}s: {'; '.join(errors)}")
 
-        if errors and all("timeout" in e for e in errors):
-            raise ProviderUnavailable(
-                f"Все {len(models)} модели Gemini не ответили за "
-                f"{_PER_MODEL_TIMEOUT:.0f}s каждая (итого {total_elapsed:.0f}s). "
-                f"Промпт {len(prompt or '')} символов, max_tokens={max_tokens}. "
-                f"Попробуйте уменьшить samples или повторите через минуту."
-            )
         if errors and all(
-            ("503" in e or "server error" in e) for e in errors
+            ("503" in e or "server error" in e or "rate" in e.lower())
+            for e in errors
         ):
             raise ProviderUnavailable(
-                f"Gemini перегружен (503) — все {len(models)} модели вернули "
-                f"server error за {total_elapsed:.0f}s. Попробуйте через 1–2 минуты."
+                f"Gemini перегружен (503/rate limit) — все {len(models)} модели "
+                f"вернули ошибку за {total_elapsed:.0f}s. Попробуйте через 1–2 минуты."
             )
         raise ProviderUnavailable(
             f"All {len(models)} models failed ({total_elapsed:.0f}s): "
             + "; ".join(errors)
         )
+
+    async def _start_background_interaction(
+        self, model: str, prompt: str, system: str | None,
+        max_tokens: int, temperature: float,
+    ) -> str:
+        """POST /v1beta/interactions → interaction_id."""
+        url = "https://generativelanguage.googleapis.com/v1beta/interactions"
+        body: dict = {
+            "model": model,
+            "input": prompt,
+            "background": True,
+        }
+        if system:
+            body["system_instruction"] = system
+        gen_config: dict = {
+            "max_output_tokens": int(max_tokens),
+            "temperature": float(temperature),
+        }
+        body["generation_config"] = gen_config
+
+        headers = {
+            "x-goog-api-key": GEMINI_API_KEY,
+            "Content-Type": "application/json",
+            "Api-Revision": "2026-05-20",
+        }
+        client_kwargs: dict = {"timeout": 30.0}
+        if GEMINI_PROXY:
+            client_kwargs["proxy"] = GEMINI_PROXY
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            resp = await client.post(url, json=body, headers=headers)
+
+        if resp.status_code != 200:
+            msg = f"HTTP {resp.status_code} — {resp.text[:200]}"
+            if resp.status_code in (401, 403):
+                raise ProviderUnavailable(f"Gemini auth: {msg}")
+            if resp.status_code == 429:
+                raise RateLimited("Gemini: 429 Too Many Requests")
+            raise ProviderUnavailable(f"Gemini create interaction: {msg}")
+
+        data = resp.json()
+        interaction_id = data.get("id")
+        if not interaction_id:
+            raise ProviderUnavailable(f"No interaction id in response: {data}")
+        return interaction_id
+
+    async def _poll_interaction(
+        self, interaction_id: str, model: str,
+    ) -> tuple[str, str, str | None]:
+        """GET /v1beta/interactions/{id} → (output_text, status, error)."""
+        url = f"https://generativelanguage.googleapis.com/v1beta/interactions/{interaction_id}"
+        headers = {
+            "x-goog-api-key": GEMINI_API_KEY,
+            "Api-Revision": "2026-05-20",
+        }
+        client_kwargs: dict = {"timeout": 15.0}
+        if GEMINI_PROXY:
+            client_kwargs["proxy"] = GEMINI_PROXY
+
+        t_start = asyncio.get_event_loop().time()
+        last_status = None
+        poll_n = 0
+
+        async with httpx.AsyncClient(**client_kwargs) as client:
+            while True:
+                elapsed = asyncio.get_event_loop().time() - t_start
+                if elapsed > _MAX_POLL_DURATION:
+                    raise ProviderUnavailable(
+                        f"{model}: poll timeout after {elapsed:.0f}s "
+                        f"(status={last_status})"
+                    )
+
+                try:
+                    resp = await client.get(url, headers=headers)
+                except httpx.RequestError as exc:
+                    # сеть моргнула — пробуем ещё
+                    print(f"[gemini] {model} poll network error: {exc}")
+                    await asyncio.sleep(_POLL_INTERVAL)
+                    continue
+
+                if resp.status_code != 200:
+                    msg = f"poll HTTP {resp.status_code} — {resp.text[:200]}"
+                    if resp.status_code in (401, 403):
+                        raise ProviderUnavailable(f"Gemini poll auth: {msg}")
+                    if resp.status_code == 404:
+                        raise ProviderUnavailable(f"{model}: interaction lost: {msg}")
+                    if resp.status_code == 429:
+                        await asyncio.sleep(_POLL_INTERVAL * 2)
+                        continue
+                    raise ProviderUnavailable(f"Gemini poll: {msg}")
+
+                data = resp.json()
+                status = data.get("status")
+                poll_n += 1
+
+                if status != last_status:
+                    print(f"[gemini] {model} poll #{poll_n}: status={status} "
+                          f"({elapsed:.0f}s)")
+                    last_status = status
+                elif poll_n % 6 == 0:
+                    # раз в ~30s напоминаем, что живы
+                    print(f"[gemini] {model} still {status} ({elapsed:.0f}s)")
+
+                if status == "completed":
+                    out = data.get("output_text") or ""
+                    if not out:
+                        # fallback: склеить outputs[-1].text
+                        outputs = data.get("outputs") or []
+                        if outputs:
+                            last = outputs[-1]
+                            if isinstance(last, dict):
+                                out = last.get("text", "")
+                    return out, "completed", None
+
+                if status in ("failed", "cancelled", "requires_action"):
+                    err = data.get("error") or {}
+                    if isinstance(err, dict):
+                        err_msg = err.get("message") or str(err)
+                    else:
+                        err_msg = str(err) or f"status={status}"
+                    return "", status, err_msg
+
+                await asyncio.sleep(_POLL_INTERVAL)
 
     @staticmethod
     def _is_retriable(msg: str) -> bool:
@@ -319,7 +431,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         return any(k in m for k in (
             "server error", "http 404", "http 429",
             "http 500", "http 502", "http 503",
-            "timeout",
+            "timeout", "rate limit", "rate_limit",
         ))
 
     async def _complete_one(
