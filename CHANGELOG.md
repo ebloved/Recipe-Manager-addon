@@ -7,6 +7,41 @@
 
 ---
 
+## [1.5.5] — 2026-10-24
+
+Фикс обрезанного ответа Gemini, отображения модели и наблюдаемость.
+
+### Fixed
+
+- **`max_tokens` 1200 → 3000.** Ответ Gemini обрезался на
+  `description: "Сочное куриное филе...` — `finishReason` = `MAX_TOKENS`,
+  `parse_markdown_recipe` падал с `No recipe title found`. 1200
+  токенов из v1.5.4 были реакцией на таймаут, но режут тело рецепта.
+- **`generator.py::_model_name`** возвращал `provider.model`
+  (`gemini-2.0-flash` — class-attr fallback), хотя `complete()` уже
+  с v1.5.2 ходил на `GEMINI_MODELS[0]` (`gemini-3.8-flash`).
+  `last_attempt.model` в `/diag` показывал не ту модель. Теперь та же
+  логика, что в `providers.py::_model_name`.
+
+### Added
+
+- **`_last_usage` в `GeminiProvider.complete()`** — сохраняет
+  `finishReason` и `usageMetadata` (prompt/candidates/thoughts tokens)
+  последнего ответа.
+- **`/diag` → `last_attempt.finish_reason` и `last_attempt.usage`** —
+  без shell-доступа видно, почему ответ обрезан (MAX_TOKENS /
+  SAFETY / STOP) и сколько токенов потратил Gemini.
+
+### Notes
+
+- `elapsed_s: 94.45` (v1.5.4) — синхронный режим упирается в
+  HA ingress nginx (~60 с). Async-режим (202 + polling через
+  `/jobs/{id}`) — iteration D.
+- `gemini_proxy_set: true` — A/B-тест без прокси намечен на
+  следующий шаг диагностики.
+
+---
+
 ## [1.5.4] — 2026-10-06
 
 Уменьшение синхронной нагрузки + диагностика для no-shell окружения.

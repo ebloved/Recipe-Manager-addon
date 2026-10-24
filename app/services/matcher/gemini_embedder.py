@@ -242,12 +242,21 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         except Exception as exc:  # noqa: BLE001
             raise ProviderUnavailable(f"Gemini: bad JSON — {exc}") from exc
 
+        self._last_usage = {}
         try:
             candidates = data.get("candidates") or []
             parts = candidates[0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts)
+            self._last_usage = {
+                "finish_reason": candidates[0].get("finishReason"),
+                "usage": data.get("usageMetadata") or {},
+            }
         except (KeyError, IndexError, TypeError):
             # Иногда Gemini возвращает пустой ответ из-за safety-фильтра
+            self._last_usage = {
+                "finish_reason": None,
+                "usage": data.get("usageMetadata") or {},
+            }
             return ""
 
         return text.strip()

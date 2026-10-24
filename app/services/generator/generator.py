@@ -88,6 +88,8 @@ def _pick_samples(profile: dict[str, Any] | None, n: int) -> list[dict[str, Any]
 
 
 def _model_name(provider: Any) -> str:
+    if getattr(provider, "name", None) == "gemini" and GEMINI_MODELS:
+        return GEMINI_MODELS[0]
     for attr in ("model", "chat_model", "model_key"):
         v = getattr(provider, attr, None)
         if v:
@@ -136,7 +138,7 @@ async def generate_suggestions(
     try:
         raw_response = await provider.complete(
             prompt=user, system=system,
-            max_tokens=1200, temperature=0.7,
+            max_tokens=3000, temperature=0.7,
         )
     except Exception as exc:  # noqa: BLE001
         _elapsed = round(_time.monotonic() - _t0, 2)
@@ -147,9 +149,12 @@ async def generate_suggestions(
                        provider_name, _elapsed, exc)
         raise HTTPException(502, f"LLM вернул ошибку: {exc}") from exc
     _elapsed = round(_time.monotonic() - _t0, 2)
+    _usage = getattr(provider, "_last_usage", None) or {}
     _record_attempt(status="ok", provider=provider_name,
                     model=_model_name(provider), elapsed_s=_elapsed,
-                    error=None, at=_now())
+                    error=None, at=_now(),
+                    finish_reason=_usage.get("finish_reason"),
+                    usage=_usage.get("usage"))
 
     raw_response = _clean_md(raw_response)
     if not raw_response:
