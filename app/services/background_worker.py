@@ -4,13 +4,15 @@ import logging
 from stores import recipe_store
 from services.active_time import estimate_active_time
 from services.activity import is_active
-from config import GENERATOR_AUTO_ACTIVE_TIME
+from stores.settings import settings_store
 
 logger = logging.getLogger(__name__)
 
 async def active_time_worker():
-    if not GENERATOR_AUTO_ACTIVE_TIME:
-        logger.info("[bg] active_time_worker disabled (GENERATOR_AUTO_ACTIVE_TIME=false)")
+    from config import GENERATOR_AUTO_ACTIVE_TIME
+    enabled = settings_store.get("generator_auto_active_time", GENERATOR_AUTO_ACTIVE_TIME)
+    if not enabled:
+        logger.info("[bg] active_time_worker disabled (ui or env)")
         return
 
     await asyncio.sleep(60)

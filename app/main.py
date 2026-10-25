@@ -34,6 +34,8 @@ async def lifespan(app: FastAPI):
     await meal_plan_store.load()
     await shopping_store.load()
     await suggestions_store.load()
+    from stores.settings import settings_store
+    await settings_store.load()
 
     if FEATURE_PRODUCTS:
         await ingredients_store.load()

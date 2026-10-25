@@ -19,6 +19,7 @@
   async function load() {
     loadUser();
     loadLLM();
+    loadSettings();
     if (RM.sync) RM.sync.load();
     loadVersion();
   }
@@ -67,6 +68,26 @@
     }
   }
 
+
+  async function loadSettings() {
+    try {
+      const data = await RM.api.getJSON("api/settings");
+      const chk = $("setting-auto-time");
+      if (chk) {
+        chk.checked = !!data.generator_auto_active_time;
+        chk.addEventListener("change", async (e) => {
+          try {
+            await RM.api.postJSON("api/settings", {
+              generator_auto_active_time: e.target.checked
+            });
+          } catch (err) {
+            alert("Ошибка сохранения: " + err.message);
+            e.target.checked = !e.target.checked;
+          }
+        });
+      }
+    } catch (e) { console.warn("Settings load error:", e); }
+  }
   async function loadVersion() {
     try {
       const data = await getJSON("api/generator/status");

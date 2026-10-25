@@ -15,6 +15,7 @@ from . import (
     recipes,
     misc,
     me,
+    settings,
 )
 
 api_router = APIRouter()
@@ -31,5 +32,6 @@ api_router.include_router(products.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 api_router.include_router(me.router)
+api_router.include_router(settings.router)
 
 __all__ = ["api_router"]
