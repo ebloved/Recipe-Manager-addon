@@ -17,17 +17,18 @@
   // -----------------------------------------------------------------
   function setup() {
     // --- Scrape with URL ---
-    $("scrape-fetch").addEventListener("click", onScrape);
+    const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
+    bind("scrape-fetch", onScrape);
 
     // --- Markdown: URL ---
-    $("md-fetch").addEventListener("click", onMdUrl);
+    bind("md-fetch", onMdUrl);
 
     // --- Markdown: file (single) ---
     $("md-file").addEventListener("change", onMdFileChange);
-    $("md-file-save").addEventListener("click", onMdFileSave);
+    bind("md-file-save", onMdFileSave);
 
     // --- Markdown: paste ---
-    $("md-paste-save").addEventListener("click", onMdPasteSave);
+    bind("md-paste-save", onMdPasteSave);
 
     // --- Markdown: batch (multi-file) ---
     const batchInput = $("md-batch");
@@ -40,7 +41,7 @@
     }
 
     // --- Manual: open editor ---
-    $("manual-open-editor").addEventListener("click", onManualOpen);
+    bind("manual-open-editor", onManualOpen);
   }
 
   // -----------------------------------------------------------------

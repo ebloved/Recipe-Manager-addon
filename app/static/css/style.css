@@ -2991,3 +2991,23 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 #cabinet-sync .sync-status {
   padding: 0;
 }
+
+/* v1.10.1: header layout */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.tabs {
+  flex: 1;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+/* На мобилках переносим */
+@media (max-width: 768px) {
+  header { flex-wrap: wrap; }
+  .header-right { width: 100%; justify-content: space-between; margin-top: 8px; }
+}

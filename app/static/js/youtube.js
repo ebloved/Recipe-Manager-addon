@@ -5,9 +5,10 @@
   const state = RM.state;
 
   function setup() {
-    $("yt-download").addEventListener("click", onDownload);
-    $("yt-generate").addEventListener("click", onGenerate);
-    $("yt-save").addEventListener("click", onSave);
+    const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
+    bind("yt-download", onDownload);
+    bind("yt-generate", onGenerate);
+    bind("yt-save", onSave);
   }
 
   async function onDownload() {

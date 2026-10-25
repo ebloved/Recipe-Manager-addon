@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=38">
+<link rel="stylesheet" href="static/css/style.css?v=39">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -13,19 +13,21 @@
   <h1>Recipe Manager</h1>
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
-<button class="tab" data-panel="generator">✨ Генератор</button>
+    <button class="tab" data-panel="generator">✨ Генератор</button>
     <button class="tab" data-panel="products">🧺 Продукты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
     <button class="tab" data-panel="add">➕ Добавить</button>
-    <button class="tab" data-panel="cabinet">👤 Кабинет</button>
   </div>
-  <div class="profile-selector" id="profile-selector">
-    <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
-    <select id="profile-select" class="profile-select" title="Активный профиль">
-      <option value="">Без профиля</option>
-    </select>
-    <button class="profile-manage-btn" id="profile-manage-btn" title="Управление профилями">⚙️</button>
+  <div class="header-right">
+    <button class="tab" data-panel="cabinet" style="margin-right:12px;">👤 Кабинет</button>
+    <div class="profile-selector" id="profile-selector">
+      <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
+      <select id="profile-select" class="profile-select" title="Активный профиль">
+        <option value="">Без профиля</option>
+      </select>
+      <button class="profile-manage-btn" id="profile-manage-btn" title="Управление профилями">⚙️</button>
+    </div>
   </div>
 </header>
 
@@ -160,7 +162,7 @@
 
   <!-- ==================================================== Import -->
   
-<section class="panel" id="panel-add">
+  <section class="panel" id="panel-add">
     <div class="panel-inner">
       <div class="sub-tabs">
         <button class="sub-tab active" data-subpanel="add-yt">YouTube</button>
@@ -170,20 +172,30 @@
       </div>
 
       <div class="subpanel active" id="subpanel-add-yt">
-        
-      <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
-      <div class="card">
-        <div class="field">
-          <label for="yt-url">Ссылка на видео</label>
-          <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
+        <div class="panel-inner">
+          <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
+          <div class="card">
+            <div class="field">
+              <label for="yt-url">Ссылка на видео</label>
+              <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
+            </div>
+            <div class="row">
+              <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
+              <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
+            </div>
+            <div class="status" id="yt-status"></div>
+          </div>
+          <div class="card" id="yt-preview-card" style="display:none">
+            <div class="field">
+              <label>Сгенерированный Markdown</label>
+              <textarea id="yt-md" spellcheck="false"></textarea>
+            </div>
+            <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
+          </div>
         </div>
-        <div class="row">
-          <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
-          <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
-        </div>
-        <div class="status" id="yt-status">
       </div>
-      <div class="subpanel active" id="subpanel-add-scrape">
+
+      <div class="subpanel" id="subpanel-add-scrape">
         <div class="card">
           <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
           <div class="field">
@@ -193,7 +205,9 @@
           <button class="btn primary" id="scrape-fetch">Загрузить</button>
           <div class="status" id="scrape-status"></div>
         </div>
-<div class="subpanel" id="subpanel-add-markdown">
+      </div>
+
+      <div class="subpanel" id="subpanel-add-markdown">
         <div class="card">
           <div class="field">
             <label for="md-url">Ссылка на .md файл</label>
@@ -202,7 +216,29 @@
           <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
           <div class="status" id="md-url-status"></div>
         </div>
-<div class="subpanel" id="subpanel-add-manual">
+        <div class="card">
+          <div class="field">
+            <label>Загрузить .md файл с устройства</label>
+            <label class="file-drop" for="md-file">
+              📎 Выбрать файл .md
+              <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
+            </label>
+            <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+          </div>
+          <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
+          <div class="status" id="md-file-status"></div>
+        </div>
+        <div class="card">
+          <div class="field">
+            <label for="md-paste">Или вставьте Markdown вручную</label>
+            <textarea id="md-paste" spellcheck="false" placeholder="---&#10;title: Борщ&#10;tags: [суп, украинская]&#10;servings: 4&#10;---&#10;&#10;## Ингредиенты&#10;- Свёкла — 2 шт&#10;&#10;## Шаги&#10;1. Сварить бульон."></textarea>
+          </div>
+          <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
+          <div class="status" id="md-paste-status"></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="subpanel-add-manual">
         <div class="card">
           <div class="hint">Откройте полноценный редактор для создания рецепта вручную.</div>
           <button class="btn primary" id="manual-open-editor">✏️ Открыть редактор</button>
@@ -655,26 +691,26 @@
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=38"></script>
-<script src="static/js/api.js?v=38"></script>
-<script src="static/js/state.js?v=38"></script>
-<script src="static/js/tabs.js?v=38"></script>
-<script src="static/js/youtube.js?v=38"></script>
-<script src="static/js/imports.js?v=38"></script>
-<script src="static/js/recipes.js?v=38"></script>
-<script src="static/js/detail.js?v=38"></script>
-<script src="static/js/editor.js?v=38"></script>
-<script src="static/js/plan-picker.js?v=38"></script>
-<script src="static/js/planner.js?v=38"></script>
-<script src="static/js/recipe-picker.js?v=38"></script>
-<script src="static/js/shopping.js?v=38"></script>
-<script src="static/js/products.js?v=38"></script>
-<script src="static/js/product-picker.js?v=38"></script>
-<script src="static/js/generator.js?v=38"></script>
-<script src="static/js/profiles.js?v=38"></script>
-<script src="static/js/cabinet.js?v=38"></script>
-<script src="static/js/sync.js?v=38"></script>
-<script src="static/js/live-sync.js?v=38"></script>
-<script src="static/js/app.js?v=38"></script>
+<script src="static/js/utils.js?v=39"></script>
+<script src="static/js/api.js?v=39"></script>
+<script src="static/js/state.js?v=39"></script>
+<script src="static/js/tabs.js?v=39"></script>
+<script src="static/js/youtube.js?v=39"></script>
+<script src="static/js/imports.js?v=39"></script>
+<script src="static/js/recipes.js?v=39"></script>
+<script src="static/js/detail.js?v=39"></script>
+<script src="static/js/editor.js?v=39"></script>
+<script src="static/js/plan-picker.js?v=39"></script>
+<script src="static/js/planner.js?v=39"></script>
+<script src="static/js/recipe-picker.js?v=39"></script>
+<script src="static/js/shopping.js?v=39"></script>
+<script src="static/js/products.js?v=39"></script>
+<script src="static/js/product-picker.js?v=39"></script>
+<script src="static/js/generator.js?v=39"></script>
+<script src="static/js/profiles.js?v=39"></script>
+<script src="static/js/cabinet.js?v=39"></script>
+<script src="static/js/sync.js?v=39"></script>
+<script src="static/js/live-sync.js?v=39"></script>
+<script src="static/js/app.js?v=39"></script>
 </body>
 </html>
