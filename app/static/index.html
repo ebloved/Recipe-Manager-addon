@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=47">
+<link rel="stylesheet" href="static/css/style.css?v=48">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -39,6 +39,15 @@
     <div class="panel-inner">
       <div class="search-row">
         <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
+        <select id="sort-select" class="sort-select">
+          <option value="default">По умолчанию</option>
+          <option value="combined">⚡ Сначала быстрые</option>
+          <option value="active_asc">По активному времени (↑)</option>
+          <option value="total_asc">По общему времени (↑)</option>
+          <option value="course_asc">По типу блюда</option>
+          <option value="name_asc">По алфавиту (А-Я)</option>
+        </select>
+
         <button class="btn" id="profile-filter-btn" style="display:none" title="Показать только рецепты, подходящие под активный профиль">🎯 Только под профиль</button>
 
       </div>
@@ -724,26 +733,26 @@
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=47"></script>
-<script src="static/js/api.js?v=47"></script>
-<script src="static/js/state.js?v=47"></script>
-<script src="static/js/tabs.js?v=47"></script>
-<script src="static/js/youtube.js?v=47"></script>
-<script src="static/js/imports.js?v=47"></script>
-<script src="static/js/recipes.js?v=47"></script>
-<script src="static/js/detail.js?v=47"></script>
-<script src="static/js/editor.js?v=47"></script>
-<script src="static/js/plan-picker.js?v=47"></script>
-<script src="static/js/planner.js?v=47"></script>
-<script src="static/js/recipe-picker.js?v=47"></script>
-<script src="static/js/shopping.js?v=47"></script>
-<script src="static/js/products.js?v=47"></script>
-<script src="static/js/product-picker.js?v=47"></script>
-<script src="static/js/generator.js?v=47"></script>
-<script src="static/js/profiles.js?v=47"></script>
-<script src="static/js/cabinet.js?v=47"></script>
-<script src="static/js/sync.js?v=47"></script>
-<script src="static/js/live-sync.js?v=47"></script>
-<script src="static/js/app.js?v=47"></script>
+<script src="static/js/utils.js?v=48"></script>
+<script src="static/js/api.js?v=48"></script>
+<script src="static/js/state.js?v=48"></script>
+<script src="static/js/tabs.js?v=48"></script>
+<script src="static/js/youtube.js?v=48"></script>
+<script src="static/js/imports.js?v=48"></script>
+<script src="static/js/recipes.js?v=48"></script>
+<script src="static/js/detail.js?v=48"></script>
+<script src="static/js/editor.js?v=48"></script>
+<script src="static/js/plan-picker.js?v=48"></script>
+<script src="static/js/planner.js?v=48"></script>
+<script src="static/js/recipe-picker.js?v=48"></script>
+<script src="static/js/shopping.js?v=48"></script>
+<script src="static/js/products.js?v=48"></script>
+<script src="static/js/product-picker.js?v=48"></script>
+<script src="static/js/generator.js?v=48"></script>
+<script src="static/js/profiles.js?v=48"></script>
+<script src="static/js/cabinet.js?v=48"></script>
+<script src="static/js/sync.js?v=48"></script>
+<script src="static/js/live-sync.js?v=48"></script>
+<script src="static/js/app.js?v=48"></script>
 </body>
 </html>

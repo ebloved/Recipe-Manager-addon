@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  recipe-manager:
+    build: .
+    container_name: rm-standalone
+    ports:
+      - "8099:8099"
+    volumes:
+      # Монтируем локальную папку data, чтобы рецепты сохранялись
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow

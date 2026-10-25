@@ -5,6 +5,7 @@
   const state = RM.state;
 
   let searchTimer = null;
+  state.recipesSort = "default";
   
   function getActiveProfile() {
     return (RM.profiles && RM.profiles.getActive) ? RM.profiles.getActive() : null;
@@ -151,8 +152,8 @@
           return false;
         });
       }
+      filtered = sortRecipes(filtered);
       render(filtered);
-      updateFilterButton();
     }
 
   function render(recipes) {

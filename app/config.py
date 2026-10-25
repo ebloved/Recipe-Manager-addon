@@ -6,6 +6,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# --- Режим развертывания (addon или standalone) ---
+DEPLOY_MODE = os.environ.get("DEPLOY_MODE", "addon").strip().lower()
+AUTH_MODE = os.environ.get("AUTH_MODE", "ha").strip().lower()
+
 DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", "/downloads"))
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
