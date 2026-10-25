@@ -116,6 +116,7 @@ GENERATOR_DEFAULT_COUNT = int(os.environ.get("GENERATOR_DEFAULT_COUNT", "1") or 
 GENERATOR_SAMPLES_MAX = int(os.environ.get("GENERATOR_SAMPLES_MAX", "10") or 10)
 GENERATOR_DEFAULT_SAMPLES = int(os.environ.get("GENERATOR_DEFAULT_SAMPLES", "2") or 2)
 GENERATOR_MAX_TOKENS = int(os.environ.get("GENERATOR_MAX_TOKENS", "15000") or 15000)
+GENERATOR_AUTO_ACTIVE_TIME = os.environ.get("GENERATOR_AUTO_ACTIVE_TIME", "false").strip().lower() == "true"
 
 # --- Feature flags ---------------------------------------------------------
 

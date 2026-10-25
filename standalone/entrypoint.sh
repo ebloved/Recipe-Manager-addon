@@ -14,6 +14,7 @@ export FEATURE_GENERATOR="true"
 
 # Базовые настройки Gemini (подхватятся из .env, если заданы)
 export GEMINI_MODELS="${GEMINI_MODELS:-gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash}"
+export GENERATOR_AUTO_ACTIVE_TIME="${GENERATOR_AUTO_ACTIVE_TIME:-false}"
 
 mkdir -p "$DOWNLOAD_DIR" "$DATA_DIR"
 

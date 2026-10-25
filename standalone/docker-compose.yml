@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   recipe-manager:
-    build: .
+    build:
+      context: ..
+      dockerfile: standalone/Dockerfile
     container_name: rm-standalone
     ports:
       - "8099:8099"

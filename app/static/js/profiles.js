@@ -129,7 +129,8 @@
       if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
       if ($("profiles-overlay").classList.contains("show")) renderList();
     } catch (err) {
-      alert("Не удалось переключить профиль: " + err.message);
+      console.error("Fetch failed for profile switch:", err);
+      alert("Не удалось переключить профиль: " + err.message + "\nПопробуйте открыть http://127.0.0.1:8099 вместо localhost.");
       renderSelector();
     }
   }

@@ -68,6 +68,7 @@ export GENERATOR_DEFAULT_COUNT="$(jq --raw-output '.generator_default_count // 1
 export GENERATOR_SAMPLES_MAX="$(jq --raw-output '.generator_samples_max // 10' $CONFIG_PATH)"
 export GENERATOR_DEFAULT_SAMPLES="$(jq --raw-output '.generator_default_samples // 2' $CONFIG_PATH)"
 export GENERATOR_MAX_TOKENS="$(jq --raw-output '.generator_max_tokens // 15000' $CONFIG_PATH)"
+export GENERATOR_AUTO_ACTIVE_TIME="$(jq --raw-output '.generator_auto_active_time // false' $CONFIG_PATH)"
 
 # --- Прочее ---------------------------------------------------------------
 export LOG_LEVEL="$(jq --raw-output '.log_level // "info"' $CONFIG_PATH)"
