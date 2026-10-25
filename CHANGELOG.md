@@ -7,6 +7,21 @@
 
 ---
 
+## [1.12.2] — 2026-10-25
+
+Hotfix: восстановление сборки HA-аддона.
+
+### Fixed
+
+- **Сборка Home Assistant.** В v1.12.0 корневой `Dockerfile` был
+  заменён на standalone-версию (`python:3.13-slim`), из-за чего HA
+  не мог собрать образ (нет `BUILD_FROM`, venv в `/opt/venv`).
+  Корневой `Dockerfile` восстановлен для HA, а standalone-файлы
+  (`Dockerfile`, `docker-compose.yml`, `entrypoint.sh`) перенесены
+  в папку `standalone/`.
+
+---
+
 ## [1.12.1] — 2026-10-25
 
 Сортировка рецептов.
