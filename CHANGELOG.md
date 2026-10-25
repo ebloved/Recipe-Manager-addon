@@ -7,6 +7,19 @@
 
 ---
 
+## [1.12.5] — 2026-10-25
+
+Hotfix: Сортировка не применялась.
+
+### Fixed
+
+- **Вызов `sortRecipes`.** В v1.12.1 вызов функции сортировки не
+  вставился, так как скрипт искал устаревший маркер `updateFilterButton`
+  (удалён в v1.10.9). Теперь `sortRecipes` вызывается прямо перед
+  `render(filtered)`.
+
+---
+
 ## [1.12.4] — 2026-10-25
 
 Hotfix: ReferenceError sortRecipes is not defined.
