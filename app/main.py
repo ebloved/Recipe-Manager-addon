@@ -16,6 +16,7 @@ from config import (
     MATCHER_SUGGEST_THRESHOLD,
 )
 from routes import api_router
+from services.background_worker import active_time_worker
 from stores import (
     gen_profiles_store,
     ingredients_store,
@@ -89,7 +90,12 @@ async def lifespan(app: FastAPI):
     if FEATURE_PROFILES:
         print(f"[gen_profiles] loaded {len(gen_profiles_store.profiles)} profiles")
 
+    import asyncio
+    bg_task = asyncio.create_task(active_time_worker())
+
     yield
+
+    bg_task.cancel()
 
 
 app = FastAPI(title="Recipe Manager", lifespan=lifespan)

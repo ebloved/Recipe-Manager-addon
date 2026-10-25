@@ -151,6 +151,8 @@ async def generate_suggestions(
     samples_max: int = 10,
 ) -> list[dict[str, Any]]:
     """Генерирует рецепты через каскад провайдеров."""
+    from services.activity import touch
+    touch()
     count = max(1, min(int(count or 1), int(max_count)))
     samples_count = max(0, min(int(samples_count or 0), int(samples_max)))
 

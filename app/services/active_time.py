@@ -92,7 +92,7 @@ def _parse_json(raw: str) -> dict[str, Any]:
 
 
 async def estimate_active_time(
-    recipe: dict[str, Any], force: bool = False
+    recipe: dict[str, Any], force: bool = False, is_bg: bool = False
 ) -> dict[str, Any]:
     """Возвращает patch для recipe_store.update().
 
@@ -103,6 +103,10 @@ async def estimate_active_time(
     - При ошибке LLM → {"active_time_error": "..."} — рецепт сохраняется
       с ошибкой, вызывающая сторона решает, показывать ли.
     """
+    if not is_bg:
+        from services.activity import touch
+        touch()
+
     instructions = recipe.get("instructions") or []
     if not instructions:
         return {
