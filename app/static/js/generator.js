@@ -269,8 +269,8 @@
     if (t) meta.push(`⏱ ${escHtml(String(t))} мин`);
     if (r.servings) meta.push(`👥 ${escHtml(String(r.servings))}`);
     if (r.active_time != null) {
-      meta.push(`🎯 ${escHtml(String(r.active_time))}м`
-        + (r.active_time_estimated ? " <small>(оценка)" : ""));
+      meta.push(`🎯 ${escHtml(String(r.active_time))} мин акт.`
+        + (r.active_time_estimated ? " <small>(оценка)</small>" : ""));
     }
     if (Array.isArray(r.tags) && r.tags.length) {
       meta.push(r.tags.slice(0, 5).map((x) => escHtml(String(x))).join(", "));

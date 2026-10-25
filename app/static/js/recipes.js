@@ -231,6 +231,11 @@
     const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
     if (t) meta.appendChild(chip("⏱ " + formatTime(t), false));
     if (r.servings) meta.appendChild(chip("👥 " + r.servings, false));
+    if (r.active_time != null) {
+      const at = chip("🎯 " + r.active_time + " мин акт." + (r.active_time_estimated ? "*" : ""), false);
+      at.title = "Активное время (сколько вы заняты готовкой)" + (r.active_time_estimated ? ". Оценка ИИ" : "");
+      meta.appendChild(at);
+    }
     for (const tag of (r.tags || []).slice(0, 3)) meta.appendChild(chip(tag, true));
     body.appendChild(meta);
     card.appendChild(body);

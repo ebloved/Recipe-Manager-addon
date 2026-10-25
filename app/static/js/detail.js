@@ -172,18 +172,25 @@
 
     const metaChips = [];
     if (r.servings_text || r.servings)
-      metaChips.push(`<span class="meta-chip-large">👥 ${escHtml(r.servings_text || r.servings)}</span>`);
-    if (r.prep_time) metaChips.push(`<span class="meta-chip-large">⏱ ${formatTime(r.prep_time)}</span>`);
-    if (r.cook_time) metaChips.push(`<span class="meta-chip-large">🔥 ${formatTime(r.cook_time)}</span>`);
-    const totalTime = r.total_time || r.time;
-    if (totalTime && totalTime !== (r.prep_time||0)+(r.cook_time||0))
-      metaChips.push(`<span class="meta-chip-large">⏲ ${formatTime(totalTime)}</span>`);
+      metaChips.push(`<span class="meta-chip-large" title="Количество порций">👥 ${escHtml(r.servings_text || r.servings)}</span>`);
+    
+    // v1.9.3: показываем все времена с явными подписями
+    if (r.prep_time) {
+      metaChips.push(`<span class="meta-chip-large" title="Время на подготовку (нарезка, замес и т.д.)">🔪 ${formatTime(r.prep_time)} подг.</span>`);
+    }
+    if (r.cook_time) {
+      metaChips.push(`<span class="meta-chip-large" title="Время термической обработки">🔥 ${formatTime(r.cook_time)} готовки</span>`);
+    }
+    const totalTime = r.total_time || r.time || ((r.prep_time||0)+(r.cook_time||0));
+    if (totalTime) {
+      metaChips.push(`<span class="meta-chip-large" title="Общее время (включая пассивные периоды)">⏱ ${formatTime(totalTime)} всего</span>`);
+    }
     // v1.9.1: active_time chip — кликабельный
     if (r.active_time != null) {
       const star = r.active_time_estimated ? "*" : "";
-      metaChips.push(`<button class="meta-chip-large clickable" data-action="estimate-active-time" title="${r.active_time_estimated ? 'Оценка ИИ. Клик — пересчитать' : 'Точное значение. Клик — пересчитать'}">🎯 ${r.active_time}м${star} ⟳</button>`);
+      metaChips.push(`<button class="meta-chip-large clickable" data-action="estimate-active-time" title="${r.active_time_estimated ? 'Оценка ИИ. Клик — пересчитать' : 'Точное значение. Клик — пересчитать'}. Активное время — сколько вы заняты готовкой.">🎯 ${r.active_time} мин акт.${star} ⟳</button>`);
     } else {
-      metaChips.push(`<button class="meta-chip-large clickable estimate-missing" data-action="estimate-active-time" title="Оценить активное время через LLM">🎯 Оценить</button>`);
+      metaChips.push(`<button class="meta-chip-large clickable estimate-missing" data-action="estimate-active-time" title="Оценить активное время (сколько вы стоите у плиты) через LLM">🎯 Оценить акт.</button>`);
     }
 
     const chipsRows = [];
