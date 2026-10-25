@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 WORKDIR /app
 COPY app/ /app/
 COPY run.sh /app/run.sh
+RUN chmod +x /app/run.sh
 COPY config.yaml /app/config.yaml
 
 # Запускаем через bashio
