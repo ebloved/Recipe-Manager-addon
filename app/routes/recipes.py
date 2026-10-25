@@ -21,6 +21,7 @@ from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import Response
 
 from recipe_manager.importer import parse_markdown_recipe
+from services.active_time import estimate_active_time
 from services.linker import link_recipe_ingredients
 from services.md_export import recipe_filename, recipe_to_md
 from stores import meal_plan_store, recipe_store
@@ -28,6 +29,15 @@ from stores import meal_plan_store, recipe_store
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
+
+
+async def _maybe_estimate_active_time(recipe: dict, force: bool = False) -> dict:
+    """Оценивает active_time и возвращает patch. При ошибке — {active_time_error}."""
+    try:
+        return await estimate_active_time(recipe, force=force)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("active_time estimation crashed: %s", exc)
+        return {"active_time_error": str(exc)[:200]}
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +130,14 @@ async def create_recipe(payload: dict[str, Any] = Body(...)):
         data = explicit
 
     recipe = await recipe_store.add(data)
+
+    # B1: оценить active_time через LLM (graceful — рецепт уже сохранён)
+    patch = await _maybe_estimate_active_time(recipe)
+    if patch:
+        updated = await recipe_store.update(recipe["id"], patch)
+        if updated:
+            recipe = updated
+
     return {"recipe": recipe}
 
 
@@ -151,6 +169,16 @@ async def update_recipe(recipe_id: str, patch: dict[str, Any] = Body(...)):
     recipe = await recipe_store.update(recipe_id, patch)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
+
+    # B1: пересчитать active_time если instructions изменились
+    # (estimate_active_time сам проверяет hash — если не менялись, вернёт {})
+    if "instructions" in patch:
+        at_patch = await _maybe_estimate_active_time(recipe)
+        if at_patch:
+            updated = await recipe_store.update(recipe_id, at_patch)
+            if updated:
+                recipe = updated
+
     return {"recipe": recipe}
 
 
@@ -235,6 +263,14 @@ async def import_recipe_md(recipe_id: str, payload: dict[str, Any] = Body(...)):
     updated = await recipe_store.update(recipe_id, parsed)
     if not updated:
         raise HTTPException(404, "Recipe not found")
+
+    # B1: пересчитать active_time после замены содержимого
+    at_patch = await _maybe_estimate_active_time(updated)
+    if at_patch:
+        updated2 = await recipe_store.update(recipe_id, at_patch)
+        if updated2:
+            updated = updated2
+
     return {"recipe": updated}
 
 
@@ -270,3 +306,74 @@ async def create_from_markdown(payload: dict[str, Any] = Body(...)):
 
     recipe = await recipe_store.add(parsed)
     return {"recipe": recipe}
+
+# ---------------------------------------------------------------------------
+# Batch estimate active_time
+# ---------------------------------------------------------------------------
+
+@router.post("/estimate-active-time")
+async def estimate_all_active_time(force: bool = False):
+    """Запускает фоновую переоценку active_time для всех рецептов.
+
+    Возвращает job_id (async через JobsStore). Клиент поллит
+    GET /api/generator/jobs/{id} или /api/jobs/{id}.
+
+    force=True — пересчитать даже если hash не изменился.
+    """
+    import asyncio
+    from services.generator.generator import _now
+    from stores import jobs_store
+
+    job = await jobs_store.create({"kind": "estimate_active_time", "force": force})
+    asyncio.create_task(_run_estimate_job(job["id"], force=force))
+    return {"job_id": job["id"], "status": "pending"}
+
+
+async def _run_estimate_job(job_id: str, *, force: bool = False):
+    import time
+    from services.generator.generator import _now
+    from stores import jobs_store
+
+    t0 = time.monotonic()
+    try:
+        recipes = recipe_store.get_all()
+        total = len(recipes)
+        done = 0
+        errors = 0
+        skipped = 0
+        for r in recipes:
+            try:
+                patch = await estimate_active_time(r, force=force)
+                if not patch:
+                    skipped += 1
+                    done += 1
+                elif patch.get("active_time_error"):
+                    await recipe_store.update(r["id"], patch)
+                    errors += 1
+                    done += 1
+                else:
+                    await recipe_store.update(r["id"], patch)
+                    done += 1
+                await jobs_store.update(job_id, created=done)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("estimate failed for %s: %s", r.get("id"), exc)
+                errors += 1
+                done += 1
+        elapsed = round(time.monotonic() - t0, 2)
+        err_msg = None
+        if errors:
+            err_msg = f"{errors} ошибок из {total}"
+        await jobs_store.update(
+            job_id, status="done", created=done,
+            finished_at=_now(),
+            error=err_msg,
+        )
+        logger.info(
+            "[active_time] batch done in %.1fs: %d/%d ok, %d skipped, %d errors",
+            elapsed, done, total, skipped, errors,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("active_time batch crashed")
+        await jobs_store.update(
+            job_id, status="error", error=str(exc)[:200], finished_at=_now(),
+        )

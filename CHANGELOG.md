@@ -7,6 +7,51 @@
 
 ---
 
+## [1.9.0] — 2026-10-25
+
+B1: оценка `active_time` через LLM. Фильтр по профилю использует
+реальное активное время, а не `prep_time`.
+
+### Added
+
+- **`services/active_time.py`** — LLM оценивает каждый шаг как
+  active/passive и суммирует active в минутах. Возвращает JSON
+  `{steps: [{index, active_min}], total_active_min}`. Промпт чётко
+  отделяет «нарезать» и «помешивать при обжарке» от «тушить 30 мин».
+- **Поля в рецепте:** `active_time` (int, минуты), `active_time_estimated`
+  (bool, true = оценка ИИ), `active_time_hash` (SHA256 от instructions),
+  `active_time_at` (ISO timestamp), `active_time_error` (при сбое).
+- **Sync-вызов при сохранении.** `POST /api/recipes` и
+  `PATCH /api/recipes/{id}` (если в patch есть `instructions`) вызывают
+  `estimate_active_time`. Hash-based инвалидация: если шаги не менялись —
+  LLM не вызывается.
+- **`import_recipe_md`** и **`create_from_markdown`** — пересчитывают
+  active_time после замены содержимого.
+- **`POST /api/recipes/estimate-active-time?force=false`** — batch-оценка
+  всех рецептов через `JobsStore` (async job, поллинг через
+  `/api/generator/jobs/{id}`).
+- **UI: кнопка «🎯 Оценить active_time»** в поисковой строке на вкладке
+  «Рецепты». Показывает прогресс, обновляет список после завершения.
+- **UI: chip `🎯 Nм`** на карточке рецепта (звёздочка `*` если оценка ИИ).
+  В preview сгенерированного рецепта — тоже в мета-строке.
+
+### Changed
+
+- **`fitsProfile` (C1): убран fallback на `prep_time`.** При заданном
+  `max_active_time_min` рецепт без `active_time` не попадает в фильтр.
+  Это консервативно (честно «не знаю»), но после нажатия «Оценить все»
+  все рецепты получат реальную оценку.
+
+### Notes
+
+- Ошибка LLM **не блокирует** сохранение рецепта: `active_time`
+  остаётся `null`, в `active_time_error` пишется причина. Можно повторить
+  через batch.
+- Стоимость: один LLM-вызов на рецепт. Для 20 рецептов — 20 вызовов,
+  при Gemini 5 RPM = ~4 минуты. Batch идёт в фоне, UI не блокируется.
+
+---
+
 ## [1.8.5] — 2026-10-25
 
 Документация: README разделён с CHANGELOG.

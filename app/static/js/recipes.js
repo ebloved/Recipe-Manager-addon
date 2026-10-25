@@ -28,8 +28,9 @@
       if (t == null || t > Number(c.max_total_time_min)) return false;
     }
     if (c.max_active_time_min != null) {
-      let active = num(recipe.active_time);
-      if (active == null) active = num(recipe.prep_time);
+      // v1.9.0: только active_time, без fallback на prep_time.
+      // Если не оценён — рецепт не подходит (оцени через «🎯 Оценить active_time»).
+      const active = num(recipe.active_time);
       if (active == null || active > Number(c.max_active_time_min)) return false;
     }
     if (c.min_protein_per_serving_g != null) {
@@ -73,6 +74,43 @@
       });
       const filterBtn = $("profile-filter-btn");
       if (filterBtn) filterBtn.addEventListener("click", toggleProfileFilter);
+      const estBtn = $("estimate-all-btn");
+      if (estBtn) estBtn.addEventListener("click", estimateAllActiveTime);
+    }
+
+    async function estimateAllActiveTime() {
+      const btn = $("estimate-all-btn");
+      if (!btn) return;
+      if (!confirm("Оценить active_time для всех рецептов? Это может занять несколько минут (LLM вызов на каждый рецепт).")) return;
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = "⏳ Запуск…";
+      try {
+        const data = await RM.api.postJSON("api/recipes/estimate-active-time?force=false", {});
+        const jobId = data.job_id;
+        if (!jobId) { alert("Нет job_id в ответе"); return; }
+        const t0 = Date.now();
+        while (true) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const elapsed = Math.round((Date.now() - t0) / 1000);
+          btn.textContent = `⏳ ${elapsed}s…`;
+          let j;
+          try { j = await RM.api.getJSON(`api/generator/jobs/${jobId}`); }
+          catch (e) { if (/404/.test(e.message || "")) { alert("Задача потеряна"); return; } continue; }
+          if (j.status === "done") {
+            alert(`Готово за ${elapsed}s. Обновлено: ${j.created || 0}`);
+            await load();
+            return;
+          }
+          if (j.status === "error") { alert("Ошибка: " + (j.error || "—")); return; }
+          if (elapsed > 900) { alert("Таймаут 15 минут"); return; }
+        }
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
     }
 
   async function load() {

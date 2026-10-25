@@ -2958,3 +2958,7 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   .gen-preview-panel { border-radius: 0; max-height: 100vh; height: 100vh; }
   .gen-preview-body { padding: 14px; }
 }
+
+/* v1.9.0: estimate active_time button */
+#estimate-all-btn { font-size: 13px; }
+#estimate-all-btn:disabled { opacity: 0.6; cursor: wait; }
