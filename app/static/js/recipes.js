@@ -199,6 +199,14 @@ function filterAndRender(q) {
     }
     container.innerHTML = "";
     container.appendChild(grid);
+    const sortSel = $("sort-select");
+    if (sortSel) {
+      sortSel.addEventListener("change", (e) => {
+        state.recipesSort = e.target.value;
+        filterAndRender();
+      });
+    }
+
   }
 
   function cardFor(r) {
