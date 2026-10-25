@@ -76,6 +76,16 @@
   // Селектор в шапке
   // =====================================================================
 
+
+  function resizeSelect() {
+    const sel = $("profile-select");
+    if (!sel || sel.selectedIndex === -1) return;
+    const text = sel.options[sel.selectedIndex].text;
+    // 8px на символ + 40px на отступы и стрелку
+    const w = Math.max(140, Math.min(text.length * 8 + 40, 280));
+    sel.style.width = w + "px";
+  }
+
   function renderSelector() {
     const sel = $("profile-select");
     const icon = $("profile-selector-icon");
@@ -91,6 +101,8 @@
 
     const active = state.profiles.find((p) => p.id === current);
     icon.textContent = active && active.icon ? active.icon : "🍽";
+    resizeSelect();
+    resizeSelect();
   }
 
   async function onSelectActive(e) {

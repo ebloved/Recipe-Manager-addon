@@ -3061,3 +3061,9 @@ header {
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tabs .tab { flex-shrink: 0; }
+
+/* v1.10.5: адаптивная ширина профиля */
+.profile-select {
+  transition: width 0.15s ease;
+  max-width: 280px;
+}
