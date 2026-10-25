@@ -3132,3 +3132,13 @@ header {
   .cabinet-tab { padding: 6px 12px; font-size: 13px; }
   .search-row { flex-wrap: wrap; }
 }
+
+/* v1.11.0: B3 badge colors */
+.meta-chip.linked-all { background: rgba(46,160,67,0.15); color: var(--success); }
+.meta-chip.linked-partial { background: rgba(245,166,35,0.15); color: #f5a623; }
+.meta-chip.linked-none { background: rgba(139,147,161,0.15); color: var(--text-muted); }
+
+.unlinked-list {
+  max-height: 400px;
+  overflow-y: auto;
+}

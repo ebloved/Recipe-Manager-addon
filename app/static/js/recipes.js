@@ -221,6 +221,22 @@
       at.title = "Активное время (сколько вы заняты готовкой)" + (r.active_time_estimated ? ". Оценка ИИ" : "");
       meta.appendChild(at);
     }
+    
+    // B3: Индикатор связок продуктов
+    const ings = r.ingredients || [];
+    if (ings.length > 0) {
+      let linked = 0;
+      for (const ing of ings) {
+        if (typeof ing !== "string" && ing.product_id) linked++;
+      }
+      const badge = chip(`🔗 ${linked}/${ings.length}`, false);
+      badge.title = "Связано с базой продуктов";
+      if (linked === ings.length) badge.classList.add("linked-all");
+      else if (linked > 0) badge.classList.add("linked-partial");
+      else badge.classList.add("linked-none");
+      meta.appendChild(badge);
+    }
+    
     for (const tag of (r.tags || []).slice(0, 3)) meta.appendChild(chip(tag, true));
     body.appendChild(meta);
     card.appendChild(body);

@@ -73,6 +73,14 @@
       state.productsFilter.showDeleted = e.target.checked;
       load();
     });
+    
+    loadUnlinkedCount();
+
+    // B4: Несвязанные
+    const btnUnlinked = $("products-unlinked");
+    if (btnUnlinked) btnUnlinked.addEventListener("click", openUnlinked);
+    const closeUnlinked = $("unlinked-close");
+    if (closeUnlinked) closeUnlinked.addEventListener("click", () => $("unlinked-overlay").classList.remove("show"));
 
     // Модалка редактора
     $("product-editor-close").addEventListener("click", closeEditor);
@@ -103,6 +111,36 @@
   // =====================================================================
   // Загрузка и рендер
   // =====================================================================
+
+  function openUnlinked() {
+    const overlay = $("unlinked-overlay");
+    const list = $("unlinked-list");
+    if (!overlay || !list) return;
+    
+    const data = state.unlinkedData || [];
+    if (!data.length) {
+      list.innerHTML = "<p style='color:var(--success)'>🎉 Все ингредиенты связаны!</p>";
+    } else {
+      list.innerHTML = data.map(item => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid var(--border);">
+          <span style="font-size:14px">${escHtml(item.name)}</span>
+          <span style="color:var(--text-muted); font-size:13px; margin-left:12px;">${item.count} рец.</span>
+        </div>
+      `).join("");
+    }
+    overlay.classList.add("show");
+  }
+
+  async function loadUnlinkedCount() {
+    try {
+      const data = await getJSON("api/products/unlinked");
+      const el = $("unlinked-count");
+      if (el) el.textContent = data.total_unique;
+      state.unlinkedData = data.unlinked || [];
+    } catch (e) {
+      console.warn("Unlinked count error:", e);
+    }
+  }
 
   async function load() {
     const container = $("products-container");

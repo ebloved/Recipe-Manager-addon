@@ -11,6 +11,7 @@ from . import (
     ingredients,
     profiles,
     matcher,
+    products,
     recipes,
     misc,
     me,
@@ -26,6 +27,7 @@ api_router.include_router(ingredients.router)
 api_router.include_router(profiles.router)
 api_router.include_router(generator.router)
 api_router.include_router(matcher.router)
+api_router.include_router(products.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 api_router.include_router(me.router)

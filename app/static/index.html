@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=46">
+<link rel="stylesheet" href="static/css/style.css?v=47">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -104,6 +104,7 @@
         <div class="products-actions">
           <button class="btn primary" id="products-add">+ Новый продукт</button>
           <button class="btn" id="products-lookup">📷 Найти по штрих-коду</button>
+          <button class="btn" id="products-unlinked">⚠️ Несвязанные (<span id="unlinked-count">0</span>)</button>
           <label class="products-show-deleted">
             <input type="checkbox" id="products-show-deleted">
             Показать удалённые
@@ -378,6 +379,22 @@
 </div>
 
 <!-- ==================================================== Product editor modal -->
+<div class="product-editor-overlay" id="unlinked-overlay">
+  <div class="product-editor-panel" style="max-width: 700px;">
+    <div class="product-editor-header">
+      <h3>Несвязанные ингредиенты</h3>
+      <button class="product-editor-close" id="unlinked-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom: 12px;">
+        Эти ингредиенты встречаются в ваших рецептах, но не привязаны к базе продуктов.
+        Откройте рецепт, чтобы связать их.
+      </div>
+      <div id="unlinked-list" class="unlinked-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="product-editor-overlay" id="product-editor-overlay">
   <div class="product-editor-panel">
     <div class="product-editor-header">
@@ -707,26 +724,26 @@
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=46"></script>
-<script src="static/js/api.js?v=46"></script>
-<script src="static/js/state.js?v=46"></script>
-<script src="static/js/tabs.js?v=46"></script>
-<script src="static/js/youtube.js?v=46"></script>
-<script src="static/js/imports.js?v=46"></script>
-<script src="static/js/recipes.js?v=46"></script>
-<script src="static/js/detail.js?v=46"></script>
-<script src="static/js/editor.js?v=46"></script>
-<script src="static/js/plan-picker.js?v=46"></script>
-<script src="static/js/planner.js?v=46"></script>
-<script src="static/js/recipe-picker.js?v=46"></script>
-<script src="static/js/shopping.js?v=46"></script>
-<script src="static/js/products.js?v=46"></script>
-<script src="static/js/product-picker.js?v=46"></script>
-<script src="static/js/generator.js?v=46"></script>
-<script src="static/js/profiles.js?v=46"></script>
-<script src="static/js/cabinet.js?v=46"></script>
-<script src="static/js/sync.js?v=46"></script>
-<script src="static/js/live-sync.js?v=46"></script>
-<script src="static/js/app.js?v=46"></script>
+<script src="static/js/utils.js?v=47"></script>
+<script src="static/js/api.js?v=47"></script>
+<script src="static/js/state.js?v=47"></script>
+<script src="static/js/tabs.js?v=47"></script>
+<script src="static/js/youtube.js?v=47"></script>
+<script src="static/js/imports.js?v=47"></script>
+<script src="static/js/recipes.js?v=47"></script>
+<script src="static/js/detail.js?v=47"></script>
+<script src="static/js/editor.js?v=47"></script>
+<script src="static/js/plan-picker.js?v=47"></script>
+<script src="static/js/planner.js?v=47"></script>
+<script src="static/js/recipe-picker.js?v=47"></script>
+<script src="static/js/shopping.js?v=47"></script>
+<script src="static/js/products.js?v=47"></script>
+<script src="static/js/product-picker.js?v=47"></script>
+<script src="static/js/generator.js?v=47"></script>
+<script src="static/js/profiles.js?v=47"></script>
+<script src="static/js/cabinet.js?v=47"></script>
+<script src="static/js/sync.js?v=47"></script>
+<script src="static/js/live-sync.js?v=47"></script>
+<script src="static/js/app.js?v=47"></script>
 </body>
 </html>
