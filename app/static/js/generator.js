@@ -20,6 +20,20 @@
 
   function setup() {
     $("gen-run-btn").addEventListener("click", onRun);
+    const closeBtn = $("gen-preview-close");
+    if (closeBtn) closeBtn.addEventListener("click", closePreview);
+    const overlay = $("gen-preview-overlay");
+    if (overlay) overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closePreview();
+    });
+    document.querySelectorAll(".gen-preview-tab").forEach((tab) => {
+      tab.addEventListener("click", () => setPreviewTab(tab.dataset.view));
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && $("gen-preview-overlay").classList.contains("show")) {
+        closePreview();
+      }
+    });
     loadSuggestions();
   }
 
@@ -209,13 +223,95 @@
 
   function preview(id) {
     const s = state.generatorSuggestions.find((x) => x.id === id);
-    if (!s) return;
-    const md = s.markdown || "";
-    const html = `<pre style="white-space:pre-wrap;font-size:12px;background:#f4f6f8;padding:12px;border-radius:8px;max-height:60vh;overflow:auto;color:#111">${escHtml(md)}</pre>`;
-    const w = window.open("", "_blank", "width=800,height=700");
-    if (!w) return;
-    w.document.write(`<html><head><title>Preview</title><style>body{font-family:system-ui;padding:16px;background:#fff;color:#111}</style></head><body><h2>${escHtml(s.recipe_data?.name || "—")}</h2>${html}</body></html>`);
-    w.document.close();
+    if (!s) {
+      console.error("[preview] suggestion not found:", id);
+      alert("Предложение не найдено. Обновите страницу.");
+      return;
+    }
+    const r = s.recipe_data || {};
+    $("gen-preview-title").textContent = r.name || "(не распознано)";
+    $("gen-preview-raw").textContent = s.markdown || "(нет markdown)";
+
+    const rendered = $("gen-preview-rendered");
+    if (s.error) {
+      rendered.innerHTML = `<div class="gen-error">⚠ ${escHtml(s.error)}</div>` +
+        `<p style="margin-top:12px;color:var(--text-muted)">Сырой Markdown доступен во вкладке RAW.</p>`;
+    } else if (r && Object.keys(r).length) {
+      rendered.innerHTML = renderPreviewRecipe(r);
+    } else {
+      rendered.innerHTML = `<p style="color:var(--text-muted)">Не удалось распарсить рецепт. Смотрите RAW.</p>`;
+    }
+
+    setPreviewTab("rendered");
+    $("gen-preview-overlay").classList.add("show");
+    $("gen-preview-close").focus();
+  }
+
+  function setPreviewTab(view) {
+    document.querySelectorAll(".gen-preview-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.view === view);
+    });
+    $("gen-preview-rendered").style.display = view === "rendered" ? "" : "none";
+    $("gen-preview-raw").style.display = view === "raw" ? "" : "none";
+  }
+
+  function closePreview() {
+    $("gen-preview-overlay").classList.remove("show");
+  }
+
+  function renderPreviewRecipe(r) {
+    const parts = [];
+    if (r.description) {
+      parts.push(`<p class="gen-preview-desc">${escHtml(r.description)}</p>`);
+    }
+    const meta = [];
+    const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
+    if (t) meta.push(`⏱ ${escHtml(String(t))} мин`);
+    if (r.servings) meta.push(`👥 ${escHtml(String(r.servings))}`);
+    if (Array.isArray(r.tags) && r.tags.length) {
+      meta.push(r.tags.slice(0, 5).map((x) => escHtml(String(x))).join(", "));
+    }
+    if (meta.length) {
+      parts.push(`<div class="gen-preview-meta">${meta.join(" · ")}</div>`);
+    }
+    if (r.nutrition && typeof r.nutrition === "object") {
+      const n = r.nutrition;
+      const nn = [];
+      if (n.calories) nn.push(`${n.calories} ккал`);
+      if (n.protein) nn.push(`Б: ${n.protein}г`);
+      if (n.fat) nn.push(`Ж: ${n.fat}г`);
+      if (n.carbohydrates) nn.push(`У: ${n.carbohydrates}г`);
+      if (nn.length) {
+        parts.push(`<div class="gen-preview-nutrition">${nn.map(escHtml).join(" · ")}</div>`);
+      }
+    }
+    const ing = r.ingredients || [];
+    if (ing.length) {
+      parts.push("<h4>Ингредиенты</h4><ul>");
+      for (const i of ing) {
+        if (typeof i === "string") {
+          parts.push(`<li>${escHtml(i)}</li>`);
+          continue;
+        }
+        const headParts = [];
+        if (i.amount) headParts.push(String(i.amount));
+        if (i.unit) headParts.push(String(i.unit));
+        const head = headParts.join(" ");
+        const line = (head ? head + " " : "") + (i.name || "");
+        const note = i.notes ? ` <small>(${escHtml(String(i.notes))})</small>` : "";
+        parts.push(`<li>${escHtml(line)}${note}</li>`);
+      }
+      parts.push("</ul>");
+    }
+    const inst = r.instructions || [];
+    if (inst.length) {
+      parts.push("<h4>Шаги</h4><ol>");
+      for (const step of inst) {
+        parts.push(`<li>${escHtml(String(step))}</li>`);
+      }
+      parts.push("</ol>");
+    }
+    return `<div class="gen-preview-recipe">${parts.join("")}</div>`;
   }
 
   RM.generator = { setup, loadSuggestions };

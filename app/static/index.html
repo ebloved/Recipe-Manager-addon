@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=31">
+<link rel="stylesheet" href="static/css/style.css?v=32">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -660,27 +660,47 @@ servings: 4
 </div>
 
 <!-- ==================================================== Editor overlay (recipe) -->
+<!-- ==================================================== Generator preview -->
+<div class="gen-preview-overlay" id="gen-preview-overlay">
+  <div class="gen-preview-panel">
+    <div class="gen-preview-header">
+      <h3 id="gen-preview-title">—</h3>
+      <div class="gen-preview-header-actions">
+        <div class="gen-preview-tabs">
+          <button class="gen-preview-tab active" data-view="rendered">📖 Рецепт</button>
+          <button class="gen-preview-tab" data-view="raw">📄 RAW</button>
+        </div>
+        <button class="gen-preview-close" id="gen-preview-close" aria-label="Закрыть">×</button>
+      </div>
+    </div>
+    <div class="gen-preview-body">
+      <div id="gen-preview-rendered"></div>
+      <pre id="gen-preview-raw" class="gen-preview-raw" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=31"></script>
-<script src="static/js/api.js?v=31"></script>
-<script src="static/js/state.js?v=31"></script>
-<script src="static/js/tabs.js?v=31"></script>
-<script src="static/js/youtube.js?v=31"></script>
-<script src="static/js/imports.js?v=31"></script>
-<script src="static/js/recipes.js?v=31"></script>
-<script src="static/js/detail.js?v=31"></script>
-<script src="static/js/editor.js?v=31"></script>
-<script src="static/js/plan-picker.js?v=31"></script>
-<script src="static/js/planner.js?v=31"></script>
-<script src="static/js/recipe-picker.js?v=31"></script>
-<script src="static/js/shopping.js?v=31"></script>
-<script src="static/js/products.js?v=31"></script>
-<script src="static/js/product-picker.js?v=31"></script>
-<script src="static/js/generator.js?v=31"></script>
-<script src="static/js/profiles.js?v=31"></script>
-<script src="static/js/sync.js?v=31"></script>
-<script src="static/js/live-sync.js?v=31"></script>
-<script src="static/js/app.js?v=31"></script>
+<script src="static/js/utils.js?v=32"></script>
+<script src="static/js/api.js?v=32"></script>
+<script src="static/js/state.js?v=32"></script>
+<script src="static/js/tabs.js?v=32"></script>
+<script src="static/js/youtube.js?v=32"></script>
+<script src="static/js/imports.js?v=32"></script>
+<script src="static/js/recipes.js?v=32"></script>
+<script src="static/js/detail.js?v=32"></script>
+<script src="static/js/editor.js?v=32"></script>
+<script src="static/js/plan-picker.js?v=32"></script>
+<script src="static/js/planner.js?v=32"></script>
+<script src="static/js/recipe-picker.js?v=32"></script>
+<script src="static/js/shopping.js?v=32"></script>
+<script src="static/js/products.js?v=32"></script>
+<script src="static/js/product-picker.js?v=32"></script>
+<script src="static/js/generator.js?v=32"></script>
+<script src="static/js/profiles.js?v=32"></script>
+<script src="static/js/sync.js?v=32"></script>
+<script src="static/js/live-sync.js?v=32"></script>
+<script src="static/js/app.js?v=32"></script>
 </body>
 </html>
