@@ -62,11 +62,12 @@
       case "products":
         if (RM.products) RM.products.load();
         break;
-      case "sync":
-        if (RM.sync) RM.sync.load();
-        break;
+      
       // youtube, import — статические формы, ничего не грузим
-    }
+      case "cabinet":
+          if (RM.cabinet) RM.cabinet.load();
+          break;
+      }
   }
 
   function switchToRecipes() {

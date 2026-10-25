@@ -4,8 +4,16 @@
   const { getJSON } = RM.api;
 
   function setup() {
-    // Синхронизация управляется своим модулем, просто инициализируем
+    // Синхронизация управляется своим модулем
     if (RM.sync) RM.sync.setup();
+    
+    // Принудительный вызов загрузки при клике на вкладку (в обход tabs.js)
+    const cabTab = document.querySelector('.cabinet-tab');
+    if (cabTab) {
+      cabTab.addEventListener('click', () => {
+        load();
+      });
+    }
   }
 
   async function load() {
