@@ -130,10 +130,13 @@ async def estimate_active_time(
     )
 
     try:
+        # v1.9.2: thinking-модели тратят max_output_tokens на reasoning.
+        # 2000 не хватает — модель уходит в incomplete/in_progress надолго.
+        # Ответ короткий (JSON с числами), 8000 с запасом.
         raw = await provider.complete(
             prompt=prompt,
             system=_SYSTEM,
-            max_tokens=2000,
+            max_tokens=8000,
             temperature=0.1,
         )
     except Exception as exc:  # noqa: BLE001

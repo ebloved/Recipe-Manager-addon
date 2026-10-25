@@ -7,6 +7,34 @@
 
 ---
 
+## [1.9.2] — 2026-10-25
+
+Hotfix: per-recipe active_time — async, как и генерация.
+
+### Fixed
+
+- **`POST /api/recipes/{id}/estimate-active-time`** был синхронным.
+  На медленной thinking-модели Gemini (in_progress 225+ секунд)
+  запрос упирался в nginx-таймаут (~60 с) → браузер получал
+  HTML `504 Gateway Time-out` → `Ошибка оценки: {}`.
+  Теперь `202 {job_id}` + поллинг `/api/generator/jobs/{id}`,
+  как у генерации.
+- **`max_tokens` 2000 → 8000** в `services/active_time.py`.
+  Thinking-модели тратят `max_output_tokens` на reasoning; 2000
+  уходило в thinking, ответ не приходил. Ответ короткий (JSON
+  с числами), 8000 — с запасом.
+
+### Changed
+
+- **Frontend `onEstimateActiveTime`:** после 202 показывает
+  `⏳ Оценка… Ns` в chip, поллит job каждые 2 с, по завершении
+  перезагружает рецепт через `GET /api/recipes/{id}` и
+  перерисовывает detail. Hard-cap 10 минут.
+- При `status=error` от job — alert с текстом ошибки (не `{}`).
+  При 404 (рестарт аддона) — «Задача потеряна».
+
+---
+
 ## [1.9.1] — 2026-10-25
 
 UX active_time: оценка из detail-view, batch — только когда нужен.

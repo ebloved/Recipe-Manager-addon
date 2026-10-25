@@ -13,22 +13,73 @@
     const r = state.currentRecipe;
     if (!r || !r.id) return;
     const chip = document.querySelector("[data-action='estimate-active-time']");
+    const origText = chip ? chip.textContent : "";
     if (chip) {
-      chip.textContent = "⏳ Оценка…";
+      chip.textContent = "⏳ Оценка… 0s";
       chip.disabled = true;
     }
+
+    let resp;
     try {
-      const data = await RM.api.postJSON(
+      resp = await RM.api.postJSON(
         `api/recipes/${r.id}/estimate-active-time?force=true`, {}
       );
-      if (data.recipe) {
-        state.currentRecipe = data.recipe;
-        render();
-        if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
-      }
     } catch (err) {
-      alert("Ошибка оценки: " + err.message);
-      render();
+      alert("Ошибка запроса: " + (err.message || "сеть"));
+      if (chip) { chip.textContent = origText; chip.disabled = false; }
+      return;
+    }
+
+    if (!resp || !resp.job_id) {
+      alert("Сервер не вернул job_id. Обновите страницу (Ctrl+Shift+R).");
+      if (chip) { chip.textContent = origText; chip.disabled = false; }
+      return;
+    }
+
+    const jobId = resp.job_id;
+    const t0 = Date.now();
+
+    while (true) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      if (chip) chip.textContent = `⏳ Оценка… ${elapsed}s`;
+
+      if (elapsed > 600) {
+        alert("Оценка занимает больше 10 минут. Прерываем.");
+        if (chip) { chip.textContent = origText; chip.disabled = false; }
+        return;
+      }
+
+      let j;
+      try {
+        j = await RM.api.getJSON(`api/generator/jobs/${jobId}`);
+      } catch (err) {
+        const msg = err.message || "";
+        if (/404/.test(msg)) {
+          alert("Задача потеряна (перезапуск аддона?)");
+          if (chip) { chip.textContent = origText; chip.disabled = false; }
+          return;
+        }
+        continue;
+      }
+
+      if (j.status === "done") {
+        try {
+          const full = await RM.api.getJSON(`api/recipes/${r.id}`);
+          if (full && full.recipe) {
+            state.currentRecipe = full.recipe;
+            render();
+            if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
+          }
+        } catch (_) {}
+        return;
+      }
+
+      if (j.status === "error") {
+        alert("Ошибка оценки: " + (j.error || "неизвестно"));
+        if (chip) { chip.textContent = origText; chip.disabled = false; }
+        return;
+      }
     }
   }
 

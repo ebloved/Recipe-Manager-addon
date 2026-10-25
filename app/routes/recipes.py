@@ -311,21 +311,76 @@ async def create_from_markdown(payload: dict[str, Any] = Body(...)):
 # Batch estimate active_time
 # ---------------------------------------------------------------------------
 
-@router.post("/{recipe_id}/estimate-active-time")
+@router.post("/{recipe_id}/estimate-active-time", status_code=202)
 async def estimate_one_active_time(recipe_id: str, force: bool = True):
-    """Оценивает active_time одного рецепта (sync).
+    """Запускает оценку active_time одного рецепта в фоне (job-based).
 
-    force=True по умолчанию — пересчитать даже если hash совпадает
-    (пользователь явно нажал «Пересчитать» в detail-view).
+    Sync-версия падала по nginx-таймауту (~60s), если Gemini думал дольше.
+    Теперь 202 {job_id}, фронт поллит /api/generator/jobs/{id}.
+
+    force=True по умолчанию — пересчитать даже если hash совпадает.
     """
+    import asyncio
+    from services.generator.generator import _now
+    from stores import jobs_store
+
     recipe = recipe_store.get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
-    patch = await _maybe_estimate_active_time(recipe, force=force)
-    if not patch:
-        return {"recipe": recipe, "changed": False}
-    updated = await recipe_store.update(recipe_id, patch)
-    return {"recipe": updated or recipe, "changed": True}
+
+    job = await jobs_store.create({
+        "kind": "estimate_active_time_one",
+        "recipe_id": recipe_id,
+        "force": force,
+    })
+    asyncio.create_task(_run_estimate_one_job(job["id"], recipe_id, force=force))
+    return {"job_id": job["id"], "status": "pending"}
+
+
+async def _run_estimate_one_job(job_id: str, recipe_id: str, *, force: bool = True):
+    import time
+    from services.generator.generator import _now
+    from stores import jobs_store
+
+    t0 = time.monotonic()
+    try:
+        recipe = recipe_store.get(recipe_id)
+        if not recipe:
+            await jobs_store.update(
+                job_id, status="error", error="recipe not found",
+                finished_at=_now(),
+            )
+            return
+        patch = await _maybe_estimate_active_time(recipe, force=force)
+        if not patch:
+            await jobs_store.update(
+                job_id, status="done", created=0, finished_at=_now(),
+            )
+            logger.info(
+                "[active_time] one %s: no change (%.1fs)",
+                recipe_id[:8], time.monotonic() - t0,
+            )
+            return
+        await recipe_store.update(recipe_id, patch)
+        at_err = patch.get("active_time_error")
+        if at_err:
+            await jobs_store.update(
+                job_id, status="error", error=str(at_err)[:200],
+                finished_at=_now(),
+            )
+        else:
+            await jobs_store.update(
+                job_id, status="done", created=1, finished_at=_now(),
+            )
+        logger.info(
+            "[active_time] one %s done in %.1fs: active=%s",
+            recipe_id[:8], time.monotonic() - t0, patch.get("active_time"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[active_time] one job crashed")
+        await jobs_store.update(
+            job_id, status="error", error=str(exc)[:200], finished_at=_now(),
+        )
 
 
 @router.post("/estimate-active-time")
