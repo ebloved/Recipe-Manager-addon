@@ -9,7 +9,37 @@
   // Заполняется при открытии detail-view.
   state.productCache = state.productCache || {};
 
+  async function onEstimateActiveTime() {
+    const r = state.currentRecipe;
+    if (!r || !r.id) return;
+    const chip = document.querySelector("[data-action='estimate-active-time']");
+    if (chip) {
+      chip.textContent = "⏳ Оценка…";
+      chip.disabled = true;
+    }
+    try {
+      const data = await RM.api.postJSON(
+        `api/recipes/${r.id}/estimate-active-time?force=true`, {}
+      );
+      if (data.recipe) {
+        state.currentRecipe = data.recipe;
+        render();
+        if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
+      }
+    } catch (err) {
+      alert("Ошибка оценки: " + err.message);
+      render();
+    }
+  }
+
   function setup() {
+    // v1.9.1: делегирование для active_time chip (render пересоздаёт DOM)
+    document.addEventListener("click", (e) => {
+      const chip = e.target.closest("[data-action='estimate-active-time']");
+      if (!chip) return;
+      e.preventDefault();
+      onEstimateActiveTime();
+    });
     $("detail-overlay").addEventListener("click", (e) => {
       if (e.target === $("detail-overlay")) close();
     });
@@ -97,6 +127,13 @@
     const totalTime = r.total_time || r.time;
     if (totalTime && totalTime !== (r.prep_time||0)+(r.cook_time||0))
       metaChips.push(`<span class="meta-chip-large">⏲ ${formatTime(totalTime)}</span>`);
+    // v1.9.1: active_time chip — кликабельный
+    if (r.active_time != null) {
+      const star = r.active_time_estimated ? "*" : "";
+      metaChips.push(`<button class="meta-chip-large clickable" data-action="estimate-active-time" title="${r.active_time_estimated ? 'Оценка ИИ. Клик — пересчитать' : 'Точное значение. Клик — пересчитать'}">🎯 ${r.active_time}м${star} ⟳</button>`);
+    } else {
+      metaChips.push(`<button class="meta-chip-large clickable estimate-missing" data-action="estimate-active-time" title="Оценить активное время через LLM">🎯 Оценить</button>`);
+    }
 
     const chipsRows = [];
     if ((r.courses || []).length) {

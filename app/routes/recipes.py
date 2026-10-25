@@ -311,6 +311,23 @@ async def create_from_markdown(payload: dict[str, Any] = Body(...)):
 # Batch estimate active_time
 # ---------------------------------------------------------------------------
 
+@router.post("/{recipe_id}/estimate-active-time")
+async def estimate_one_active_time(recipe_id: str, force: bool = True):
+    """Оценивает active_time одного рецепта (sync).
+
+    force=True по умолчанию — пересчитать даже если hash совпадает
+    (пользователь явно нажал «Пересчитать» в detail-view).
+    """
+    recipe = recipe_store.get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found")
+    patch = await _maybe_estimate_active_time(recipe, force=force)
+    if not patch:
+        return {"recipe": recipe, "changed": False}
+    updated = await recipe_store.update(recipe_id, patch)
+    return {"recipe": updated or recipe, "changed": True}
+
+
 @router.post("/estimate-active-time")
 async def estimate_all_active_time(force: bool = False):
     """Запускает фоновую переоценку active_time для всех рецептов.

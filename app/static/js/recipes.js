@@ -153,6 +153,21 @@
       }
       render(filtered);
       updateFilterButton();
+      updateEstimateButton();
+    }
+
+    function updateEstimateButton() {
+      // v1.9.1: показываем batch-кнопку только если >=3 рецептов без active_time
+      const btn = $("estimate-all-btn");
+      if (!btn) return;
+      const missing = state.recipes.filter((r) => r.active_time == null).length;
+      if (missing >= 3) {
+        btn.style.display = "";
+        btn.textContent = `🎯 Оценить ${missing} без active_time`;
+        btn.title = `Оценить active_time для ${missing} рецептов через LLM`;
+      } else {
+        btn.style.display = "none";
+      }
     }
 
   function render(recipes) {

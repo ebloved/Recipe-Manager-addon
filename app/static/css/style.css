@@ -2962,3 +2962,22 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 /* v1.9.0: estimate active_time button */
 #estimate-all-btn { font-size: 13px; }
 #estimate-all-btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* v1.9.1: clickable meta chips (active_time) */
+.meta-chip-large.clickable {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  background: var(--surface, #f4f6f8);
+  transition: background 0.15s, transform 0.05s;
+}
+.meta-chip-large.clickable:hover {
+  background: var(--bg, rgba(0,0,0,0.08));
+}
+.meta-chip-large.clickable:active { transform: scale(0.97); }
+.meta-chip-large.clickable:disabled { opacity: 0.6; cursor: wait; }
+.meta-chip-large.estimate-missing {
+  border: 1px dashed var(--accent, #f5a623);
+  color: var(--accent, #f5a623);
+  background: transparent;
+}
