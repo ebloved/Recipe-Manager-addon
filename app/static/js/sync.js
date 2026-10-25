@@ -13,17 +13,24 @@
     box.innerHTML = '<div class="loading"><span class="spinner"></span> Проверка соединения…</div>';
     try {
       const data = await getJSON("api/sync/status");
+      // v1.9.5: устойчивый рендер (data.recipes/data.ingredients или data.files)
+      const fileInfo = (filename) => {
+        const f = (data.files && data.files[filename]) || {};
+        const exists = f.exists;
+        const path = f.path || filename;
+        const sha = f.sha;
+        return `<div class="sync-row"><span>Файл:</span><b>${escHtml(path)}</b>
+          ${exists ? ' <span style="color:var(--success)">✓</span>' : ' <span style="color:var(--text-muted)">(не создан)</span>'}
+          ${sha ? `<code style="margin-left:6px">${escHtml(sha.slice(0, 7))}…</code>` : ''}
+        </div>`;
+      };
+
       box.innerHTML = `
         <div class="sync-info">
           <div class="sync-row"><span>Репозиторий:</span><b>${escHtml(data.repo)}</b></div>
           <div class="sync-row"><span>Ветка:</span><b>${escHtml(data.branch)}</b></div>
-          <div class="sync-row"><span>Файл:</span><b>${escHtml(data.path)}</b></div>
-          <div class="sync-row"><span>Статус:</span>
-            ${data.exists
-              ? `<b style="color:var(--success)">✓ файл найден</b>`
-              : `<b style="color:var(--text-secondary)">файл ещё не создан</b>`}
-          </div>
-          ${data.sha ? `<div class="sync-row"><span>SHA:</span><code>${escHtml(data.sha.slice(0, 10))}…</code></div>` : ""}
+          ${fileInfo("recipes.json")}
+          ${fileInfo("ingredients.json")}
         </div>`;
     } catch (err) {
       box.innerHTML = `<div class="empty" style="padding:20px 0"><div class="icon">⚠️</div><p>${escHtml(err.message)}</p></div>`;
@@ -39,7 +46,8 @@
     clearStatus(msg);
     try {
       const data = await postJSON("api/sync/pull", { replace_all: true });
-      setStatus(msg, `✓ Загружено ${data.added} рецептов из GitHub.`, "success");
+      const count = data.recipes?.added ?? data.added ?? 0;
+      setStatus(msg, `✓ Загружено ${count} рецептов из GitHub.`, "success");
       RM.state.recipes = [];
       RM.recipes.load();
     } catch (err) {
