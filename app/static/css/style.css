@@ -3011,3 +3011,53 @@ header {
   header { flex-wrap: wrap; }
   .header-right { width: 100%; justify-content: space-between; margin-top: 8px; }
 }
+
+/* v1.10.2: Header layout */
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 0;
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cabinet-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  transition: all 0.2s;
+}
+.cabinet-tab:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.cabinet-tab.active {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .tab { flex-shrink: 0; }

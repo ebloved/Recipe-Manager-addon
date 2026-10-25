@@ -4,13 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=39">
+<link rel="stylesheet" href="static/css/style.css?v=40">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
 <header>
-  <h1>Recipe Manager</h1>
+  <div class="header-top">
+    <h1>Recipe Manager</h1>
+    <div class="header-right">
+      <button class="tab cabinet-tab" data-panel="cabinet">👤 Кабинет</button>
+      <div class="profile-selector" id="profile-selector">
+        <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
+        <select id="profile-select" class="profile-select" title="Активный профиль">
+          <option value="">Без профиля</option>
+        </select>
+        <button class="profile-manage-btn" id="profile-manage-btn" title="Управление профилями">⚙️</button>
+      </div>
+    </div>
+  </div>
   <div class="tabs">
     <button class="tab active" data-panel="recipes">Рецепты</button>
     <button class="tab" data-panel="generator">✨ Генератор</button>
@@ -18,16 +30,6 @@
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
     <button class="tab" data-panel="add">➕ Добавить</button>
-  </div>
-  <div class="header-right">
-    <button class="tab" data-panel="cabinet" style="margin-right:12px;">👤 Кабинет</button>
-    <div class="profile-selector" id="profile-selector">
-      <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
-      <select id="profile-select" class="profile-select" title="Активный профиль">
-        <option value="">Без профиля</option>
-      </select>
-      <button class="profile-manage-btn" id="profile-manage-btn" title="Управление профилями">⚙️</button>
-    </div>
   </div>
 </header>
 
@@ -246,7 +248,7 @@
       </div>
     </div>
   </section>
-<section class="panel" id="panel-cabinet">
+  <section class="panel" id="panel-cabinet">
     <div class="panel-inner">
       
       <div class="card" id="cabinet-user">
@@ -258,14 +260,18 @@
       </div>
 
       <div class="card" id="cabinet-sync">
-        
-      <div class="card">
         <div class="hint">
           Синхронизация рецептов и базы продуктов с репозиторием GitHub.
           Настройки задаются в Configuration аддона.
         </div>
         <div class="sync-status" id="sync-status">
-          <div class="loading"><span class="spinner"></span> Проверка соединения…
+          <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="sync-pull">⬇️ Забрать из GitHub</button>
+          <button class="btn primary" id="sync-push">⬆️ Отправить в GitHub</button>
+        </div>
+        <div class="status" id="sync-msg"></div>
       </div>
 
       <div class="card" id="cabinet-about">
@@ -691,26 +697,26 @@
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=39"></script>
-<script src="static/js/api.js?v=39"></script>
-<script src="static/js/state.js?v=39"></script>
-<script src="static/js/tabs.js?v=39"></script>
-<script src="static/js/youtube.js?v=39"></script>
-<script src="static/js/imports.js?v=39"></script>
-<script src="static/js/recipes.js?v=39"></script>
-<script src="static/js/detail.js?v=39"></script>
-<script src="static/js/editor.js?v=39"></script>
-<script src="static/js/plan-picker.js?v=39"></script>
-<script src="static/js/planner.js?v=39"></script>
-<script src="static/js/recipe-picker.js?v=39"></script>
-<script src="static/js/shopping.js?v=39"></script>
-<script src="static/js/products.js?v=39"></script>
-<script src="static/js/product-picker.js?v=39"></script>
-<script src="static/js/generator.js?v=39"></script>
-<script src="static/js/profiles.js?v=39"></script>
-<script src="static/js/cabinet.js?v=39"></script>
-<script src="static/js/sync.js?v=39"></script>
-<script src="static/js/live-sync.js?v=39"></script>
-<script src="static/js/app.js?v=39"></script>
+<script src="static/js/utils.js?v=40"></script>
+<script src="static/js/api.js?v=40"></script>
+<script src="static/js/state.js?v=40"></script>
+<script src="static/js/tabs.js?v=40"></script>
+<script src="static/js/youtube.js?v=40"></script>
+<script src="static/js/imports.js?v=40"></script>
+<script src="static/js/recipes.js?v=40"></script>
+<script src="static/js/detail.js?v=40"></script>
+<script src="static/js/editor.js?v=40"></script>
+<script src="static/js/plan-picker.js?v=40"></script>
+<script src="static/js/planner.js?v=40"></script>
+<script src="static/js/recipe-picker.js?v=40"></script>
+<script src="static/js/shopping.js?v=40"></script>
+<script src="static/js/products.js?v=40"></script>
+<script src="static/js/product-picker.js?v=40"></script>
+<script src="static/js/generator.js?v=40"></script>
+<script src="static/js/profiles.js?v=40"></script>
+<script src="static/js/cabinet.js?v=40"></script>
+<script src="static/js/sync.js?v=40"></script>
+<script src="static/js/live-sync.js?v=40"></script>
+<script src="static/js/app.js?v=40"></script>
 </body>
 </html>

@@ -4,8 +4,9 @@
   const { getJSON, postJSON } = RM.api;
 
   function setup() {
-    $("sync-pull").addEventListener("click", onPull);
-    $("sync-push").addEventListener("click", onPush);
+    const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
+    bind("sync-pull", onPull);
+    bind("sync-push", onPush);
   }
 
   async function load() {
