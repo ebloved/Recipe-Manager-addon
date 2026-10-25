@@ -81,8 +81,16 @@
     const sel = $("profile-select");
     if (!sel || sel.selectedIndex === -1) return;
     const text = sel.options[sel.selectedIndex].text;
-    // 8px на символ + 40px на отступы и стрелку
-    const w = Math.max(140, Math.min(text.length * 8 + 40, 280));
+    
+    // Используем canvas для точного вычисления ширины текста
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const style = window.getComputedStyle(sel);
+    ctx.font = `${style.fontSize} ${style.fontFamily}`;
+    const textWidth = ctx.measureText(text).width;
+    
+    // padding-left + padding-right + стрелка + запас
+    const w = Math.max(110, Math.ceil(textWidth + 60));
     sel.style.width = w + "px";
   }
 
