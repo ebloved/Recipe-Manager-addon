@@ -13,6 +13,7 @@ from . import (
     matcher,
     recipes,
     misc,
+    me,
 )
 
 api_router = APIRouter()
@@ -27,5 +28,6 @@ api_router.include_router(generator.router)
 api_router.include_router(matcher.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
+api_router.include_router(me.router)
 
 __all__ = ["api_router"]

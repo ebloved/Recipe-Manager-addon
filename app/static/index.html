@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=37">
+<link rel="stylesheet" href="static/css/style.css?v=38">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -17,9 +17,8 @@
     <button class="tab" data-panel="products">🧺 Продукты</button>
     <button class="tab" data-panel="planner">📅 Планировщик</button>
     <button class="tab" data-panel="shopping">🛒 Покупки</button>
-    <button class="tab" data-panel="sync">☁️ Синхронизация</button>
-    <button class="tab" data-panel="youtube">YouTube</button>
-    <button class="tab" data-panel="import">Импорт</button>
+    <button class="tab" data-panel="add">➕ Добавить</button>
+    <button class="tab" data-panel="cabinet">👤 Кабинет</button>
   </div>
   <div class="profile-selector" id="profile-selector">
     <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
@@ -154,28 +153,24 @@
   </section>
 
   <!-- ==================================================== Sync -->
-  <section class="panel" id="panel-sync">
-    <div class="panel-inner">
-      <div class="card">
-        <div class="hint">
-          Синхронизация рецептов и базы продуктов с репозиторием GitHub.
-          Настройки задаются в Configuration аддона.
-        </div>
-        <div class="sync-status" id="sync-status">
-          <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
-        </div>
-        <div class="row" style="margin-top:14px">
-          <button class="btn primary" id="sync-pull">⬇️ Забрать из GitHub</button>
-          <button class="btn primary" id="sync-push">⬆️ Отправить в GitHub</button>
-        </div>
-        <div class="status" id="sync-msg"></div>
-      </div>
-    </div>
-  </section>
+  
 
   <!-- ==================================================== YouTube -->
-  <section class="panel" id="panel-youtube">
+  
+
+  <!-- ==================================================== Import -->
+  
+<section class="panel" id="panel-add">
     <div class="panel-inner">
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-subpanel="add-yt">YouTube</button>
+        <button class="sub-tab" data-subpanel="add-scrape">🌐 Со сайта</button>
+        <button class="sub-tab" data-subpanel="add-markdown">📝 Markdown</button>
+        <button class="sub-tab" data-subpanel="add-manual">✏️ Вручную</button>
+      </div>
+
+      <div class="subpanel active" id="subpanel-add-yt">
+        
       <div class="hint">Вставьте ссылку на YouTube Shorts — сервис скачает субтитры и сгенерирует рецепт.</div>
       <div class="card">
         <div class="field">
@@ -186,28 +181,9 @@
           <button class="btn primary" id="yt-download">1. Скачать субтитры</button>
           <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
         </div>
-        <div class="status" id="yt-status"></div>
+        <div class="status" id="yt-status">
       </div>
-      <div class="card" id="yt-preview-card" style="display:none">
-        <div class="field">
-          <label>Сгенерированный Markdown</label>
-          <textarea id="yt-md" spellcheck="false"></textarea>
-        </div>
-        <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ==================================================== Import -->
-  <section class="panel" id="panel-import">
-    <div class="panel-inner">
-      <div class="sub-tabs">
-        <button class="sub-tab active" data-subpanel="scrape">🌐 Со сайта</button>
-        <button class="sub-tab" data-subpanel="markdown">📝 Markdown</button>
-        <button class="sub-tab" data-subpanel="manual">✏️ Вручную</button>
-      </div>
-
-      <div class="subpanel active" id="subpanel-scrape">
+      <div class="subpanel active" id="subpanel-add-scrape">
         <div class="card">
           <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
           <div class="field">
@@ -217,9 +193,7 @@
           <button class="btn primary" id="scrape-fetch">Загрузить</button>
           <div class="status" id="scrape-status"></div>
         </div>
-      </div>
-
-      <div class="subpanel" id="subpanel-markdown">
+<div class="subpanel" id="subpanel-add-markdown">
         <div class="card">
           <div class="field">
             <label for="md-url">Ссылка на .md файл</label>
@@ -228,46 +202,44 @@
           <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
           <div class="status" id="md-url-status"></div>
         </div>
-
-        <div class="card">
-          <div class="field">
-            <label>Загрузить .md файл с устройства</label>
-            <label class="file-drop" for="md-file">
-              📎 Выбрать файл .md
-              <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
-            </label>
-            <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
-          </div>
-          <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
-          <div class="status" id="md-file-status"></div>
-        </div>
-
-        <div class="card">
-          <div class="field">
-            <label for="md-paste">Или вставьте Markdown вручную</label>
-            <textarea id="md-paste" spellcheck="false" placeholder="---
-title: Борщ
-tags: [суп, украинская]
-servings: 4
----
-
-## Ингредиенты
-- Свёкла — 2 шт
-
-## Шаги
-1. Сварить бульон."></textarea>
-          </div>
-          <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
-          <div class="status" id="md-paste-status"></div>
-        </div>
-      </div>
-
-      <div class="subpanel" id="subpanel-manual">
+<div class="subpanel" id="subpanel-add-manual">
         <div class="card">
           <div class="hint">Откройте полноценный редактор для создания рецепта вручную.</div>
           <button class="btn primary" id="manual-open-editor">✏️ Открыть редактор</button>
         </div>
       </div>
+    </div>
+  </section>
+<section class="panel" id="panel-cabinet">
+    <div class="panel-inner">
+      
+      <div class="card" id="cabinet-user">
+        <div class="loading"><span class="spinner"></span> Загрузка профиля…</div>
+      </div>
+
+      <div class="card" id="cabinet-llm">
+        <div class="loading"><span class="spinner"></span> Проверка LLM…</div>
+      </div>
+
+      <div class="card" id="cabinet-sync">
+        
+      <div class="card">
+        <div class="hint">
+          Синхронизация рецептов и базы продуктов с репозиторием GitHub.
+          Настройки задаются в Configuration аддона.
+        </div>
+        <div class="sync-status" id="sync-status">
+          <div class="loading"><span class="spinner"></span> Проверка соединения…
+      </div>
+
+      <div class="card" id="cabinet-about">
+        <div class="hint">
+          <b>Recipe Manager</b><br>
+          Версия: <span id="cabinet-version">...</span><br>
+          <a href="https://github.com/ebloved/recipe-manager-addon" target="_blank">Репозиторий на GitHub</a>
+        </div>
+      </div>
+
     </div>
   </section>
 </main>
@@ -683,25 +655,26 @@ servings: 4
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=37"></script>
-<script src="static/js/api.js?v=37"></script>
-<script src="static/js/state.js?v=37"></script>
-<script src="static/js/tabs.js?v=37"></script>
-<script src="static/js/youtube.js?v=37"></script>
-<script src="static/js/imports.js?v=37"></script>
-<script src="static/js/recipes.js?v=37"></script>
-<script src="static/js/detail.js?v=37"></script>
-<script src="static/js/editor.js?v=37"></script>
-<script src="static/js/plan-picker.js?v=37"></script>
-<script src="static/js/planner.js?v=37"></script>
-<script src="static/js/recipe-picker.js?v=37"></script>
-<script src="static/js/shopping.js?v=37"></script>
-<script src="static/js/products.js?v=37"></script>
-<script src="static/js/product-picker.js?v=37"></script>
-<script src="static/js/generator.js?v=37"></script>
-<script src="static/js/profiles.js?v=37"></script>
-<script src="static/js/sync.js?v=37"></script>
-<script src="static/js/live-sync.js?v=37"></script>
-<script src="static/js/app.js?v=37"></script>
+<script src="static/js/utils.js?v=38"></script>
+<script src="static/js/api.js?v=38"></script>
+<script src="static/js/state.js?v=38"></script>
+<script src="static/js/tabs.js?v=38"></script>
+<script src="static/js/youtube.js?v=38"></script>
+<script src="static/js/imports.js?v=38"></script>
+<script src="static/js/recipes.js?v=38"></script>
+<script src="static/js/detail.js?v=38"></script>
+<script src="static/js/editor.js?v=38"></script>
+<script src="static/js/plan-picker.js?v=38"></script>
+<script src="static/js/planner.js?v=38"></script>
+<script src="static/js/recipe-picker.js?v=38"></script>
+<script src="static/js/shopping.js?v=38"></script>
+<script src="static/js/products.js?v=38"></script>
+<script src="static/js/product-picker.js?v=38"></script>
+<script src="static/js/generator.js?v=38"></script>
+<script src="static/js/profiles.js?v=38"></script>
+<script src="static/js/cabinet.js?v=38"></script>
+<script src="static/js/sync.js?v=38"></script>
+<script src="static/js/live-sync.js?v=38"></script>
+<script src="static/js/app.js?v=38"></script>
 </body>
 </html>

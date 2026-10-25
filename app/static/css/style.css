@@ -2981,3 +2981,13 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   color: var(--accent, #f5a623);
   background: transparent;
 }
+
+/* v1.10.0: Cabinet */
+#cabinet-user .hint,
+#cabinet-llm .hint,
+#cabinet-about .hint {
+  padding: 16px;
+}
+#cabinet-sync .sync-status {
+  padding: 0;
+}

@@ -31,8 +31,8 @@
       RM.profiles.load();
     }
 
-    // Синхронизация
-    if (RM.sync) RM.sync.setup();
+    // Кабинет (включает в себя синхронизацию)
+    if (RM.cabinet) RM.cabinet.setup();
 
     // Live-sync (периодический polling)
     if (RM.liveSync) RM.liveSync.setup();
