@@ -82,15 +82,22 @@
     if (!sel || sel.selectedIndex === -1) return;
     const text = sel.options[sel.selectedIndex].text;
     
-    // Используем canvas для точного вычисления ширины текста
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const style = window.getComputedStyle(sel);
-    ctx.font = `${style.fontSize} ${style.fontFamily}`;
-    const textWidth = ctx.measureText(text).width;
+    // Безопасное вычисление ширины через Canvas
+    let textWidth = 100; // fallback
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const style = window.getComputedStyle(sel);
+      ctx.font = `${style.fontSize} ${style.fontFamily}`;
+      if (style.fontFamily) {
+        textWidth = ctx.measureText(text).width;
+      }
+    } catch (e) {
+      console.warn("Canvas measureText failed, using fallback", e);
+    }
     
-    // padding-left + padding-right + стрелка + запас
-    const w = Math.max(110, Math.ceil(textWidth + 60));
+    // padding-left (12) + padding-right (32) + запас (10)
+    const w = Math.max(130, Math.ceil(textWidth + 54));
     sel.style.width = w + "px";
   }
 
