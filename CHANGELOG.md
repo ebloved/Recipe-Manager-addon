@@ -7,6 +7,18 @@
 
 ---
 
+## [1.12.4] — 2026-10-25
+
+Hotfix: ReferenceError sortRecipes is not defined.
+
+### Fixed
+
+- **Сортировка рецептов.** В v1.12.1 скрипт вставил вызов
+  `sortRecipes()` в `filterAndRender`, но не саму функцию.
+  Функция восстановлена.
+
+---
+
 ## [1.12.3] — 2026-10-25
 
 Hotfix: права на запуск `run.sh`.

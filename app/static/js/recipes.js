@@ -130,7 +130,37 @@
       }
     }
 
-  function filterAndRender(q) {
+      function sortRecipes(arr) {
+      const mode = state.recipesSort || "default";
+      if (mode === "default" || !mode) return arr;
+      
+      const getAct = (r) => r.active_time != null ? r.active_time : 99999;
+      const getTot = (r) => r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || 99999;
+      
+      return [...arr].sort((a, b) => {
+        if (mode === "active_asc") return getAct(a) - getAct(b);
+        if (mode === "total_asc") return getTot(a) - getTot(b);
+        
+        if (mode === "combined") {
+          const diffAct = getAct(a) - getAct(b);
+          if (diffAct !== 0) return diffAct;
+          return getTot(a) - getTot(b);
+        }
+        
+        if (mode === "course_asc") {
+          const ca = (a.courses && a.courses[0]) || "я";
+          const cb = (b.courses && b.courses[0]) || "я";
+          if (ca !== cb) return ca.localeCompare(cb);
+          return (a.name || "").localeCompare(b.name || "");
+        }
+        
+        if (mode === "name_asc") return (a.name || "").localeCompare(b.name || "");
+        
+        return 0;
+      });
+    }
+
+function filterAndRender(q) {
       const query = (q !== undefined ? q : ($("search").value || "")).trim();
       const active = getActiveProfile();
       const applyProfile = state.profileFilterActive && active;
