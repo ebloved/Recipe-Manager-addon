@@ -7,6 +7,23 @@
 
 ---
 
+## [1.8.5] — 2026-10-25
+
+Документация: README разделён с CHANGELOG.
+
+### Changed
+
+- **`README.md`** — теперь нормальный README: что умеет,
+  установка как add-on, основные опции, структура проекта,
+  разработка. Раньше файл дублировал CHANGELOG (начинался
+  с `# Changelog`) и содержал историю до 1.3.0.
+- **`## Планы`** — актуализированы: addon (active_time, ZIP,
+  scheduler) и standalone (OAuth, embedding service, per-user
+  LLM keys, sharing по ссылке).
+- История версий — по ссылке на [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
 ## [1.8.4] — 2026-10-25
 
 Preview сгенерированных рецептов — модалка вместо `window.open`.
