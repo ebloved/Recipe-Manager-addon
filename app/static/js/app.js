@@ -1,6 +1,24 @@
 "use strict";
 (function (RM) {
-  function init() {
+  async function checkAuth() {
+    try {
+      const me = await RM.api.getJSON("api/me");
+      if (me.authenticated === false) {
+        document.getElementById("auth-screen").style.display = "flex";
+        document.querySelector("header").style.display = "none";
+        document.querySelector("main").style.display = "none";
+        return false;
+      }
+      return true;
+    } catch (e) {
+      return true; // Если API недоступно, пропускаем (например, в HA)
+    }
+  }
+
+  async function init() {
+    const authed = await checkAuth();
+    if (!authed) return;
+
     RM.tabs.setupTopTabs();
     RM.tabs.setupSubTabs();
 

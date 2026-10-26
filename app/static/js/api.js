@@ -6,6 +6,7 @@
   async function getJSON(url) {
     const resp = await fetch(api(url));
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 401) { window.location.href = 'api/auth/login'; throw new Error('Unauthorized'); }
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     return data;
   }
@@ -17,6 +18,7 @@
       body: JSON.stringify(payload),
     });
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 401) { window.location.href = 'api/auth/login'; throw new Error('Unauthorized'); }
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     return data;
   }
@@ -24,6 +26,7 @@
   async function postForm(url, formData) {
     const resp = await fetch(api(url), { method: "POST", body: formData });
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 401) { window.location.href = 'api/auth/login'; throw new Error('Unauthorized'); }
     if (!resp.ok) throw new Error(data.detail?.error || data.detail || data.error || JSON.stringify(data));
     return data;
   }
@@ -35,6 +38,7 @@
       body: JSON.stringify(payload),
     });
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 401) { window.location.href = 'api/auth/login'; throw new Error('Unauthorized'); }
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     return data;
   }
@@ -42,6 +46,7 @@
   async function del(url) {
     const resp = await fetch(api(url), { method: "DELETE" });
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 401) { window.location.href = 'api/auth/login'; throw new Error('Unauthorized'); }
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     return data;
   }

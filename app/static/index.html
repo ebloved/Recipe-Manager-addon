@@ -4,10 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=52">
+<link rel="stylesheet" href="static/css/style.css?v=55">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
+
+  <div id="auth-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+    <div class="card" style="text-align:center; padding:40px; max-width:400px;">
+      <h1 style="margin-bottom:20px;">Recipe Manager</h1>
+      <p style="color:var(--text-secondary); margin-bottom:30px;">Войдите, чтобы получить доступ к своим рецептам</p>
+      <a href="api/auth/login" class="btn primary" style="display:inline-block; padding:12px 24px; text-decoration:none; font-size:16px;">Войти через Google</a>
+    </div>
+  </div>
+
 
 <header>
   <div class="header-top">
@@ -741,26 +750,26 @@
 
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=52"></script>
-<script src="static/js/api.js?v=52"></script>
-<script src="static/js/state.js?v=52"></script>
-<script src="static/js/tabs.js?v=52"></script>
-<script src="static/js/youtube.js?v=52"></script>
-<script src="static/js/imports.js?v=52"></script>
-<script src="static/js/recipes.js?v=52"></script>
-<script src="static/js/detail.js?v=52"></script>
-<script src="static/js/editor.js?v=52"></script>
-<script src="static/js/plan-picker.js?v=52"></script>
-<script src="static/js/planner.js?v=52"></script>
-<script src="static/js/recipe-picker.js?v=52"></script>
-<script src="static/js/shopping.js?v=52"></script>
-<script src="static/js/products.js?v=52"></script>
-<script src="static/js/product-picker.js?v=52"></script>
-<script src="static/js/generator.js?v=52"></script>
-<script src="static/js/profiles.js?v=52"></script>
-<script src="static/js/cabinet.js?v=52"></script>
-<script src="static/js/sync.js?v=52"></script>
-<script src="static/js/live-sync.js?v=52"></script>
-<script src="static/js/app.js?v=52"></script>
+<script src="static/js/utils.js?v=55"></script>
+<script src="static/js/api.js?v=55"></script>
+<script src="static/js/state.js?v=55"></script>
+<script src="static/js/tabs.js?v=55"></script>
+<script src="static/js/youtube.js?v=55"></script>
+<script src="static/js/imports.js?v=55"></script>
+<script src="static/js/recipes.js?v=55"></script>
+<script src="static/js/detail.js?v=55"></script>
+<script src="static/js/editor.js?v=55"></script>
+<script src="static/js/plan-picker.js?v=55"></script>
+<script src="static/js/planner.js?v=55"></script>
+<script src="static/js/recipe-picker.js?v=55"></script>
+<script src="static/js/shopping.js?v=55"></script>
+<script src="static/js/products.js?v=55"></script>
+<script src="static/js/product-picker.js?v=55"></script>
+<script src="static/js/generator.js?v=55"></script>
+<script src="static/js/profiles.js?v=55"></script>
+<script src="static/js/cabinet.js?v=55"></script>
+<script src="static/js/sync.js?v=55"></script>
+<script src="static/js/live-sync.js?v=55"></script>
+<script src="static/js/app.js?v=55"></script>
 </body>
 </html>

@@ -7,8 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /tmp/req_base.txt
+COPY standalone/requirements.txt /tmp/req_standalone.txt
+RUN pip install --no-cache-dir -r /tmp/req_standalone.txt
 
 COPY app/ /app/
 COPY standalone/entrypoint.sh /app/entrypoint.sh

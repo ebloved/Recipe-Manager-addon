@@ -3169,3 +3169,5 @@ header {
   .sort-select { max-width: 100%; width: 100%; margin-top: 8px; }
   .search-row { flex-wrap: wrap; }
 }
+
+#auth-screen { display: flex; }

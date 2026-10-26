@@ -9,6 +9,10 @@ BASE_DIR = Path(__file__).resolve().parent
 # --- Режим развертывания (addon или standalone) ---
 DEPLOY_MODE = os.environ.get("DEPLOY_MODE", "addon").strip().lower()
 AUTH_MODE = os.environ.get("AUTH_MODE", "ha").strip().lower()
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://127.0.0.1:8099/api/auth/callback")
 
 DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", "/downloads"))
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)

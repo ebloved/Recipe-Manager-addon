@@ -5,8 +5,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from config import (
+    SECRET_KEY,
+    AUTH_MODE,
     FEATURE_MATCHER,
     FEATURE_PRODUCTS,
     FEATURE_PROFILES,
@@ -34,6 +37,8 @@ async def lifespan(app: FastAPI):
     await meal_plan_store.load()
     await shopping_store.load()
     await suggestions_store.load()
+    from services.auth import users_store
+    await users_store.load()
     from stores.settings import settings_store
     await settings_store.load()
 
@@ -102,6 +107,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Recipe Manager", lifespan=lifespan)
 
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

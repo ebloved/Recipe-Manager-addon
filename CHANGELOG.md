@@ -7,6 +7,63 @@
 
 ---
 
+## [2.0.3] — 2026-10-25
+
+Hotfix: перехват 401 (Unauthorized).
+
+### Fixed
+
+- **`api.js`**: проверка `resp.status === 401` теперь внедрена во все
+  5 fetch-оберток (`getJSON`, `postJSON`, `postForm`, `patchJSON`, `del`).
+  При истечении сессии OAuth фронтенд корректно редиректит на логин.
+
+---
+
+## [2.0.2] — 2026-10-25
+
+Hotfix: перехват 401 (Unauthorized).
+
+### Fixed
+
+- **`api.js`**: проверка `res.status === 401` не применилась в v2.0.0.
+  Теперь при истечении сессии OAuth фронтенд корректно редиректит
+  на `/api/auth/login`.
+
+---
+
+## [2.0.1] — 2026-10-25
+
+Hotfix: NameError при запуске Standalone.
+
+### Fixed
+
+- **`NameError: name 'auth' is not defined`** в `routes/__init__.py`.
+  При добавлении роутера `auth.router` в v2.0.0 скрипт забыл
+  импортировать сам модуль `auth` в блоке `from . import (...)`.
+
+---
+
+## [2.0.0] — 2026-10-25
+
+Google OAuth для Standalone (Личный кабинет).
+
+### Added
+
+- **Авторизация через Google (OAuth 2.0)**. В режиме `AUTH_MODE=oauth`
+  (Standalone) вход возможен только через аккаунт Google.
+- **HttpOnly Cookies** для хранения сессий (защита от XSS).
+- **`/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`** —
+  эндпоинты авторизации.
+- **`users.json`** — хранилище пользователей (id, email, name, role).
+- **Экран входа** для Standalone.
+
+### Notes
+
+- В HA-аддоне (`AUTH_MODE=ha`) авторизация остаётся прежней —
+  доверяем заголовкам Supervisor.
+
+---
+
 ## [1.14.0] — 2026-10-25
 
 UI-настройки в Кабинете (Standalone поддержка).

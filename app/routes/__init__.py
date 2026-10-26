@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from . import (
+    auth,
     imports,
     youtube,
     generator,
@@ -32,6 +33,8 @@ api_router.include_router(products.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 api_router.include_router(me.router)
+api_router.include_router(auth.router)
+api_router.include_router(embeddings.router)
 api_router.include_router(settings.router)
 
 __all__ = ["api_router"]
