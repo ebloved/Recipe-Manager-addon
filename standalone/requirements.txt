@@ -4,3 +4,6 @@
 torch>=2.2.0
 sentence-transformers>=3.2.0
 onnxruntime>=1.18.0
+
+# Telegram Bot
+aiogram>=3.15.0

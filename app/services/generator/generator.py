@@ -12,6 +12,8 @@ from fastapi import HTTPException
 
 from recipe_manager.importer import parse_markdown_recipe
 from config import GEMINI_MODELS, GENERATOR_MAX_TOKENS
+from stores.settings import settings_store
+from services.file_logger import log_llm_event
 from stores import gen_profiles_store, recipe_store
 
 from .prompt import build_prompt
@@ -149,6 +151,8 @@ async def generate_suggestions(
     samples_count: int,
     max_count: int = 5,
     samples_max: int = 10,
+    job_id: str | None = None,
+    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Генерирует рецепты через каскад провайдеров."""
     from services.activity import touch
@@ -162,6 +166,18 @@ async def generate_suggestions(
             raise HTTPException(404, f"Profile {profile_id} not found")
     else:
         profile = gen_profiles_store.get_active()
+
+    from services.auth import users_store
+    from services.rate_limiter import rate_limiter
+    user_key = None
+    if user_id:
+        conf = users_store.get_llm_config(user_id)
+        user_key = conf.get("gemini_api_key")
+        
+    if not user_key and user_id:
+        if not await rate_limiter.can_generate(user_id):
+            from fastapi import HTTPException
+            raise HTTPException(429, "Достигнут лимит 5 бесплатных генераций в день. Добавьте свой Gemini API Key в Кабинете.")
 
     provider, provider_name = get_llm_provider()
     if provider is None:
@@ -184,7 +200,9 @@ async def generate_suggestions(
     try:
         raw_response = await provider.complete(
             prompt=user, system=system,
-            max_tokens=GENERATOR_MAX_TOKENS, temperature=0.7,
+            max_tokens=int(settings_store.get("generator_max_tokens", GENERATOR_MAX_TOKENS)), temperature=0.7,
+            job_id=job_id,
+            api_key=user_key,
         )
     except Exception as exc:  # noqa: BLE001
         _elapsed = round(_time.monotonic() - _t0, 2)
@@ -197,6 +215,7 @@ async def generate_suggestions(
                        provider_name, _elapsed, exc)
         raise HTTPException(502, f"LLM вернул ошибку: {exc}") from exc
     _elapsed = round(_time.monotonic() - _t0, 2)
+    log_llm_event(job_id, user_id, "generate", "success", raw_response)
     _usage = getattr(provider, "_last_usage", None) or {}
     _record_attempt(status="ok", provider=provider_name,
                     model=_model_name(provider), elapsed_s=_elapsed,

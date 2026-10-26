@@ -26,6 +26,18 @@ class RecipeStore:
             async with aiofiles.open(self.path, "r", encoding="utf-8") as f:
                 data = json.loads(await f.read())
             self.recipes = data.get("recipes", [])
+            
+            # Миграция: проставляем владельца для старых рецептов
+            changed = False
+            for r in self.recipes:
+                if "owner_id" not in r:
+                    r["owner_id"] = "family"
+                    r["owner_name"] = "НЛО"
+                    changed = True
+            if changed:
+                await self.save()
+                print(f"[recipes] migrated old recipes to 'family/НЛО'")
+                
         except Exception as exc:  # noqa: BLE001
             print(f"[recipes] failed to load: {exc}")
             self.recipes = []
@@ -42,6 +54,9 @@ class RecipeStore:
 
     def get_all(self) -> list[dict[str, Any]]:
         return list(self.recipes)
+
+    def get_by_share_token(self, token: str) -> dict[str, Any] | None:
+        return next((r for r in self.recipes if r.get("share_token") == token), None)
 
     def get(self, recipe_id: str) -> dict[str, Any] | None:
         return next((r for r in self.recipes if r.get("id") == recipe_id), None)

@@ -64,7 +64,10 @@
         break;
       
       // youtube, import — статические формы, ничего не грузим
-      case "cabinet":
+      case "finder":
+          // статика
+          break;
+        case "cabinet":
           if (RM.cabinet) RM.cabinet.load();
           break;
       }

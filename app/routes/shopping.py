@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
+from services.auth import get_current_user
 
 from services.product_lookup import lookup_barcode
 from stores import ingredients_store, recipe_store, shopping_store
@@ -14,8 +15,9 @@ router = APIRouter(prefix="/api/shopping", tags=["shopping"])
 # --- CRUD -------------------------------------------------------------------
 
 @router.get("")
-async def list_items(only_active: bool = False):
-    items = shopping_store.get_all(only_active=only_active)
+async def list_items(request: Request, only_active: bool = False):
+    user = get_current_user(request)
+    items = shopping_store.get_all(owner_id=user['id'], only_active=only_active)
     active = sum(1 for i in items if not i.get("checked"))
     return {
         "items": items,
@@ -25,45 +27,49 @@ async def list_items(only_active: bool = False):
 
 
 @router.post("")
-async def add_item(payload: dict[str, Any] = Body(...)):
+async def add_item(request: Request, payload: dict[str, Any] = Body(...)):
+    user = get_current_user(request)
     name = (payload.get("name") or "").strip()
     if not name:
         raise HTTPException(400, "'name' is required")
-    item = await shopping_store.add(payload)
+    item = await shopping_store.add(payload, owner_id=user['id'])
     return {"item": item}
 
 
 @router.patch("/{item_id}")
-async def update_item(item_id: str, patch: dict[str, Any] = Body(...)):
-    item = await shopping_store.update(item_id, patch)
+async def update_item(item_id: str, request: Request, patch: dict[str, Any] = Body(...)):
+    item = await shopping_store.update(item_id, owner_id=get_current_user(request)['id'], patch=patch)
     if not item:
         raise HTTPException(404, "Item not found")
     return {"item": item}
 
 
 @router.post("/{item_id}/toggle")
-async def toggle_item(item_id: str):
-    item = await shopping_store.toggle(item_id)
+async def toggle_item(item_id: str, request: Request):
+    user = get_current_user(request)
+    item = item = shopping_store.get(item_id)
+    if not item or item.get('owner_id') != user['id']: raise HTTPException(404)
+    await shopping_store.update(item_id, owner_id=user['id'], patch={'checked': not item.get('checked')})
     if not item:
         raise HTTPException(404, "Item not found")
     return {"item": item}
 
 
 @router.delete("/checked")
-async def clear_checked():
-    removed = await shopping_store.clear_checked()
+async def clear_checked(request: Request):
+    removed = await shopping_store.clear_checked(owner_id=get_current_user(request)['id'])
     return {"removed": removed}
 
 
 @router.delete("/all")
-async def clear_all():
-    removed = await shopping_store.clear_all()
+async def clear_all(request: Request):
+    removed = await shopping_store.clear_all(owner_id=get_current_user(request)['id'])
     return {"removed": removed}
 
 
 @router.delete("/{item_id}")
-async def delete_item(item_id: str):
-    ok = await shopping_store.delete(item_id)
+async def delete_item(item_id: str, request: Request):
+    ok = await shopping_store.delete(item_id, owner_id=get_current_user(request)['id'])
     if not ok:
         raise HTTPException(404, "Item not found")
     return {"deleted": True}
@@ -84,7 +90,7 @@ async def lookup(payload: dict[str, Any] = Body(...)):
 # --- Add from recipe --------------------------------------------------------
 
 @router.post("/from-recipe")
-async def add_from_recipe(payload: dict[str, Any] = Body(...)):
+async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...)):
     """Добавляет ингредиенты рецепта в список покупок.
 
     Payload:
@@ -156,7 +162,7 @@ async def add_from_recipe(payload: dict[str, Any] = Body(...)):
             item_data["barcode"] = product.get("barcode")
             item_data["image_url"] = product.get("image_url")
             item_data["category"] = product.get("category")
-        _, was_merged = await shopping_store.add_or_merge(item_data)
+        _, was_merged = await shopping_store.add_or_merge(item_data, owner_id=get_current_user(request)['id'])
         if was_merged:
             merged += 1
         else:

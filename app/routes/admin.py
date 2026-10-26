@@ -14,8 +14,12 @@ def check_admin(request: Request):
 @router.get("/users")
 async def get_users(request: Request):
     check_admin(request)
+    active_emails = {u["email"] for u in users_store.users.values()}
+    pending_emails = [e for e in users_store.allowed_emails if e not in active_emails]
+    
     return {
         "users": list(users_store.users.values()),
+        "pending_emails": pending_emails,
         "allowed_emails": users_store.allowed_emails
     }
 
@@ -28,8 +32,19 @@ async def add_user(request: Request, payload: dict = Body(...)):
     await users_store.add_allowed_email(email)
     return {"status": "ok"}
 
-@router.delete("/users/{user_id}")
-async def delete_user(request: Request, user_id: str):
+@router.delete("/users/{email:path}")
+async def delete_user(request: Request, email: str):
     check_admin(request)
-    await users_store.remove_user(user_id)
+    email = email.lower()
+    
+    # Удаляем из белого списка
+    if email in users_store.allowed_emails:
+        users_store.allowed_emails.remove(email)
+        
+    # Удаляем пользователя, если он есть
+    for uid, u in list(users_store.users.items()):
+        if u["email"] == email:
+            del users_store.users[uid]
+            
+    await users_store.save()
     return {"status": "ok"}

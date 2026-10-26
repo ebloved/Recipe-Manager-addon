@@ -193,6 +193,7 @@ class ExternalLLMProvider(EmbeddingProvider, GenerativeProvider):
         system: str | None = None,
         max_tokens: int = 200,
         temperature: float = 0.0,
+        job_id: str | None = None,
     ) -> str:
         """Отправляет chat-запрос и возвращает текст ответа."""
         if not self.enabled:

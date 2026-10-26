@@ -4,7 +4,14 @@ import uuid
 from pathlib import Path
 from typing import Any
 import aiofiles
-from config import DATA_DIR
+from config import DATA_DIR, SECRET_KEY
+import base64
+import hashlib
+from cryptography.fernet import Fernet
+
+# Генерируем 32-байтовый ключ из SECRET_KEY
+fernet_key = base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest())
+cipher = Fernet(fernet_key)
 
 USERS_FILE = DATA_DIR / "users.json"
 
@@ -63,6 +70,32 @@ class UserStore:
         # Доступ запрещен
         return None
 
+    async def save_llm_config(self, user_id: str, config: dict):
+        if user_id in self.users:
+            # Шифруем ключи
+            enc_config = {}
+            for k, v in config.items():
+                if v and ("key" in k or "secret" in k):
+                    enc_config[k] = cipher.encrypt(v.encode()).decode()
+                else:
+                    enc_config[k] = v
+            self.users[user_id]["llm_config"] = enc_config
+            await self.save()
+
+    def get_llm_config(self, user_id: str) -> dict:
+        user = self.users.get(user_id, {})
+        conf = user.get("llm_config", {})
+        dec_config = {}
+        for k, v in conf.items():
+            if v and ("key" in k or "secret" in k):
+                try:
+                    dec_config[k] = cipher.decrypt(v.encode()).decode()
+                except Exception:
+                    dec_config[k] = ""
+            else:
+                dec_config[k] = v
+        return dec_config
+
     async def add_allowed_email(self, email: str):
         email = email.strip().lower()
         if email and email not in self.allowed_emails:
@@ -78,3 +111,14 @@ class UserStore:
             await self.save()
 
 users_store = UserStore()
+
+
+def get_current_user(request):
+    """Возвращает текущего юзера. В HA-режиме — 'family', в OAuth — из куки."""
+    from config import AUTH_MODE
+    if AUTH_MODE == "oauth":
+        session_id = request.cookies.get("rm_session")
+        if session_id and session_id in users_store.users:
+            return users_store.users[session_id]
+        return None
+    return {"id": "family", "role": "admin", "name": "Семья"}

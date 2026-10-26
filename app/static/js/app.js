@@ -15,7 +15,34 @@
     }
   }
 
+  async function checkSharedRoute() {
+    const path = window.location.pathname;
+    const match = path.match(/\/share\/([a-f0-9]+)/);
+    if (!match) return false;
+    
+    // Скрываем всё, кроме detail-panel
+    document.querySelector("header").style.display = "none";
+    document.querySelector(".tabs").style.display = "none";
+    document.querySelectorAll(".panel").forEach(p => p.style.display = "none");
+    
+    try {
+      const res = await fetch(`${window.location.origin}/api/sharing/${match[1]}`);
+      if (!res.ok) throw new Error("Ссылка недействительна или отозвана");
+      const data = await res.json();
+      if (data && data.recipe) {
+        RM.state.isSharedView = true;
+        RM.detail.open(data.recipe);
+      } else {
+        throw new Error("Рецепт не найден");
+      }
+    } catch(e) {
+      document.body.innerHTML = `<div style="padding:20px;color:red;">Ошибка: ${e.message}</div>`;
+    }
+    return true;
+  }
+
   async function init() {
+    if (await checkSharedRoute()) return;
     const authed = await checkAuth();
     if (!authed) return;
 
@@ -27,6 +54,9 @@
     RM.planner.setup();
     RM.recipePicker.setup();
     RM.shopping.setup();
+
+    // Поиск по ингредиентам
+    if (RM.finder) RM.finder.setup();
 
     // Рецепты
     RM.recipes.setup();
@@ -56,6 +86,10 @@
     if (RM.liveSync) RM.liveSync.setup();
 
     // Первичная загрузка
+    if (RM.walkthrough) RM.walkthrough.init();
+
+    if (RM.jobs) RM.jobs.setup();
+
     RM.recipes.load();
   }
 

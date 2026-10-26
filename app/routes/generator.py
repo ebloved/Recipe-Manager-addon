@@ -53,6 +53,8 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
             profile_id=profile_id, topic=topic,
             count=count, samples_count=samples_count,
             max_count=GENERATOR_MAX_COUNT, samples_max=GENERATOR_SAMPLES_MAX,
+            job_id=job_id,
+            user_id=user["id"] if user else "family",
         )
         await suggestions_store.add_many(items)
         elapsed = round(time.monotonic() - t0, 2)
@@ -60,11 +62,15 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
             job_id, status="done", created=len(items),
             finished_at=_now(),
         )
+        await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
+        await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
         logger.info("[generator] job %s done in %.1fs, %d suggestions",
                     job_id, elapsed, len(items))
     except HTTPException as exc:
         await jobs_store.update(
             job_id, status="error", error=exc.detail, finished_at=_now())
+        await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
+        await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
         logger.warning("[generator] job %s failed: %s", job_id, exc.detail)
     except Exception as exc:  # noqa: BLE001
         await jobs_store.update(

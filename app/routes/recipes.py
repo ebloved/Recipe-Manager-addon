@@ -15,16 +15,22 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from config import AUTH_MODE
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import Response
 
 from recipe_manager.importer import parse_markdown_recipe
 from services.active_time import estimate_active_time
+from services.equipment_adapter import adapt_recipe_to_airfryer
+from recipe_manager.importer import parse_markdown_recipe
 from services.linker import link_recipe_ingredients
 from services.md_export import recipe_filename, recipe_to_md
 from stores import meal_plan_store, recipe_store
+from services.auth import get_current_user
+from services.auth import users_store
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +41,7 @@ async def _maybe_estimate_active_time(recipe: dict, force: bool = False) -> dict
     """Оценивает active_time и возвращает patch. При ошибке — {active_time_error}."""
     try:
         return await estimate_active_time(recipe, force=force)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.warning("active_time estimation crashed: %s", exc)
         return {"active_time_error": str(exc)[:200]}
 
@@ -45,9 +51,11 @@ async def _maybe_estimate_active_time(recipe: dict, force: bool = False) -> dict
 # ---------------------------------------------------------------------------
 
 @router.get("")
-async def list_recipes(q: str | None = None):
-    """Возвращает список рецептов с опциональным поиском по имени/тегам/ингредиентам."""
-    items = recipe_store.get_all()
+async def list_recipes(request: Request, q: str | None = None, show_hidden: bool = False):
+    """Возвращает список рецептов с опциональным поиском."""
+    user = get_current_user(request)
+    uid = user["id"] if user else None
+    items = [r for r in recipe_store.get_all() if show_hidden or uid not in (r.get("hidden_by") or [])]
 
     if q:
         lower = q.strip().lower()
@@ -86,7 +94,8 @@ async def get_recipe(recipe_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("")
-async def create_recipe(payload: dict[str, Any] = Body(...)):
+async def create_recipe(request: Request, payload: dict[str, Any] = Body(...)):
+    user = get_current_user(request)
     """Создаёт рецепт.
 
     Два режима:
@@ -106,7 +115,7 @@ async def create_recipe(payload: dict[str, Any] = Body(...)):
         # Связываем product.barcode/uuid с реальными product_id из store
         try:
             parsed = await link_recipe_ingredients(parsed)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             logger.warning("Linker упал при создании из Markdown: %s", exc)
 
         # Убираем служебную статистику перед сохранением
@@ -124,11 +133,14 @@ async def create_recipe(payload: dict[str, Any] = Body(...)):
             try:
                 wrapper = await link_recipe_ingredients(wrapper)
                 explicit["ingredients"] = wrapper.get("ingredients", explicit["ingredients"])
-            except Exception as exc:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 logger.warning("Linker упал при создании из явных полей: %s", exc)
 
         data = explicit
 
+    if user:
+        data["owner_id"] = user["id"]
+        data["owner_name"] = user.get("name", "User")
     recipe = await recipe_store.add(data)
 
     # B1: оценить active_time через LLM (graceful — рецепт уже сохранён)
@@ -146,14 +158,16 @@ async def create_recipe(payload: dict[str, Any] = Body(...)):
 # ---------------------------------------------------------------------------
 
 @router.patch("/{recipe_id}")
-async def update_recipe(recipe_id: str, patch: dict[str, Any] = Body(...)):
-    """Обновляет рецепт частично.
-
-    Если в patch переданы ingredients с product-блоками — линкуем.
-    """
+async def update_recipe(recipe_id: str, request: Request, patch: dict[str, Any] = Body(...)):
+    """Обновляет рецепт частично."""
+    user = get_current_user(request)
     existing = recipe_store.get(recipe_id)
     if not existing:
         raise HTTPException(404, "Recipe not found")
+    
+    # Проверка прав (если не админ и не владелец)
+    if user and user["role"] != "admin" and existing.get("owner_id") and existing.get("owner_id") != user["id"]:
+        raise HTTPException(403, "Только автор может редактировать (сделайте копию)")
 
     if isinstance(patch.get("ingredients"), list):
         wrapper = {
@@ -163,7 +177,7 @@ async def update_recipe(recipe_id: str, patch: dict[str, Any] = Body(...)):
         try:
             wrapper = await link_recipe_ingredients(wrapper)
             patch = {**patch, "ingredients": wrapper.get("ingredients", patch["ingredients"])}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             logger.warning("Linker упал при обновлении рецепта: %s", exc)
 
     recipe = await recipe_store.update(recipe_id, patch)
@@ -186,9 +200,68 @@ async def update_recipe(recipe_id: str, patch: dict[str, Any] = Body(...)):
 # Delete
 # ---------------------------------------------------------------------------
 
+
+@router.post("/{recipe_id}/hide")
+async def hide_recipe(recipe_id: str, request: Request):
+    user = get_current_user(request)
+    if not user: raise HTTPException(401, "Auth required")
+    recipe = recipe_store.get(recipe_id)
+    if not recipe: raise HTTPException(404, "Not found")
+    hidden = recipe.get("hidden_by") or []
+    if user["id"] not in hidden:
+        hidden.append(user["id"])
+        await recipe_store.update(recipe_id, {"hidden_by": hidden})
+    return {"status": "ok"}
+
+@router.post("/{recipe_id}/unhide")
+async def unhide_recipe(recipe_id: str, request: Request):
+    user = get_current_user(request)
+    if not user: raise HTTPException(401, "Auth required")
+    recipe = recipe_store.get(recipe_id)
+    if not recipe: raise HTTPException(404, "Not found")
+    hidden = recipe.get("hidden_by") or []
+    if user["id"] in hidden:
+        hidden.remove(user["id"])
+        await recipe_store.update(recipe_id, {"hidden_by": hidden})
+    return {"status": "ok"}
+
+@router.post("/{recipe_id}/fork")
+async def fork_recipe(recipe_id: str, request: Request):
+    user = get_current_user(request)
+    if not user: raise HTTPException(401, "Auth required")
+    original = recipe_store.get(recipe_id)
+    if not original: raise HTTPException(404, "Not found")
+    new_r = {**original}
+    new_r["id"] = uuid.uuid4().hex
+    new_r["name"] = f"{original.get('name')} (копия)"
+    new_r["owner_id"] = user["id"]
+    new_r["owner_name"] = user.get("name", "User")
+    new_r["hidden_by"] = []
+    new_r["parent_id"] = original["id"]
+    created = await recipe_store.add(new_r)
+    return {"recipe": created}
+
 @router.delete("/{recipe_id}")
-async def delete_recipe(recipe_id: str):
+async def delete_recipe(recipe_id: str, request: Request):
     """Удаляет рецепт и связанные записи плана питания."""
+    user = get_current_user(request)
+    existing = recipe_store.get(recipe_id)
+    if not existing: raise HTTPException(404, "Recipe not found")
+    
+    if user and user["role"] != "admin" and existing.get("owner_id") and existing.get("owner_id") != user["id"]:
+        raise HTTPException(403, "Только автор или админ может удалить")
+        
+    # Чистим ссылку в родительском рецепте, если это была адаптация/форк
+    parent_id = existing.get("parent_id")
+    if parent_id:
+        parent = recipe_store.get(parent_id)
+        if parent and parent.get("adapted_versions"):
+            adapted = parent["adapted_versions"]
+            for k, v in list(adapted.items()):
+                if v == recipe_id:
+                    del adapted[k]
+            await recipe_store.update(parent_id, {"adapted_versions": adapted})
+
     ok = await recipe_store.delete(recipe_id)
     if not ok:
         raise HTTPException(404, "Recipe not found")
@@ -251,7 +324,7 @@ async def import_recipe_md(recipe_id: str, payload: dict[str, Any] = Body(...)):
     # Связываем продукт-блоки с product_id
     try:
         parsed = await link_recipe_ingredients(parsed)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.warning("Linker упал при import-md: %s", exc)
 
     parsed.pop("_linker_stats", None)
@@ -299,7 +372,7 @@ async def create_from_markdown(payload: dict[str, Any] = Body(...)):
 
     try:
         parsed = await link_recipe_ingredients(parsed)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.warning("Linker упал при create-from-markdown: %s", exc)
 
     parsed.pop("_linker_stats", None)
@@ -342,7 +415,9 @@ async def _run_estimate_one_job(job_id: str, recipe_id: str, *, force: bool = Tr
     from services.generator.generator import _now
     from stores import jobs_store
 
+    from services.telegram_service import telegram_service
     t0 = time.monotonic()
+    await telegram_service.send(f"♨️ <b>Начата адаптация под аэрогриль</b>\nJob ID: <code>{job_id}</code>\nРецепт: {recipe_id}")
     try:
         recipe = recipe_store.get(recipe_id)
         if not recipe:
@@ -376,7 +451,7 @@ async def _run_estimate_one_job(job_id: str, recipe_id: str, *, force: bool = Tr
             "[active_time] one %s done in %.1fs: active=%s",
             recipe_id[:8], time.monotonic() - t0, patch.get("active_time"),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.exception("[active_time] one job crashed")
         await jobs_store.update(
             job_id, status="error", error=str(exc)[:200], finished_at=_now(),
@@ -427,7 +502,7 @@ async def _run_estimate_job(job_id: str, *, force: bool = False):
                     await recipe_store.update(r["id"], patch)
                     done += 1
                 await jobs_store.update(job_id, created=done)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 logger.warning("estimate failed for %s: %s", r.get("id"), exc)
                 errors += 1
                 done += 1
@@ -444,8 +519,84 @@ async def _run_estimate_job(job_id: str, *, force: bool = False):
             "[active_time] batch done in %.1fs: %d/%d ok, %d skipped, %d errors",
             elapsed, done, total, skipped, errors,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.exception("active_time batch crashed")
         await jobs_store.update(
             job_id, status="error", error=str(exc)[:200], finished_at=_now(),
         )
+
+
+def _require_auth(request: Request):
+    if AUTH_MODE == "oauth":
+        session_id = request.cookies.get("rm_session")
+        if not session_id or session_id not in users_store.users:
+            raise HTTPException(401, "Unauthorized")
+
+@router.post("/{recipe_id}/adapt-to-airfryer", status_code=202)
+async def adapt_to_airfryer(recipe_id: str, request: Request):
+    _require_auth(request)
+    user = get_current_user(request)
+    """Запускает фоновую адаптацию рецепта под аэрогриль."""
+    import asyncio
+    from stores import jobs_store
+    from services.generator.generator import _now, _pick_samples
+    
+    recipe = recipe_store.get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found")
+        
+    job = await jobs_store.create({"kind": "adapt_airfryer", "recipe_id": recipe_id})
+    asyncio.create_task(_run_adapt_job(job["id"], recipe, user["id"] if user else "family"))
+    return {"job_id": job["id"], "status": "pending"}
+
+async def _run_adapt_job(job_id: str, recipe: dict, job_id_user: str):
+    import time
+    from stores import jobs_store
+    from services.generator.generator import _now
+    from services.telegram_service import telegram_service
+    
+    t0 = time.monotonic()
+    try:
+        msg = f"""♨️ <b>Начата адаптация под аэрогриль</b>
+Job ID: <code>{job_id}</code>
+Рецепт: {recipe.get('name')}"""
+        await telegram_service.send(msg)
+        
+        adapt_data = await adapt_recipe_to_airfryer(recipe, job_id=job_id, user_id=job_id_user)
+        
+        new_recipe = {**recipe}
+        new_recipe["id"] = uuid.uuid4().hex
+        new_recipe["name"] = f"{recipe.get('name')} (аэрогриль)"
+        new_recipe["instructions"] = adapt_data.get("instructions", recipe.get("instructions"))
+        if adapt_data.get("cook_time"):
+            new_recipe["cook_time"] = adapt_data["cook_time"]
+        if adapt_data.get("total_time"):
+            new_recipe["total_time"] = adapt_data["total_time"]
+            
+        new_recipe["equipment"] = ["airfryer"]
+        new_recipe["parent_id"] = recipe.get("id")
+        new_recipe.pop("share_token", None)
+        new_recipe.pop("adapted_versions", None)
+            
+        created = await recipe_store.add(new_recipe)
+        
+        parent = recipe_store.get(recipe["id"])
+        adapted = parent.get("adapted_versions", {})
+        adapted["airfryer"] = created["id"]
+        await recipe_store.update(parent["id"], {"adapted_versions": adapted})
+        
+        await jobs_store.update(job_id, status="done", created=1, finished_at=_now())
+        
+        msg2 = f"""✅ <b>Адаптация завершена</b>
+Job ID: <code>{job_id}</code>"""
+        await telegram_service.send(msg2)
+        
+        logger.info(f"[adapter] job {job_id} done in {time.monotonic()-t0:.1f}s")
+    except Exception as e:
+        logger.exception(f"[adapter] job failed")
+        await jobs_store.update(job_id, status="error", error=str(e), finished_at=_now())
+        
+        msg3 = f"""❌ <b>Ошибка адаптации</b>
+Job ID: <code>{job_id}</code>
+{str(e)}"""
+        await telegram_service.send(msg3)

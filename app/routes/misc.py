@@ -6,15 +6,17 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from config import (
+    AUTH_MODE,
     DOWNLOAD_DIR,
     GEMINI_API_KEY,
     GEMINI_MODELS,
     STATIC_DIR,
 )
 from stores import meal_plan_store, recipe_store
+from services.auth import users_store
 
 router = APIRouter(tags=["misc"])
 
@@ -66,13 +68,56 @@ def _serve_static_file(rel_path: str) -> FileResponse:
 async def serve_static(file_path: str):
     return _serve_static_file(file_path)
 
+@router.get("/share/static/{file_path:path}", include_in_schema=False)
+async def serve_static_share(file_path: str):
+    """Отдаёт статику для SPA-страниц /share/..."""
+    return _serve_static_file(file_path)
+
 
 # --- Index ------------------------------------------------------------------
 
-@router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def index():
+from fastapi import Request
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+async def get_favicon():
+    fav = STATIC_DIR / "favicon.ico"
+    if fav.exists():
+        return FileResponse(fav)
+    raise HTTPException(404, "Favicon not found")
+
+@router.get("/", include_in_schema=False)
+async def index(request: Request):
+    # Если включен OAuth, проверяем куку ДО отдачи HTML
+    if AUTH_MODE == "oauth":
+        session_id = request.cookies.get("rm_session")
+        if not session_id or session_id not in users_store.users:
+            # Отправляем на Google OAuth
+            return RedirectResponse(url="/api/auth/login")
+            
+    # Если всё ок (или AUTH_MODE=ha) — отдаем интерфейс
     async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
-        return await f.read()
+        return HTMLResponse(await f.read())
+
+# --- SPA роут для публичных ссылок ------------------------------------------
+
+@router.get("/share/{token}", response_class=HTMLResponse, include_in_schema=False)
+async def share_spa(token: str):
+    """Отдаёт index.html для ссылки /share/<token>, чтобы JS сам подхватил токен."""
+    async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
+        html = await f.read()
+    
+    # v2.6.6: Добавляем <base href="../../">, чтобы относительные пути
+    # (static/css/... и static/js/...) корректно резолвились в корень.
+    # Это работает и для Standalone (/share/token), и для HA ingress (/api/hassio_ingress/.../share/token)
+    if "<head>" in html and "<base" not in html:
+        html = html.replace("<head>", "<head>\n<base href='../../'>")
+        
+    return HTMLResponse(
+        content=html,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
+
 
 
 # --- Скачанные файлы (рецепты из YouTube) -----------------------------------

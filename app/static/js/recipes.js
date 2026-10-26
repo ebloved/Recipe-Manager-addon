@@ -5,7 +5,7 @@
   const state = RM.state;
 
   let searchTimer = null;
-  state.recipesSort = "default";
+  state.recipesSort = "name_asc";
   
   function getActiveProfile() {
     return (RM.profiles && RM.profiles.getActive) ? RM.profiles.getActive() : null;
@@ -122,7 +122,9 @@
       }
       container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
       try {
-        const data = await getJSON("api/recipes");
+        const showHidden = $("show-hidden-cb")?.checked;
+      const url = showHidden ? "api/recipes?show_hidden=true" : "api/recipes";
+      const data = await getJSON(url);
         state.recipes = data.recipes || [];
         filterAndRender();
       } catch (err) {
@@ -131,8 +133,8 @@
     }
 
       function sortRecipes(arr) {
-      const mode = state.recipesSort || "default";
-      if (mode === "default" || !mode) return arr;
+      const mode = state.recipesSort || "name_asc";
+      if (!mode) return arr;
       
       const getAct = (r) => r.active_time != null ? r.active_time : 99999;
       const getTot = (r) => r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || 99999;
@@ -164,8 +166,12 @@ function filterAndRender(q) {
       const query = (q !== undefined ? q : ($("search").value || "")).trim();
       const active = getActiveProfile();
       const applyProfile = state.profileFilterActive && active;
+      const ownerFilter = $("filter-owner")?.value || "all";
 
       let filtered = state.recipes;
+      if (ownerFilter === "my" && RM.state.user) {
+        filtered = filtered.filter(r => r.owner_id === RM.state.user.id);
+      }
       if (applyProfile) filtered = filtered.filter((r) => fitsProfile(r, active));
       if (query) {
         const lower = query.toLowerCase();
@@ -255,6 +261,7 @@ function filterAndRender(q) {
     const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
     if (t) meta.appendChild(chip("⏱ " + formatTime(t), false));
     if (r.servings) meta.appendChild(chip("👥 " + r.servings, false));
+
     if (r.active_time != null) {
       const at = chip("🎯 " + r.active_time + " мин акт." + (r.active_time_estimated ? "*" : ""), false);
       at.title = "Активное время (сколько вы заняты готовкой)" + (r.active_time_estimated ? ". Оценка ИИ" : "");

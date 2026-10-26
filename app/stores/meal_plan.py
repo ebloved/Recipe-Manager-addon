@@ -21,6 +21,17 @@ class MealPlanStore:
         self.entries: list[dict[str, Any]] = []
         self._lock = asyncio.Lock()
 
+
+    def _migrate(self):
+        """Присваивает 'family' старым записям без owner_id."""
+        changed = False
+        items = getattr(self, "items", getattr(self, "entries", []))
+        for item in items:
+            if "owner_id" not in item:
+                item["owner_id"] = "family"
+                changed = True
+        return changed
+
     async def load(self) -> None:
         if not self.path.exists():
             return
@@ -28,6 +39,8 @@ class MealPlanStore:
             async with aiofiles.open(self.path, "r", encoding="utf-8") as f:
                 data = json.loads(await f.read())
             self.entries = data.get("entries", [])
+            if self._migrate():
+                await self.save()
         except Exception as exc:  # noqa: BLE001
             print(f"[meal-plan] failed to load: {exc}")
             self.entries = []
@@ -48,9 +61,10 @@ class MealPlanStore:
     def get(self, entry_id: str) -> dict[str, Any] | None:
         return next((e for e in self.entries if e.get("id") == entry_id), None)
 
-    async def add(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def add(self, data: dict[str, Any], owner_id: str) -> dict[str, Any]:
         entry = {
             "id": uuid.uuid4().hex,
+            "owner_id": owner_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             **data,
         }

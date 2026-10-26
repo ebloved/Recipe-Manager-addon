@@ -15,7 +15,8 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
+from .admin import check_admin
 
 from services.github_sync import pull_one, push_many, status as gh_status
 from stores import ingredients_store, recipe_store
@@ -30,7 +31,8 @@ router = APIRouter(prefix="/api/sync", tags=["sync"])
 # ---------------------------------------------------------------------------
 
 @router.get("/status")
-async def sync_status():
+async def sync_status(request: Request):
+    check_admin(request)
     """Показывает настройки и состояние обоих файлов в GitHub."""
     try:
         return await gh_status()
@@ -45,7 +47,8 @@ async def sync_status():
 # ---------------------------------------------------------------------------
 
 @router.post("/push")
-async def sync_push(payload: dict[str, Any] = Body(default={})):
+async def sync_push(request: Request, payload: dict[str, Any] = Body(default={})):
+    check_admin(request)
     """Заливает recipes.json и ingredients.json одним коммитом.
 
     Payload (опционально):
@@ -89,7 +92,8 @@ async def sync_push(payload: dict[str, Any] = Body(default={})):
 # ---------------------------------------------------------------------------
 
 @router.post("/pull")
-async def sync_pull(payload: dict[str, Any] = Body(default={})):
+async def sync_pull(request: Request, payload: dict[str, Any] = Body(default={})):
+    check_admin(request)
     """Забирает recipes.json и ingredients.json и применяет локально.
 
     Payload (опционально):

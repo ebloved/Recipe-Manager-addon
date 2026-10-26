@@ -37,10 +37,21 @@ async def lifespan(app: FastAPI):
     await meal_plan_store.load()
     await shopping_store.load()
     await suggestions_store.load()
+    from stores.jobs import jobs_store
+    await jobs_store.load()
+    from services.rate_limiter import rate_limiter
+    await rate_limiter.load()
     from services.auth import users_store
     await users_store.load()
     from stores.settings import settings_store
     await settings_store.load()
+    from config import DEPLOY_MODE
+    if DEPLOY_MODE == "standalone":
+        from services.telegram_service import telegram_service
+        await telegram_service.reload(
+            settings_store.get("telegram_bot_token"),
+            settings_store.get("telegram_chat_id")
+        )
 
     if FEATURE_PRODUCTS:
         await ingredients_store.load()
@@ -99,6 +110,13 @@ async def lifespan(app: FastAPI):
 
     import asyncio
     bg_task = asyncio.create_task(active_time_worker())
+    
+    # Безопасный запуск резумера
+    try:
+        from services.resumer import resume_interactions
+        asyncio.create_task(resume_interactions())
+    except Exception as exc:
+        print(f"[resumer] Failed to start: {exc}")
 
     yield
 

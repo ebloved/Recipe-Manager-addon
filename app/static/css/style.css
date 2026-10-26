@@ -2989,11 +2989,6 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   display: inline-block;
 }
 
-@media (max-width: 600px) {
-  .gen-preview-overlay { padding: 0; }
-  .gen-preview-panel { border-radius: 0; max-height: 100vh; height: 100vh; }
-  .gen-preview-body { padding: 14px; }
-}
 
 /* v1.9.0: estimate active_time button */
 #estimate-all-btn { font-size: 13px; }
@@ -3043,19 +3038,7 @@ header {
   flex-shrink: 0;
 }
 /* На мобилках переносим */
-@media (max-width: 768px) {
-  header { flex-wrap: wrap; }
-  .header-right { width: 100%; justify-content: space-between; margin-top: 8px; }
-}
 
-/* v1.10.2: Header layout */
-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 0;
-}
 .header-top {
   display: flex;
   justify-content: space-between;
@@ -3125,13 +3108,6 @@ header {
 
 
 /* v1.10.9: Mobile header fixes */
-@media (max-width: 768px) {
-  .app-title { display: none; }
-  .header-top { justify-content: flex-end; }
-  .header-right { width: 100%; justify-content: space-between; }
-  .cabinet-tab { padding: 6px 12px; font-size: 13px; }
-  .search-row { flex-wrap: wrap; }
-}
 
 /* v1.11.0: B3 badge colors */
 .meta-chip.linked-all { background: rgba(46,160,67,0.15); color: var(--success); }
@@ -3165,9 +3141,147 @@ header {
 .sort-select:focus {
   border-color: var(--accent, #f5a623);
 }
-@media (max-width: 600px) {
-  .sort-select { max-width: 100%; width: 100%; margin-top: 8px; }
-  .search-row { flex-wrap: wrap; }
-}
 
 #auth-screen { display: flex; }
+
+/* v2.5.0: Equipment Switcher */
+.equipment-switcher {
+  display: inline-flex;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 8px;
+  margin: 0 12px;
+}
+.eq-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.eq-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-weight: 600;
+}
+
+/* v2.6.0: Walkthrough */
+.tour-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9000;
+  backdrop-filter: blur(2px); transition: all 0.3s;
+}
+.tour-highlight {
+  position: relative; z-index: 9001 !important;
+  box-shadow: 0 0 0 4px var(--accent), 0 0 0 9999px rgba(0,0,0,0.6) !important;
+  background: var(--surface) !important;
+  border-radius: 8px;
+}
+.tour-tooltip {
+  position: fixed; z-index: 9002; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: var(--text);
+}
+
+/* ================================================================
+   Mobile Layout Fixes (v3.0.2)
+   ================================================================ */
+@media (max-width: 768px) {
+  header {
+    padding: 10px 15px;
+    gap: 10px;
+  }
+  
+  .header-top {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  
+  .app-title {
+    display: none; /* Прячем дублирующий заголовок */
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 5px;
+  }
+  
+  .cabinet-tab {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  .tabs {
+    border-radius: 10px;
+    padding: 4px;
+  }
+  
+  .tab {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  /* Поисковая строка и фильтры */
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .search-row > input,
+  .search-row > select,
+  .search-row > button,
+  .search-row > label {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  /* Внутри поисковой строки фильтры можно поставить в ряд */
+  .search-filters-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .search-filters-row > * {
+    flex: 1;
+  }
+}
+
+/* v3.1.0: Finder results */
+.finder-ingredients {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.finder-match-row {
+  line-height: 1.6;
+}
+.finder-label {
+  color: var(--text-muted);
+  margin-right: 4px;
+  font-weight: 600;
+}
+.finder-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-right: 4px;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.finder-chip.match {
+  background: rgba(46,160,67,0.15);
+  color: var(--success);
+}
+.finder-chip.missing {
+  background: rgba(214,69,69,0.1);
+  color: var(--danger);
+}

@@ -29,6 +29,17 @@ class ShoppingStore:
         self.items: list[dict[str, Any]] = []
         self._lock = asyncio.Lock()
 
+
+    def _migrate(self):
+        """Присваивает 'family' старым записям без owner_id."""
+        changed = False
+        items = getattr(self, "items", getattr(self, "entries", []))
+        for item in items:
+            if "owner_id" not in item:
+                item["owner_id"] = "family"
+                changed = True
+        return changed
+
     async def load(self) -> None:
         if not self.path.exists():
             return
@@ -36,9 +47,11 @@ class ShoppingStore:
             async with aiofiles.open(self.path, "r", encoding="utf-8") as f:
                 data = json.loads(await f.read())
             self.items = data.get("items", [])
+            if self._migrate():
+                await self.save()
         except Exception as exc:  # noqa: BLE001
             print(f"[shopping] failed to load: {exc}")
-            self.items = []
+            self.items = [i for i in self.items if i.get('owner_id') != owner_id]
 
     async def save(self) -> None:
         async with self._lock:
@@ -52,27 +65,27 @@ class ShoppingStore:
 
     # --- queries ---------------------------------------------------------
 
-    def get_all(self, only_active: bool = False) -> list[dict[str, Any]]:
+    def get_all(self, owner_id: str, only_active: bool = False) -> list[dict[str, Any]]:
         if only_active:
-            return [i for i in self.items if not i.get("checked")]
-        return list(self.items)
+            return [i for i in self.items if i.get('owner_id') == owner_id and not i.get("checked")]
+        return [i for i in self.items if i.get('owner_id') == owner_id]
 
     def get(self, item_id: str) -> dict[str, Any] | None:
         return next((i for i in self.items if i.get("id") == item_id), None)
 
-    def find_by_name(self, name: str) -> dict[str, Any] | None:
+    def find_by_name(self, name: str, owner_id: str) -> dict[str, Any] | None:
         """Поиск по имени без учёта регистра (для объединения дубликатов)."""
         needle = (name or "").strip().lower()
         if not needle:
             return None
         return next(
-            (i for i in self.items if (i.get("name") or "").strip().lower() == needle),
+            (i for i in self.items if (i.get("name") or "").strip().lower() == needle and i.get("owner_id") == owner_id),
             None,
         )
 
     # --- mutations -------------------------------------------------------
 
-    async def add(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def add(self, data: dict[str, Any], owner_id: str) -> dict[str, Any]:
         item = {
             "id": uuid.uuid4().hex,
             "name": (data.get("name") or "").strip(),
@@ -88,18 +101,19 @@ class ShoppingStore:
             "recipe_name": data.get("recipe_name"),
             "source": data.get("source") or "manual",
             "product_id": data.get("product_id"),
+            "owner_id": owner_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.items.append(item)
         await self.save()
         return item
 
-    async def add_or_merge(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    async def add_or_merge(self, data: dict[str, Any], owner_id: str) -> tuple[dict[str, Any], bool]:
         """Если такой name уже есть — объединяет; иначе добавляет.
 
         Возвращает (item, merged).
         """
-        existing = self.find_by_name(data.get("name") or "")
+        existing = self.find_by_name(data.get("name") or "", owner_id)
         if existing:
             new_note = self._merge_note(existing.get("note"), data.get("note"))
             patch: dict[str, Any] = {"checked": False}
@@ -112,7 +126,7 @@ class ShoppingStore:
                 patch["unit"] = data["unit"]
             updated = await self.update(existing["id"], patch)
             return updated or existing, True
-        item = await self.add(data)
+        item = await self.add(data, owner_id)
         return item, False
 
     @staticmethod
@@ -127,7 +141,7 @@ class ShoppingStore:
             return old
         return f"{old}\n{new}"
 
-    async def update(self, item_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
+    async def update(self, item_id: str, owner_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
         allowed = {
             "name", "amount", "unit", "brand", "barcode", "image_url",
             "category", "note", "checked", "recipe_id", "recipe_name", "source",
@@ -136,7 +150,7 @@ class ShoppingStore:
         clean = {k: v for k, v in patch.items() if k in allowed}
 
         for i, item in enumerate(self.items):
-            if item.get("id") == item_id:
+            if item.get("id") == item_id and item.get("owner_id") == owner_id:
                 updated = {**item, **clean}
                 self.items[i] = updated
                 await self.save()
@@ -149,25 +163,25 @@ class ShoppingStore:
             return None
         return await self.update(item_id, {"checked": not item.get("checked", False)})
 
-    async def delete(self, item_id: str) -> bool:
+    async def delete(self, item_id: str, owner_id: str) -> bool:
         before = len(self.items)
-        self.items = [i for i in self.items if i.get("id") != item_id]
+        self.items = [i for i in self.items if not (i.get("id") == item_id and i.get("owner_id") == owner_id)]
         if len(self.items) < before:
             await self.save()
             return True
         return False
 
-    async def clear_checked(self) -> int:
+    async def clear_checked(self, owner_id: str) -> int:
         before = len(self.items)
-        self.items = [i for i in self.items if not i.get("checked")]
+        self.items = [i for i in self.items if not (i.get("owner_id") == owner_id and i.get("checked"))]
         removed = before - len(self.items)
         if removed:
             await self.save()
         return removed
 
-    async def clear_all(self) -> int:
+    async def clear_all(self, owner_id: str) -> int:
         count = len(self.items)
-        self.items = []
+        self.items = [i for i in self.items if i.get('owner_id') != owner_id]
         if count:
             await self.save()
         return count

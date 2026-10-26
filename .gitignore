@@ -17,3 +17,24 @@ __pycache__/
 # Standalone
 .env
 
+
+# === Auto-added ===
+standalone/.env
+standalone/hf_cache/
+standalone/data/
+data/
+build/backups/
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+scripts/
+/deploy_dev.sh
+/update_prod.sh
+/healthcheck.py
+*.log
+logs/
+standalone/.env.prod
+standalone/data-prod/

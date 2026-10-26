@@ -2,6 +2,8 @@
 from fastapi import APIRouter
 
 from . import (
+    backup,
+    sharing,
     admin,
     embeddings,
     auth,
@@ -32,11 +34,13 @@ api_router.include_router(profiles.router)
 api_router.include_router(generator.router)
 api_router.include_router(matcher.router)
 api_router.include_router(products.router)
+api_router.include_router(sharing.router)
 api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 api_router.include_router(me.router)
 api_router.include_router(auth.router)
 api_router.include_router(admin.router)
+api_router.include_router(backup.router)
 api_router.include_router(embeddings.router)
 api_router.include_router(settings.router)
 

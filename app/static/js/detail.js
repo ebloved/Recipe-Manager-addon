@@ -83,9 +83,144 @@
     }
   }
 
+  async function onShareRecipe() {
+    if (window.RM.state.isSharedView) return;
+    const r = state.currentRecipe;
+    if (!r || !r.id) return;
+    try {
+      const data = await RM.api.postJSON(`api/sharing/${r.id}/share`, {});
+      const url = `${window.location.origin}/share/${data.token}`;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url);
+          alert(`Ссылка скопирована:\n${url}`);
+        } else {
+          throw new Error("Clipboard API unavailable");
+        }
+      } catch (err) {
+        // Fallback, если буфер обмена заблокирован (HTTP или iframe)
+        prompt("Скопируйте ссылку вручную:", url);
+      }
+    } catch (e) { alert("Ошибка: " + e.message); }
+  }
+
+
+  async function onHideRecipe() {
+    if (!state.currentRecipe) return;
+    if (!confirm("Скрыть рецепт из своей библиотеки?")) return;
+    try {
+      await RM.api.postJSON(`api/recipes/${state.currentRecipe.id}/hide`, {});
+      close();
+      RM.recipes.load();
+    } catch(e) { alert(e.message); }
+  }
+
+  function setupEquipmentSwitcher(recipe) {
+    const btnHide = document.getElementById("btn-hide-recipe");
+    if (btnHide) btnHide.onclick = onHideRecipe;
+
+    if (!recipe) return;
+    const switcher = $("equipment-switcher");
+    if (!switcher) return;
+
+    const isShared = window.RM?.state?.isSharedView;
+    const hasAirfryer = !!(recipe.adapted_versions?.airfryer || 
+                           recipe.parent_id || 
+                           (recipe.equipment && recipe.equipment.includes("airfryer")));
+
+    // Если это публичная страница и версии для аэрогриля нет — скрываем переключатель
+    if (isShared && !hasAirfryer) {
+      switcher.style.display = "none";
+      return;
+    }
+    switcher.style.display = "";
+
+    const eq = recipe.equipment && recipe.equipment[0] ? recipe.equipment[0] : "oven";
+    switcher.querySelectorAll(".eq-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.eq === eq);
+    });
+    
+    switcher.querySelectorAll(".eq-btn").forEach(btn => {
+      btn.onclick = async () => {
+        const target = btn.dataset.eq;
+        if (target === eq) return;
+        
+        if (target === "airfryer") {
+          // Проверяем, есть ли привязанная версия
+          const adaptedId = recipe.adapted_versions?.airfryer;
+          if (adaptedId) {
+            try {
+              const res = await RM.api.getJSON(`api/recipes/${adaptedId}`);
+              RM.detail.open(res.recipe);
+              return;
+            } catch (err) {
+              console.warn("Adapted version not found (404), falling back to generate prompt:", err);
+              // Если рецепт удален, просто идем дальше и показываем заглушку
+            }
+          }
+          
+          // Если нет - показываем заглушку
+          const panel = $("detail-panel");
+          panel.innerHTML = `
+            <div class="detail-close" id="detail-close">×</div>
+            <div style="text-align:center; padding: 40px 20px;">
+              <h2>♨️ Версия для аэрогриля отсутствует</h2>
+              <p style="color:var(--text-secondary); margin-bottom:20px;">ИИ может пересчитать время и температуру по правилам.</p>
+              <button class="btn primary" id="btn-adapt-af">✨ Адаптировать под аэрогриль</button>
+            </div>
+          `;
+          $("detail-close").onclick = close;
+          
+          $("btn-adapt-af").onclick = async () => {
+            const btn = $("btn-adapt-af");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Генерация…';
+            try {
+              const job = await RM.api.postJSON(`api/recipes/${recipe.id}/adapt-to-airfryer`, {});
+              // Поллинг с защитой от сетевых сбоев
+              while(true) {
+                await new Promise(r => setTimeout(r, 2000));
+                let j;
+                try {
+                  j = await RM.api.getJSON(`api/generator/jobs/${job.job_id}`);
+                } catch (err) {
+                  console.warn("Polling network error, retrying...", err);
+                  continue; // Продолжаем ждать при сбое сети
+                }
+                if (j.status === "done") {
+                  const parent = await RM.api.getJSON(`api/recipes/${recipe.id}`);
+                  const adaptedId = parent.recipe.adapted_versions?.airfryer;
+                  if (adaptedId) {
+                    const res = await RM.api.getJSON(`api/recipes/${adaptedId}`);
+                    RM.detail.open(res.recipe);
+                  } else {
+                    alert("Готово, но не удалось найти ID.");
+                  }
+                  return;
+                }
+                if (j.status === "error") { alert("Ошибка: " + j.error); break; }
+              }
+            } catch(e) { alert(e.message); }
+          };
+          return;
+        }
+        
+        if (target === "oven") {
+           // Если переключились на духовку с аэрогриля - открываем родителя
+           if (recipe.parent_id) {
+               const res = await RM.api.getJSON(`api/recipes/${recipe.parent_id}`);
+               RM.detail.open(res.recipe);
+               return;
+           }
+        }
+      };
+    });
+  }
+
   function setup() {
     // v1.9.1: делегирование для active_time chip (render пересоздаёт DOM)
     document.addEventListener("click", (e) => {
+      if (e.target.closest('#btn-share-recipe')) { onShareRecipe(); return; }
       const chip = e.target.closest("[data-action='estimate-active-time']");
       if (!chip) return;
       e.preventDefault();
@@ -97,14 +232,33 @@
   }
 
   async function open(recipe) {
+    if (!recipe) {
+      alert("Рецепт не найден");
+      return;
+    }
     state.currentRecipe = recipe;
     state.servingMult = 1;
+    
+    // Прячем кнопку "Поделиться" на публичной странице
+    const isShared = window.RM && window.RM.state && window.RM.state.isSharedView;
+    setTimeout(() => {
+      const shareBtn = document.getElementById("btn-share-recipe");
+      if (shareBtn) shareBtn.style.display = isShared ? "none" : "";
+    }, 10);
     state.completedSteps = new Set();
 
     // Показываем оверлей сразу с "Загрузка…" — чтобы не было пустоты
     $("detail-overlay").classList.add("show");
     $("detail-panel").innerHTML = `
-      <button class="detail-close" id="detail-close">×</button>
+      <div class="equipment-switcher" id="equipment-switcher">
+        <button class="eq-btn active" data-eq="oven">🍳 Духовка</button>
+        <button class="eq-btn" data-eq="airfryer">♨️ Аэрогриль</button>
+      </div>
+      <div class="detail-header-actions">
+        <button class="btn" id="btn-share-recipe" title="Поделиться">🔗 Поделиться</button>
+        <button class="btn" id="btn-hide-recipe" title="Скрыть у себя">🙈 Скрыть</button>
+        <button class="detail-close" id="detail-close">×</button>
+      </div>
       <div class="loading" style="padding:60px 0">
         <span class="spinner"></span> Загрузка…
       </div>`;
@@ -114,6 +268,7 @@
     await loadLinkedProducts(recipe);
 
     render();
+    setupEquipmentSwitcher(recipe);
   }
 
   function close() {
@@ -173,6 +328,14 @@
     const metaChips = [];
     if (r.servings_text || r.servings)
       metaChips.push(`<span class="meta-chip-large" title="Количество порций">👥 ${escHtml(r.servings_text || r.servings)}</span>`);
+      
+    // Автор рецепта
+    const authorName = r.owner_name || (r.owner_id === "family" || !r.owner_id ? "НЛО" : null);
+    if (authorName) {
+      const isMe = window.RM?.state?.user?.name === authorName;
+      const icon = authorName === "НЛО" ? "🛸" : "👤";
+      metaChips.push(`<span class="meta-chip-large" title="Автор рецепта">${icon} ${escHtml(isMe ? "Вы" : authorName)}</span>`);
+    }
     
     // v1.9.3: показываем все времена с явными подписями
     if (r.prep_time) {
@@ -247,7 +410,15 @@
       : `<p style="color:var(--text-secondary);font-size:14px;">Ингредиенты не указаны.</p>`;
 
     panel.innerHTML = `
-      <button class="detail-close" id="detail-close">×</button>
+      <div class="equipment-switcher" id="equipment-switcher">
+        <button class="eq-btn active" data-eq="oven">🍳 Духовка</button>
+        <button class="eq-btn" data-eq="airfryer">♨️ Аэрогриль</button>
+      </div>
+      <div class="detail-header-actions">
+        <button class="btn" id="btn-share-recipe" title="Поделиться">🔗 Поделиться</button>
+        <button class="btn" id="btn-hide-recipe" title="Скрыть у себя">🙈 Скрыть</button>
+        <button class="detail-close" id="detail-close">×</button>
+      </div>
 
       <div class="detail-head">
         <h2 class="detail-title">${escHtml(r.name || "")}</h2>

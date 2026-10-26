@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from stores.settings import settings_store
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODELS,
@@ -70,7 +71,7 @@ _GENERATE_TIMEOUT = httpx.Timeout(120.0, connect=15.0)
 # с background=true, затем опрашиваем статус. Модель может думать
 # сколько угодно — жёсткого таймаута на «размышления» нет.
 _POLL_INTERVAL = 5.0          # секунд между опросами
-_MAX_POLL_DURATION = 600.0    # 10 минут на одну модель (safety)
+_MAX_POLL_DURATION = 300.0    # 10 минут на одну модель (safety)
 
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,8 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Возвращает нормализованные эмбеддинги для списка текстов."""
-        if not GEMINI_API_KEY:
+        key = api_key or GEMINI_API_KEY
+        if not key:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
         clean = [t if t else " " for t in texts]
@@ -203,6 +205,8 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         system: str | None = None,
         max_tokens: int = GENERATOR_MAX_TOKENS,
         temperature: float = 0.7,
+        job_id: str | None = None,
+        api_key: str | None = None,
     ) -> str:
         """Background Execution через Interactions API с polling.
 
@@ -214,7 +218,8 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
         Никаких жёстких таймаутов на «размышления» модели.
         """
-        if not GEMINI_API_KEY:
+        key = api_key or GEMINI_API_KEY
+        if not key:
             raise ProviderUnavailable("GEMINI_API_KEY не задан")
 
         models = list(GEMINI_MODELS) or [self.model]
@@ -239,13 +244,16 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
             try:
                 # 1. Создаём фоновую интеракцию
                 interaction_id = await self._start_background_interaction(
-                    model, prompt, system, max_tokens, temperature
+                    model, prompt, system, max_tokens, temperature, key
                 )
+                if job_id:
+                    from stores.jobs import jobs_store
+                    await jobs_store.update(job_id, interaction_id=interaction_id, model=model)
                 print(f"[gemini] {model} interaction_id={interaction_id}")
 
                 # 2. Опрашиваем до терминального статуса
                 output_text, status, final_error = await self._poll_interaction(
-                    interaction_id, model
+                    interaction_id, model, key
                 )
                 elapsed = asyncio.get_event_loop().time() - t0
 
@@ -312,7 +320,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
 
     async def _start_background_interaction(
         self, model: str, prompt: str, system: str | None,
-        max_tokens: int, temperature: float,
+        max_tokens: int, temperature: float, api_key: str | None = None
     ) -> str:
         """POST /v1beta/interactions → interaction_id."""
         url = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -330,7 +338,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         body["generation_config"] = gen_config
 
         headers = {
-            "x-goog-api-key": GEMINI_API_KEY,
+            "x-goog-api-key": api_key or GEMINI_API_KEY,
             "Content-Type": "application/json",
             "Api-Revision": "2026-05-20",
         }
@@ -356,12 +364,12 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         return interaction_id
 
     async def _poll_interaction(
-        self, interaction_id: str, model: str,
+        self, interaction_id: str, model: str, api_key: str | None = None
     ) -> tuple[str, str, str | None]:
         """GET /v1beta/interactions/{id} → (output_text, status, error)."""
         url = f"https://generativelanguage.googleapis.com/v1beta/interactions/{interaction_id}"
         headers = {
-            "x-goog-api-key": GEMINI_API_KEY,
+            "x-goog-api-key": api_key or GEMINI_API_KEY,
             "Api-Revision": "2026-05-20",
         }
         client_kwargs: dict = {"timeout": 15.0}
@@ -375,7 +383,7 @@ class GeminiProvider(EmbeddingProvider, GenerativeProvider):
         async with httpx.AsyncClient(**client_kwargs) as client:
             while True:
                 elapsed = asyncio.get_event_loop().time() - t_start
-                if elapsed > _MAX_POLL_DURATION:
+                if elapsed > float(settings_store.get("gemini_poll_duration", 300.0)):
                     raise ProviderUnavailable(
                         f"{model}: poll timeout after {elapsed:.0f}s "
                         f"(status={last_status})"

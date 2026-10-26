@@ -1,0 +1,16 @@
+services:
+  recipe-manager-prod:
+    build:
+      context: ..
+      dockerfile: standalone/Dockerfile
+    container_name: rm-prod
+    ports:
+      - "8199:8099"
+    volumes:
+      - ./data-prod:/data
+      - ./hf_cache:/hf_cache
+    env_file:
+      - .env.prod
+    environment:
+      - TZ=Europe/Moscow
+    restart: unless-stopped

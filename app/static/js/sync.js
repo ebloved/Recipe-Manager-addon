@@ -9,12 +9,13 @@
     bind("sync-push", onPush);
   }
 
-  async function load() {
+    async function load() {
     const box = $("sync-status");
+    if (!box) return;
     box.innerHTML = '<div class="loading"><span class="spinner"></span> Проверка соединения…</div>';
     try {
       const data = await getJSON("api/sync/status");
-      // v1.9.5: устойчивый рендер (data.recipes/data.ingredients или data.files)
+      
       const fileInfo = (filename) => {
         const f = (data.files && data.files[filename]) || {};
         const exists = f.exists;
@@ -28,8 +29,8 @@
 
       box.innerHTML = `
         <div class="sync-info">
-          <div class="sync-row"><span>Репозиторий:</span><b>${escHtml(data.repo)}</b></div>
-          <div class="sync-row"><span>Ветка:</span><b>${escHtml(data.branch)}</b></div>
+          <div class="sync-row"><span>Репозиторий:</span><b>${escHtml(data.repo || '—')}</b></div>
+          <div class="sync-row"><span>Ветка:</span><b>${escHtml(data.branch || '—')}</b></div>
           ${fileInfo("recipes.json")}
           ${fileInfo("ingredients.json")}
         </div>`;
