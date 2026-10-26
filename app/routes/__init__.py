@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from . import (
+    embeddings,
     auth,
     imports,
     youtube,

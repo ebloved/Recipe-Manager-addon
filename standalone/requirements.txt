@@ -1,4 +1,4 @@
--r ../requirements.txt
+-r /tmp/req_base.txt
 
 # ML зависимости для эмбеддингов
 sentence-transformers>=3.2.0
