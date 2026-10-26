@@ -22,6 +22,36 @@ def _load_model():
     logger.info("Embedding model loaded successfully.")
     return _model
 
+
+@router.get("/models")
+async def list_models(request: Request):
+    """Эмуляция GET /v1/models для health-check OpenAI-совместимых клиентов."""
+    if DEPLOY_MODE != "standalone":
+        raise HTTPException(404, "Not found")
+
+    if SERVICE_TOKEN:
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {SERVICE_TOKEN}":
+            raise HTTPException(401, "Invalid service token")
+
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": "hermes-agent",
+                "object": "model",
+                "created": 1686935002,
+                "owned_by": "system"
+            },
+            {
+                "id": STANDALONE_EMBEDDING_MODEL,
+                "object": "model",
+                "created": 1686935002,
+                "owned_by": "system"
+            }
+        ]
+    }
+
 @router.post("/embeddings")
 async def create_embeddings(request: Request, payload: dict[str, Any] = Body(...)):
     if DEPLOY_MODE != "standalone":

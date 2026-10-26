@@ -11,6 +11,7 @@ services:
     volumes:
       # Монтируем локальную папку data, чтобы рецепты сохранялись
       - ./data:/data
+      - ./hf_cache:/hf_cache
     env_file:
       - .env
     environment:

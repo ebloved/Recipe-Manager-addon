@@ -20,6 +20,7 @@
     loadUser();
     loadLLM();
     loadSettings();
+    loadAdmin();
     if (RM.sync) RM.sync.load();
     loadVersion();
   }
@@ -88,6 +89,42 @@
       }
     } catch (e) { console.warn("Settings load error:", e); }
   }
+
+  async function loadAdmin() {
+    try {
+      const me = await RM.api.getJSON("api/me");
+      if (me.role !== "admin") return;
+
+      $("cabinet-admin").style.display = "block";
+      const data = await RM.api.getJSON("api/admin/users");
+      
+      const list = $("admin-users-list");
+      list.innerHTML = data.users.map(u => `
+        <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border);">
+          <span>${escHtml(u.email)} (${u.role})</span>
+          ${u.role !== "admin" ? `<button onclick="RM.cabinet.deleteUser('${u.id}')" style="color:var(--danger); background:none; border:none; cursor:pointer;">Удалить</button>` : ""}
+        </div>
+      `).join("");
+
+      $("admin-add-btn").onclick = async () => {
+        const email = $("admin-new-email").value.trim();
+        if (!email) return;
+        try {
+          await RM.api.postJSON("api/admin/users", {email});
+          $("admin-new-email").value = "";
+          loadAdmin();
+        } catch(e) { alert(e.message); }
+      };
+    } catch (e) { console.warn("Admin load error", e); }
+  }
+
+  async function deleteUser(id) {
+    if (!confirm("Удалить пользователя?")) return;
+    try {
+      await RM.api.del(`api/admin/users/${id}`);
+      loadAdmin();
+    } catch(e) { alert(e.message); }
+  }
   async function loadVersion() {
     try {
       const data = await getJSON("api/generator/status");
@@ -97,5 +134,5 @@
     } catch (_) {}
   }
 
-  RM.cabinet = { setup, load };
+  RM.cabinet = { setup, load, deleteUser };
 })(window.RM);

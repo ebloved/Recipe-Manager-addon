@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from . import (
+    admin,
     embeddings,
     auth,
     imports,
@@ -35,6 +36,7 @@ api_router.include_router(recipes.router)
 api_router.include_router(misc.router)
 api_router.include_router(me.router)
 api_router.include_router(auth.router)
+api_router.include_router(admin.router)
 api_router.include_router(embeddings.router)
 api_router.include_router(settings.router)
 

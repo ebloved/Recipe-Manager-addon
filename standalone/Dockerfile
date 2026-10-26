@@ -1,5 +1,9 @@
 FROM python:3.13-slim
 
+ENV HF_HOME=/hf_cache
+ENV TRANSFORMERS_CACHE=/hf_cache
+ENV SENTENCE_TRANSFORMERS_HOME=/hf_cache
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc python3-dev libxml2-dev libxslt1-dev libjpeg-dev zlib1g-dev \
     ffmpeg curl jq \

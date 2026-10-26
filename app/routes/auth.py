@@ -32,11 +32,14 @@ async def auth_callback(request: Request):
             raise HTTPException(400, "No userinfo")
         
         user = await users_store.get_or_create(
-            google_id=userinfo['sub'],
-            email=userinfo['email'],
-            name=userinfo['name'],
-            picture=userinfo.get('picture', '')
+            google_id=userinfo["sub"],
+            email=userinfo["email"],
+            name=userinfo["name"],
+            picture=userinfo.get("picture", "")
         )
+        
+        if not user:
+            return RedirectResponse(url="/?error=access_denied")
         
         # Устанавливаем HttpOnly Cookie
         response = RedirectResponse(url="/")
