@@ -134,3 +134,7 @@ FEATURE_GENERATOR = os.environ.get("FEATURE_GENERATOR", "false").strip().lower()
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "standard").strip().lower() or "standard"
 
 ADDON_VERSION = os.environ.get("ADDON_VERSION", "unknown")
+
+# --- Standalone Embeddings ---
+STANDALONE_EMBEDDING_MODEL = os.environ.get("STANDALONE_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+SERVICE_TOKEN = os.environ.get("SERVICE_TOKEN", "")
