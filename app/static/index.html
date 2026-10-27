@@ -390,7 +390,22 @@
         </div>
       </div>
 
-      <div class="card" id="cabinet-profiles">
+            <div class="card" id="cabinet-weights" style="display:none">
+        <div class="hint" style="margin-bottom:10px;">
+          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
+          </div>
+        </div>
+        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+          <button class="btn primary" id="weights-save">Сохранить</button>
+          <button class="btn" id="weights-skip">Пропустить</button>
+        </div>
+      </div>
+
+<div class="card" id="cabinet-profiles">
         <div class="hint" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-size:14px; font-weight:600; margin-bottom:4px">Профили генерации</div>

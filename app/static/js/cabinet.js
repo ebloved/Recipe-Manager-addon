@@ -341,6 +341,51 @@
     } catch (e) { console.warn("LLM form error", e); }
   }
 
+  
+  async function loadPendingWeights() {
+    try {
+      const data = await RM.api.getJSON("api/me/weights/pending");
+      console.log("[weights] pending response:", data);
+      
+      const box = document.getElementById("cabinet-weights");
+      if (!box) {
+        console.warn("[weights] cabinet-weights element not found");
+        return;
+      }
+      
+      if (!data.product) {
+        console.log("[weights] no pending products. reason:", data.reason);
+        box.style.display = "none";
+        return;
+      }
+      
+      box.style.display = "block";
+      document.getElementById("weights-question").textContent = `Сколько грамм в 1 шт: ${data.product}?`;
+      document.getElementById("weights-input").value = "";
+      
+      document.getElementById("weights-save").onclick = async () => {
+        const val = document.getElementById("weights-input").value;
+        if (!val || parseFloat(val) <= 0) return;
+        const btn = document.getElementById("weights-save");
+        btn.disabled = true;
+        try {
+          await RM.api.postJSON("api/me/weights", { name: data.product, weight: val });
+          loadPendingWeights();
+        } catch(e) {
+          alert("Ошибка: " + e.message);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+      
+      document.getElementById("weights-skip").onclick = () => {
+        box.style.display = "none";
+      };
+    } catch(e) { 
+      console.error("[weights] error:", e); 
+    }
+  }
+
   async function loadVersion() {
     try {
       const data = await getJSON("api/generator/status");

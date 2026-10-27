@@ -88,3 +88,65 @@ async def update_llm_config(request: Request, payload: LLMConfigPayload):
         return {"status": "ok"}
     
     raise HTTPException(400, "Not available in HA mode")
+
+
+@router.get("/weights/pending")
+async def get_pending_weights(request: Request):
+    from stores import recipe_store
+    from collections import Counter
+    
+    if AUTH_MODE == "oauth":
+        session_id = request.cookies.get("rm_session")
+        if not session_id or session_id not in users_store.users:
+            raise HTTPException(401)
+        user = users_store.users[session_id]
+    else:
+        user = {"piece_weights": {}}
+        
+    weights = user.get("piece_weights", {}) or {}
+    
+    PIECE_UNIT_PREFIXES = ("шт", "зубчик", "пучок", "банка", "баночка")
+    
+    def is_piece_unit(unit):
+        if not unit: return False
+        u = str(unit).strip().lower()
+        return any(u.startswith(p) for p in PIECE_UNIT_PREFIXES)
+    
+    counter = Counter()
+    for r in recipe_store.get_all():
+        if AUTH_MODE == "oauth" and r.get("owner_id") and r.get("owner_id") != user.get("id") and user.get("role") != "admin":
+            continue
+        for ing in r.get("ingredients", []):
+            if not isinstance(ing, dict): continue
+            name = (ing.get("name") or "").strip()
+            unit = ing.get("unit")
+            if name and is_piece_unit(unit):
+                counter[name] += 1
+    
+    pending = [(name, count) for name, count in counter.most_common() if name not in weights]
+    
+    if pending:
+        name, count = pending[0]
+        return {"product": name, "unit": "шт", "count": count, "reason": "ok"}
+    
+    return {
+        "product": None,
+        "reason": "all_filled" if counter else "no_piece_ingredients",
+        "total_piece_ingredients": sum(counter.values()),
+    }
+
+@router.post("/weights")
+async def save_weight(request: Request, payload: dict = Body(...)):
+    if AUTH_MODE != "oauth": raise HTTPException(400)
+    session_id = request.cookies.get("rm_session")
+    if not session_id or session_id not in users_store.users: raise HTTPException(401)
+    
+    name = payload.get("name")
+    weight = payload.get("weight")
+    if not name or not weight: raise HTTPException(400)
+    
+    user = users_store.users[session_id]
+    if "piece_weights" not in user: user["piece_weights"] = {}
+    user["piece_weights"][name] = float(weight)
+    await users_store.save()
+    return {"status": "ok"}
