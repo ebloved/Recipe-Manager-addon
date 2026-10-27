@@ -37,4 +37,7 @@ scripts/
 *.log
 logs/
 standalone/.env.prod
-standalone/data-prod/
+standalone/data-prod/{"level"*
+*.json:*
+*.log
+{"level"*

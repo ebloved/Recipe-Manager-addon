@@ -25,7 +25,7 @@
     container.innerHTML = '<div class="loading"><span class="spinner"></span> Подбираем рецепты…</div>';
 
     try {
-      const data = await postJSON("api/recipes/find-by-ingredients", { ingredients: query });
+      const data = await postJSON("api/recipes/-/find-by-ingredients", { ingredients: query });
       renderResults(data.recipes || []);
     } catch (e) {
       container.innerHTML = `<div class="empty" style="color:var(--danger)">Ошибка: ${escHtml(e.message)}</div>`;

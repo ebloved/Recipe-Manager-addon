@@ -1,5 +1,5 @@
 name: "Recipe Manager"
-version: "3.3.11"
+version: "3.3.16"
 slug: "recipe_manager"
 description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
 url: "https://github.com/ebloved/recipe-manager-addon"

@@ -119,12 +119,31 @@ class ShoppingStore:
             patch: dict[str, Any] = {"checked": False}
             if new_note:
                 patch["note"] = new_note
-            # Если у старого нет amount/unit, а у нового есть — подтягиваем
-            if not existing.get("amount") and data.get("amount"):
-                patch["amount"] = data["amount"]
-            if not existing.get("unit") and data.get("unit"):
-                patch["unit"] = data["unit"]
-            updated = await self.update(existing["id"], patch)
+            
+            old_amt = existing.get("amount")
+            new_amt = data.get("amount")
+            old_unit = existing.get("unit")
+            new_unit = data.get("unit")
+            
+            # Суммируем, если единицы совпадают или у старого нет единицы
+            if old_amt and new_amt and (old_unit == new_unit or not old_unit):
+                try:
+                    num_old = float(str(old_amt).replace(",", "."))
+                    num_new = float(str(new_amt).replace(",", "."))
+                    total = num_old + num_new
+                    patch["amount"] = int(total) if total.is_integer() else round(total, 2)
+                    if not old_unit and new_unit:
+                        patch["unit"] = new_unit
+                except (ValueError, TypeError):
+                    # Если не числа (например, "по вкусу"), пишем в заметку
+                    note_add = f"добавлено: {new_amt} {new_unit or ''}".strip()
+                    patch["note"] = self._merge_note(patch.get("note", existing.get("note")), note_add)
+            elif not old_amt and new_amt:
+                patch["amount"] = new_amt
+                if new_unit:
+                    patch["unit"] = new_unit
+                    
+            updated = await self.update(existing["id"], owner_id, patch)
             return updated or existing, True
         item = await self.add(data, owner_id)
         return item, False

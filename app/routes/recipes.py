@@ -600,3 +600,57 @@ Job ID: <code>{job_id}</code>"""
 Job ID: <code>{job_id}</code>
 {str(e)}"""
         await telegram_service.send(msg3)
+
+
+@router.post("/-/find-by-ingredients")
+async def find_by_ingredients(request: Request, payload: dict = Body(...)):
+    """Ищет рецепты по списку имеющихся ингредиентов."""
+    user = get_current_user(request)
+    uid = user["id"] if user else None
+    
+    raw_input = payload.get("ingredients", [])
+    if isinstance(raw_input, str):
+        raw_input = raw_input.split(",")
+        
+    user_ings = [i.strip().lower() for i in raw_input if i and str(i).strip()]
+    if not user_ings:
+        return {"recipes": []}
+
+    results = []
+    for r in recipe_store.get_all():
+        # Пропускаем скрытые
+        if uid and uid in (r.get("hidden_by") or []):
+            continue
+            
+        r_ings = []
+        for ing in r.get("ingredients", []):
+            name = ing.get("name") if isinstance(ing, dict) else str(ing)
+            if name:
+                r_ings.append(name.strip().lower())
+                
+        if not r_ings:
+            continue
+
+        matched = []
+        missing = []
+        for ri in r_ings:
+            is_matched = False
+            for ui in user_ings:
+                if ui in ri or ri in ui:
+                    is_matched = True
+                    matched.append(ri)
+                    break
+            if not is_matched:
+                missing.append(ri)
+
+        score = len(matched) / len(r_ings)
+        
+        if len(matched) > 0:
+            r_copy = dict(r)
+            r_copy["_match_score"] = score
+            r_copy["_matched"] = matched
+            r_copy["_missing"] = missing
+            results.append(r_copy)
+
+    results.sort(key=lambda x: (-x["_match_score"], len(x["_missing"])))
+    return {"recipes": results[:50]}
