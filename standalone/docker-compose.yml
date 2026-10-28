@@ -14,5 +14,15 @@ services:
       - ./hf_cache:/hf_cache  
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8099/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     environment:
       - TZ=Europe/Moscow
+      # TEST_MODE bypasses auth from loopback (127.0.0.1/::1) for smoke tests.
+      # NEVER enable in production. Prod compose does not have this block.
+      - TEST_MODE=${TEST_MODE:-true}
+      - TEST_TOKEN=${TEST_TOKEN:-dev-smoke-test-token}

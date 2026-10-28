@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from stores.jobs import jobs_store
-from services.generator.providers import get_llm_provider
+from services.matcher.gemini_embedder import gemini_embedder
 from services.generator.generator import _now, _clean_md
 from recipe_manager.importer import parse_markdown_recipe
 
@@ -18,7 +18,7 @@ async def resume_interactions():
         return
         
     if pending:
-        logger.info(f"[resume] Found {len(pending)} pending jobs to resume")
+        print(f"[resume] Found {len(pending)} pending jobs to resume")
         
     for job in pending:
         asyncio.create_task(_resume_job(job))
@@ -26,17 +26,28 @@ async def resume_interactions():
 async def _resume_job(job: dict):
     job_id = job["id"]
     try:
-        provider, provider_name = get_llm_provider()
+        provider = gemini_embedder
         if not provider or not hasattr(provider, "_poll_interaction"):
             logger.warning(f"[resume] No suitable provider to resume job {job_id}")
             await jobs_store.update(job_id, status="error", error="Провайдер недоступен для resume", finished_at=_now())
             return
 
-        logger.info(f"[resume] Polling interaction {job['interaction_id']} for job {job_id}")
+        # v3.6.2: берем user_id из параметров задачи и достаем его ключ Gemini
+        user_id = (job.get("params") or {}).get("user_id")
+        api_key = None
+        if user_id and user_id != "family":
+            try:
+                from services.auth import users_store
+                conf = users_store.get_llm_config(user_id)
+                api_key = conf.get("gemini_api_key")
+            except Exception:
+                pass
+
+        print(f"[resume] Polling interaction {job['interaction_id']} for job {job_id} (api_key={'user' if api_key else 'admin'})")
         
         try:
             out, status, err = await asyncio.wait_for(
-                provider._poll_interaction(job["interaction_id"], job.get("model", "gemini")),
+                provider._poll_interaction(job["interaction_id"], job.get("model", "gemini"), api_key=api_key),
                 timeout=300.0
             )
         except asyncio.TimeoutError:

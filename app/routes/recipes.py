@@ -527,6 +527,9 @@ async def _run_estimate_job(job_id: str, *, force: bool = False):
 
 
 def _require_auth(request: Request):
+    test_user = getattr(request.state, "test_mode_user", None)
+    if test_user:
+        return
     if AUTH_MODE == "oauth":
         session_id = request.cookies.get("rm_session")
         if not session_id or session_id not in users_store.users:

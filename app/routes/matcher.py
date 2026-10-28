@@ -63,8 +63,22 @@ _PENDING_QUEUE: list[dict[str, Any]] = []
 # Match
 # ---------------------------------------------------------------------------
 
+from fastapi import Request  # v3.5.5
+
+
+def _set_matcher_user(request):
+    """Set matcher user_id contextvar from request."""
+    from services.auth import get_current_user
+    from services.matcher.cascade import set_matcher_user_id
+    try:
+        user = get_current_user(request)
+        set_matcher_user_id(user.get("id") if user else None)
+    except Exception:
+        set_matcher_user_id(None)
+
+
 @router.post("/match")
-async def match_single(payload: dict[str, Any] = Body(...)):
+async def match_single(request: Request, payload: dict[str, Any] = Body(...)):
     """Матч одного имени ингредиента.
 
     Payload:
@@ -89,6 +103,7 @@ async def match_single(payload: dict[str, Any] = Body(...)):
         }
     """
     _require_matcher()
+    _set_matcher_user(request)
 
     name = (payload.get("name") or "").strip()
     if not name:
@@ -103,7 +118,7 @@ async def match_single(payload: dict[str, Any] = Body(...)):
 
 
 @router.post("/match-batch")
-async def match_batch(payload: dict[str, Any] = Body(...)):
+async def match_batch(request: Request, payload: dict[str, Any] = Body(...)):
     """Матч массива имён.
 
     Payload:
@@ -127,6 +142,7 @@ async def match_batch(payload: dict[str, Any] = Body(...)):
         }
     """
     _require_matcher()
+    _set_matcher_user(request)
 
     names = payload.get("names") or []
     if not isinstance(names, list):
@@ -162,7 +178,7 @@ async def match_batch(payload: dict[str, Any] = Body(...)):
 
 
 @router.post("/validate")
-async def validate_pair(payload: dict[str, Any] = Body(...)):
+async def validate_pair(request: Request, payload: dict[str, Any] = Body(...)):
     """Генеративная валидация пары «имя ингредиента» / «продукт».
 
     Вызывается, когда векторное сходство дало спорный score
@@ -181,6 +197,7 @@ async def validate_pair(payload: dict[str, Any] = Body(...)):
         }
     """
     _require_matcher()
+    _set_matcher_user(request)
 
     name = (payload.get("name") or "").strip()
     product_id = (payload.get("product_id") or "").strip()

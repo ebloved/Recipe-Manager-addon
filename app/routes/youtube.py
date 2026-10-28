@@ -82,8 +82,11 @@ async def api_download(url: str = Form(...)):
 # 2. Генерация рецепта через Gemini
 # ---------------------------------------------------------------------------
 
+from fastapi import Request  # v3.5.5
+
 @router.post("/api/generate-recipe")
 async def generate_recipe(
+    request: Request,
     job_id: str = Form(...),
     save: bool = Form(False),
     link: bool = Form(True),
@@ -127,8 +130,11 @@ async def generate_recipe(
     if not combined_text.strip():
         raise HTTPException(400, "Не удалось извлечь текст из субтитров")
 
-    # Генерируем через Gemini
-    markdown, used_model = await call_gemini(combined_text)
+    # Генерируем через LLM-каскад (от имени нажавшего)
+    from services.auth import get_current_user
+    _u = get_current_user(request)
+    _user_id = _u.get("id") if _u else None
+    markdown, used_model = await call_gemini(combined_text, user_id=_user_id)
 
     # Сохраняем .md файл на диск (в /downloads)
     out_file = DOWNLOAD_DIR / f"{job_id}_recipe.md"

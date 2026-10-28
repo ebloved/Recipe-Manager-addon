@@ -14,10 +14,10 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "") # fallback
 
-DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", "/downloads"))
+DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", str(BASE_DIR.parent / "downloads")))
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR.parent / "data")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- Файлы данных ----------------------------------------------------------
@@ -50,6 +50,22 @@ GEMINI_MODELS = [
     if m.strip()
 ]
 GEMINI_PROXY = os.environ.get("GEMINI_PROXY") or None
+
+# --- OrcaRouter (только user-ключи) ---
+ORC_BASE_URL = os.environ.get("ORC_BASE_URL", "https://api.orcarouter.ai/v1").strip().rstrip("/")
+ORC_MODEL = os.environ.get("ORC_MODEL", "deepseek/deepseek-v4.1-flash-free").strip()
+_orc_models_env = os.environ.get("ORC_MODELS", "").strip()
+ORC_MODELS: list[str] = (
+    [m.strip() for m in _orc_models_env.split(",") if m.strip()]
+    if _orc_models_env
+    else [
+        "tencent/hy4-preview-free",
+        "deepseek/deepseek-v4.1-flash-free",
+        "deepseek/deepseek-v4-flash-free",
+        "orca/orcaverify-text1.0-free",
+    ]
+)
+ORC_TIMEOUT = float(os.environ.get("ORC_TIMEOUT", "120") or 120)
 
 # --- yt-dlp -----------------------------------------------------------------
 
@@ -134,6 +150,14 @@ FEATURE_GENERATOR = os.environ.get("FEATURE_GENERATOR", "false").strip().lower()
 RUNTIME_MODE = os.environ.get("RUNTIME_MODE", "standard").strip().lower() or "standard"
 
 ADDON_VERSION = os.environ.get("ADDON_VERSION", "unknown")
+
+# --- Test mode (только для smoke-test в dev) ---
+# При TEST_MODE=true запросы с loopback (127.0.0.1/::1) и заголовком
+# X-Test-Token == TEST_TOKEN получают фейкового админа.
+# НИКОГДА не включать в prod.
+TEST_MODE = os.environ.get("TEST_MODE", "false").strip().lower() == "true"
+TEST_TOKEN = os.environ.get("TEST_TOKEN", "")
+
 
 # --- Standalone Embeddings ---
 STANDALONE_EMBEDDING_MODEL = os.environ.get("STANDALONE_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")

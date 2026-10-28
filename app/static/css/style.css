@@ -3285,3 +3285,48 @@ header {
   background: rgba(214,69,69,0.1);
   color: var(--danger);
 }
+
+/* ================================================================
+   v3.5.1: LLM provider cascade
+   ================================================================ */
+.llm-provider-block {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: var(--bg);
+}
+.llm-provider-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.llm-provider-priority {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.llm-provider-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.llm-provider-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+.llm-provider-status {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+}

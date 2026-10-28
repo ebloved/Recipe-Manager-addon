@@ -686,12 +686,8 @@ async def _try_generative_validate(name: str, candidate: MatchCandidate) -> Vali
 
 
 def _generative_providers() -> list[Any]:
-    out: list[Any] = []
-    if external_llm is not None and MATCHER_EXTERNAL_ENABLED:
-        out.append(external_llm)
-    if gemini_embedder is not None and hasattr(gemini_embedder, "complete"):
-        out.append(gemini_embedder)
-    return out
+    """v3.5.5: генеративная валидация через единый LLM-каскад."""
+    return [_cascade_provider()]
 
 
 async def _ask_llm(provider: Any, name: str, product: dict[str, Any]) -> ValidationResult:
@@ -882,3 +878,49 @@ def _unavailable(detail: str, started: datetime) -> dict[str, Any]:
         "latency_ms": round(latency_ms, 1),
         "detail": detail,
     }
+
+
+# ==========================================================================
+# v3.5.5: cascade provider + user context for LLM cascade
+# ==========================================================================
+
+from contextvars import ContextVar
+
+_CASCADE_USER_ID: ContextVar[str | None] = ContextVar(
+    "_CASCADE_USER_ID", default=None
+)
+
+
+def set_matcher_user_id(user_id: str | None) -> None:
+    """Устанавливает user_id для LLM-каскада (из request)."""
+    _CASCADE_USER_ID.set(user_id)
+
+
+class _CascadeProvider:
+    """Псевдо-провайдер: проксирует .complete() в call_llm_cascade."""
+    name = "cascade"
+
+    async def complete(
+        self, prompt: str, system: str | None = None,
+        max_tokens: int = 200, temperature: float = 0.0,
+        **kwargs,
+    ) -> str:
+        from services.llm_cascade import call_llm_cascade
+
+        user_id = _CASCADE_USER_ID.get()
+        text, _provider_name = await call_llm_cascade(
+            user_id=user_id,
+            prompt=prompt,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return text
+
+
+_cascade_provider_singleton = _CascadeProvider()
+
+
+def _cascade_provider() -> _CascadeProvider:
+    return _cascade_provider_singleton
+

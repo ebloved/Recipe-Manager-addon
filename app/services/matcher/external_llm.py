@@ -87,7 +87,7 @@ class ExternalLLMProvider(EmbeddingProvider, GenerativeProvider):
     # Headers
     # ------------------------------------------------------------------
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self, api_key: str | None = None) -> dict[str, str]:
         h = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -95,8 +95,9 @@ class ExternalLLMProvider(EmbeddingProvider, GenerativeProvider):
             # Для остальных сервисов это необязательный заголовок.
             "x-opencode-session": self._session_id,
         }
-        if self._api_key:
-            h["Authorization"] = f"Bearer {self._api_key}"
+        key = api_key or self._api_key
+        if key:
+            h["Authorization"] = f"Bearer {key}"
         return h
 
     # ------------------------------------------------------------------
@@ -132,7 +133,7 @@ class ExternalLLMProvider(EmbeddingProvider, GenerativeProvider):
 
         try:
             async with httpx.AsyncClient(timeout=_make_timeout()) as client:
-                resp = await client.post(url, json=payload, headers=self._headers())
+                resp = await client.post(url, json=payload, headers=self._headers(api_key=api_key))
         except httpx.TimeoutException as exc:
             raise ProviderUnavailable(f"External embeddings timeout: {exc}") from exc
         except httpx.RequestError as exc:
@@ -194,6 +195,7 @@ class ExternalLLMProvider(EmbeddingProvider, GenerativeProvider):
         max_tokens: int = 200,
         temperature: float = 0.0,
         job_id: str | None = None,
+        api_key: str | None = None,
     ) -> str:
         """Отправляет chat-запрос и возвращает текст ответа."""
         if not self.enabled:

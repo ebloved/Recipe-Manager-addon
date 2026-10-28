@@ -6,7 +6,7 @@ from typing import Any
 import asyncio
 import logging
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from config import (
     ADDON_VERSION,
@@ -22,6 +22,7 @@ from services.generator import (
     get_providers_status,
 )
 from services.generator.generator import _now
+from services.telegram_service import telegram_service
 from stores import jobs_store, recipe_store, suggestions_store
 
 logger = logging.getLogger(__name__)
@@ -30,22 +31,27 @@ router = APIRouter(prefix="/api/generator", tags=["generator"])
 
 
 @router.post("/run", status_code=202)
-async def run_generation(payload: dict[str, Any] = Body(...)):
+async def run_generation(request: Request, payload: dict[str, Any] = Body(...)):
     profile_id = payload.get("profile_id")
     topic = payload.get("topic")
     count = int(payload.get("count") or GENERATOR_DEFAULT_COUNT)
     samples_count = int(payload.get("samples_count") or GENERATOR_DEFAULT_SAMPLES)
 
+    from services.auth import get_current_user
+    _u = get_current_user(request)
+    user_id = _u.get("id") if _u else "family"
+
     params = {
         "profile_id": profile_id, "topic": topic,
         "count": count, "samples_count": samples_count,
+        "user_id": user_id,
     }
     job = await jobs_store.create(params)
     asyncio.create_task(_run_job(job["id"], **params))
     return {"job_id": job["id"], "status": "pending", "created_at": job["created_at"]}
 
 
-async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
+async def _run_job(job_id: str, *, profile_id, topic, count, samples_count, user_id: str = "family"):
     import time
     t0 = time.monotonic()
     try:
@@ -54,7 +60,7 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
             count=count, samples_count=samples_count,
             max_count=GENERATOR_MAX_COUNT, samples_max=GENERATOR_SAMPLES_MAX,
             job_id=job_id,
-            user_id=user["id"] if user else "family",
+            user_id=user_id,
         )
         await suggestions_store.add_many(items)
         elapsed = round(time.monotonic() - t0, 2)
@@ -63,13 +69,11 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count):
             finished_at=_now(),
         )
         await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
-        await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
         logger.info("[generator] job %s done in %.1fs, %d suggestions",
                     job_id, elapsed, len(items))
     except HTTPException as exc:
         await jobs_store.update(
             job_id, status="error", error=exc.detail, finished_at=_now())
-        await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
         await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
         logger.warning("[generator] job %s failed: %s", job_id, exc.detail)
     except Exception as exc:  # noqa: BLE001

@@ -23,7 +23,6 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from services.generator.providers import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -121,23 +120,20 @@ async def estimate_active_time(
     if not force and recipe.get("active_time_hash") == h and recipe.get("active_time") is not None:
         return {}
 
-    provider, provider_name = get_llm_provider()
-    if provider is None:
-        return {"active_time_error": "no_provider"}
+    from services.llm_cascade import call_llm_cascade
+    owner_id = recipe.get("owner_id") or "family"
 
     prompt = _build_prompt(recipe)
     logger.info(
-        "[active_time] estimating %r: %d steps, provider=%s",
+        "[active_time] estimating %r: %d steps, owner=%s",
         (recipe.get("name") or "—")[:50],
         len(instructions),
-        provider_name,
+        owner_id,
     )
 
     try:
-        # v1.9.2: thinking-модели тратят max_output_tokens на reasoning.
-        # 2000 не хватает — модель уходит в incomplete/in_progress надолго.
-        # Ответ короткий (JSON с числами), 8000 с запасом.
-        raw = await provider.complete(
+        raw, provider_name = await call_llm_cascade(
+            user_id=owner_id,
             prompt=prompt,
             system=_SYSTEM,
             max_tokens=8000,

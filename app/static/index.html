@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=68">
+<link rel="stylesheet" href="static/css/style.css?v=74">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -169,6 +169,7 @@
         </div>
         <div class="shopping-actions">
           <button class="btn" id="shopping-lookup-open">📷 По штрих-коду</button>
+          <button class="btn" id="shopping-export-connector" title="Скопировать JSON для внешнего MCP-коннектора">📤 Для коннектора</button>
           <button class="btn" id="shopping-clear-checked">Очистить купленные</button>
           <label class="shopping-filter">
             <input type="checkbox" id="shopping-only-active">
@@ -293,7 +294,22 @@
     <div class="panel-inner">
       
       <div style="display:flex; justify-content:flex-end; margin-bottom: 10px;">
-        <button class="btn" id="btn-cabinet-tour">▶️ Тур по кабинету</button>
+        <button class="btn" id="btn-cabinet-tour">▶️ Тур по приложению</button>
+      </div>
+
+      <div class="card" id="cabinet-weights" style="display:none">
+        <div class="hint" style="margin-bottom:10px;">
+          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
+          </div>
+        </div>
+        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+          <button class="btn primary" id="weights-save">Сохранить</button>
+          <button class="btn" id="weights-skip">Пропустить</button>
+        </div>
       </div>
 
       <div class="card" id="cabinet-user">
@@ -301,11 +317,6 @@
       </div>
 
       <div class="card" id="cabinet-settings">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <span style="font-size:14px; font-weight:600;">Обучение</span>
-          <button class="btn" id="btn-start-tour">▶️ Пройти обучение</button>
-        </div>
-
         <div id="admin-system-settings" style="display:none; border-top:1px solid var(--border); margin-top:15px; padding-top:15px;">
           <div style="font-size:14px; font-weight:600; margin-bottom:10px;">Системные настройки (Admin)</div>
 
@@ -356,29 +367,106 @@
       </div>
 
       <div class="card" id="cabinet-llm-form" style="display:none">
-        <div class="hint" style="margin-bottom:10px;">
-          <div style="font-size:14px; font-weight:600;">Свои ключи LLM</div>
+        <div class="hint" style="margin-bottom:15px;">
+          <div style="font-size:14px; font-weight:600;">🤖 LLM-провайдеры</div>
           <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Без ключа: <b>5 рецептов в день</b>. Со своим ключом: без ограничений.
+            Используется первый доступный. Без своих ключей — 5 запросов/день на резервных (admin) ключах.
           </div>
         </div>
-        <div class="field">
-          <label>Gemini API Key <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size:11px; font-weight:normal; color:var(--accent);">(получить бесплатно)</a></label>
-          <input type="password" id="user-gemini-key" placeholder="AIzaSy...">
-          <div id="llm-gemini-badge" style="font-size:12px; margin-top:5px;"></div>
+
+        <!-- 1. Custom AI -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">1</span>
+            <span class="llm-provider-name">🔧 Custom AI (OpenAI-совместимый)</span>
+            <span class="llm-provider-hint">свой endpoint</span>
+            <span class="llm-provider-status" id="custom-status">⚪ не задан</span>
+          </div>
+          <div class="field">
+            <label>URL</label>
+            <input type="text" id="user-ext-url" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="field">
+            <label>API Key</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-ext-key" placeholder="sk-..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-ext" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="user-ext-model" placeholder="gpt-4o-mini" style="flex:1;">
+              <select id="user-ext-model-select" style="flex:1; display:none;"></select>
+              <button type="button" class="btn" id="btn-load-models" title="Загрузить список моделей с сервера" style="white-space:nowrap;">🔄 Загрузить</button>
+            </div>
+            <div id="custom-models-status" style="font-size:12px; margin-top:5px;"></div>
+          </div>
+          <div id="custom-badge" style="font-size:12px; margin-top:5px;"></div>
         </div>
-        <div class="field">
-          <label>OpenAI-совместимый URL <a href="https://openrouter.ai/keys" target="_blank" style="font-size:11px; font-weight:normal; color:var(--accent);">(OpenRouter, Groq и др.)</a></label>
-          <input type="text" id="user-ext-url" placeholder="https://api.openai.com/v1">
+
+        <!-- 2. OrcaRouter -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">2</span>
+            <span class="llm-provider-name">⚡ OrcaRouter</span>
+            <span class="llm-provider-hint">~4 сек</span>
+            <span class="llm-provider-status" id="orca-status">⚪ не задан</span>
+          </div>
+          <div class="field">
+            <label>API Key <a href="https://orcarouter.ai" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-orca-key" placeholder="sk-orca-..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-orca" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+            <div id="orca-badge" style="font-size:12px; margin-top:5px;"></div>
+          </div>
         </div>
-        <div class="field">
-          <label>OpenAI-совместимый Key</label>
-          <input type="password" id="user-ext-key" placeholder="sk-...">
+
+        <!-- 3. Gemini -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">3</span>
+            <span class="llm-provider-name">✨ Gemini</span>
+            <span class="llm-provider-hint">~20–40 сек</span>
+            <span class="llm-provider-status" id="gemini-status">⚪ не задан (5 RPD)</span>
+          </div>
+          <div class="field">
+            <label>API Key <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-gemini-key" placeholder="AIzaSy..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-gemini" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+            <div id="gemini-badge" style="font-size:12px; margin-top:5px;"></div>
+          </div>
         </div>
-        <button class="btn primary" id="btn-save-llm">Сохранить ключи</button>
+
+
+        <!-- Сейчас используется -->
+        <div class="hint" style="margin-top:12px; padding:10px 12px; background:var(--surface); border-radius:8px; font-size:13px;">
+          <b>Сейчас используется:</b> <span id="llm-active">—</span>
+        </div>
+
+        <!-- Admin резервные (только для админа) -->
+        <div id="llm-admin-block" style="display:none; margin-top:12px; padding:10px 12px; background:var(--surface); border-radius:8px; border:1px dashed var(--border);">
+          <div style="font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:6px;">
+            Резервные (admin, 5 RPD/день)
+          </div>
+          <div id="llm-admin-list" style="font-size:12px;"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center; margin-top:15px;">
+          <button class="btn primary" id="btn-save-llm">💾 Сохранить ключи</button>
+          <span id="llm-save-status" style="font-size:13px;"></span>
+        </div>
       </div>
 
-      <div class="card" id="cabinet-admin" style="display:none">
+
+    <div class="card" id="cabinet-admin" style="display:none">
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <a href="api/admin/backup.zip" class="btn primary" download style="text-decoration:none;">📦 Скачать ZIP-бэкап</a>
+          <button class="btn" id="btn-admin-weights">⚖️ Веса продуктов</button>
+        </div>
         <div class="hint" style="font-size:14px; font-weight:600; margin-bottom:10px">Управление доступом (Админ)</div>
         <div id="admin-users-list" style="margin-bottom:15px; font-size:14px;"></div>
         <div style="margin-bottom:15px;">
@@ -390,22 +478,7 @@
         </div>
       </div>
 
-            <div class="card" id="cabinet-weights" style="display:none">
-        <div class="hint" style="margin-bottom:10px;">
-          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
-          </div>
-        </div>
-        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
-        <div style="display:flex; gap:10px;">
-          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
-          <button class="btn primary" id="weights-save">Сохранить</button>
-          <button class="btn" id="weights-skip">Пропустить</button>
-        </div>
-      </div>
-
-<div class="card" id="cabinet-profiles">
+            <div class="card" id="cabinet-profiles">
         <div class="hint" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-size:14px; font-weight:600; margin-bottom:4px">Профили генерации</div>
@@ -415,9 +488,6 @@
         </div>
       </div>
 
-      <div class="card" id="cabinet-llm">
-        <div class="loading"><span class="spinner"></span> Проверка LLM…</div>
-      </div>
 
       <div class="card" id="cabinet-sync">
         <div class="hint">
@@ -871,31 +941,53 @@
   </div>
 </div>
 
+
+<div class="product-editor-overlay" id="weights-admin-modal">
+  <div class="product-editor-panel" style="max-width:600px;">
+    <div class="product-editor-header">
+      <h3>⚖️ Дефолтные веса</h3>
+      <button class="product-editor-close" id="weights-admin-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom:15px;">
+        Эти веса используются, если у пользователя нет своего значения.
+        Хардкод можно переопределить здесь.
+      </div>
+      <div id="weights-admin-list"></div>
+      <div style="display:flex; gap:10px; margin-top:15px;">
+        <input type="text" id="weights-admin-new-name" placeholder="Название продукта" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+        <input type="number" id="weights-admin-new-weight" placeholder="Вес, г" style="width:100px; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+        <button class="btn primary" id="weights-admin-add">Добавить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="editor-overlay" id="editor-overlay"></div>
 
-<script src="static/js/utils.js?v=68"></script>
-<script src="static/js/api.js?v=68"></script>
-<script src="static/js/state.js?v=68"></script>
-<script src="static/js/tabs.js?v=68"></script>
-<script src="static/js/youtube.js?v=68"></script>
-<script src="static/js/imports.js?v=68"></script>
-<script src="static/js/recipes.js?v=68"></script>
-<script src="static/js/detail.js?v=68"></script>
-<script src="static/js/editor.js?v=68"></script>
-<script src="static/js/plan-picker.js?v=68"></script>
-<script src="static/js/planner.js?v=68"></script>
-<script src="static/js/recipe-picker.js?v=68"></script>
-<script src="static/js/shopping.js?v=68"></script>
-<script src="static/js/products.js?v=68"></script>
-<script src="static/js/product-picker.js?v=68"></script>
-<script src="static/js/generator.js?v=68"></script>
-<script src="static/js/profiles.js?v=68"></script>
-<script src="static/js/cabinet.js?v=68"></script>
-<script src="static/js/sync.js?v=68"></script>
-<script src="static/js/live-sync.js?v=68"></script>
-<script src="static/js/walkthrough.js?v=68"></script>
-<script src="static/js/jobs.js?v=68"></script>
-<script src="static/js/finder.js?v=68"></script>
-<script src="static/js/app.js?v=68"></script>
+<script src="static/js/utils.js?v=74"></script>
+<script src="static/js/api.js?v=74"></script>
+<script src="static/js/state.js?v=74"></script>
+<script src="static/js/tabs.js?v=74"></script>
+<script src="static/js/youtube.js?v=74"></script>
+<script src="static/js/imports.js?v=74"></script>
+<script src="static/js/recipes.js?v=74"></script>
+<script src="static/js/detail.js?v=74"></script>
+<script src="static/js/editor.js?v=74"></script>
+<script src="static/js/plan-picker.js?v=74"></script>
+<script src="static/js/planner.js?v=74"></script>
+<script src="static/js/recipe-picker.js?v=74"></script>
+<script src="static/js/shopping.js?v=74"></script>
+<script src="static/js/products.js?v=74"></script>
+<script src="static/js/product-picker.js?v=74"></script>
+<script src="static/js/generator.js?v=74"></script>
+<script src="static/js/profiles.js?v=74"></script>
+<script src="static/js/cabinet.js?v=74"></script>
+<script src="static/js/sync.js?v=74"></script>
+<script src="static/js/live-sync.js?v=74"></script>
+<script src="static/js/walkthrough.js?v=74"></script>
+<script src="static/js/jobs.js?v=74"></script>
+<script src="static/js/finder.js?v=74"></script>
+<script src="static/js/app.js?v=74"></script>
 </body>
 </html>

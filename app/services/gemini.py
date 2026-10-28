@@ -55,45 +55,28 @@ RECIPE_PROMPT = """Ты — редактор кулинарных рецепто
 """
 
 
-async def call_gemini(text: str) -> tuple[str, str]:
-    if not GEMINI_API_KEY:
-        raise HTTPException(500, "GEMINI_API_KEY не задан в настройках add-on")
+async def call_gemini(text: str, user_id: str | None = None) -> tuple[str, str]:
+    """Генерирует Markdown-рецепт по субтитрам через LLM-каскад."""
+    from services.llm_cascade import call_llm_cascade
 
     template = _load_template()
     prompt = RECIPE_PROMPT.format(template=template, text=text)
 
-    last_error: Exception | None = None
-    client_kwargs: dict = {"timeout": 60.0}
-    if GEMINI_PROXY:
-        client_kwargs["proxy"] = GEMINI_PROXY
+    try:
+        raw, provider_name = await call_llm_cascade(
+            user_id=user_id,
+            prompt=prompt,
+            system=None,
+            max_tokens=2000,
+            temperature=0.2,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(502, f"Все модели недоступны: {exc}")
 
-    async with httpx.AsyncClient(**client_kwargs) as client:
-        for model in GEMINI_MODELS:
-            for attempt in range(1, 4):
-                try:
-                    url = (
-                        "https://generativelanguage.googleapis.com/v1beta/"
-                        f"models/{model}:generateContent?key={GEMINI_API_KEY}"
-                    )
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2000},
-                    }
-                    resp = await client.post(url, json=payload)
-                    if resp.status_code in (503, 429):
-                        raise RuntimeError(f"{resp.status_code}: {resp.text[:200]}")
-                    resp.raise_for_status()
-                    data = resp.json()
-                    markdown = (
-                        data["candidates"][0]["content"]["parts"][0]["text"]
-                    ).strip()
-                    if markdown.startswith("```"):
-                        markdown = re.sub(r"^```[a-zA-Z]*\n", "", markdown)
-                        markdown = re.sub(r"\n```$", "", markdown)
-                    return markdown.strip(), model
-                except Exception as e:  # noqa: BLE001
-                    last_error = e
-                    print(f"[gemini] model={model} attempt={attempt} failed: {e}")
-                    if attempt < 3:
-                        await asyncio.sleep(2**attempt)
-    raise HTTPException(502, f"Все модели недоступны: {last_error}")
+    markdown = (raw or "").strip()
+    if markdown.startswith("```"):
+        markdown = re.sub(r"^```[a-zA-Z]*\n", "", markdown)
+        markdown = re.sub(r"\n```$", "", markdown)
+    return markdown.strip(), provider_name

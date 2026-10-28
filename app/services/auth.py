@@ -72,14 +72,18 @@ class UserStore:
 
     async def save_llm_config(self, user_id: str, config: dict):
         if user_id in self.users:
-            # Шифруем ключи
-            enc_config = {}
+            existing = dict(self.users[user_id].get("llm_config") or {})
             for k, v in config.items():
-                if v and ("key" in k or "secret" in k):
-                    enc_config[k] = cipher.encrypt(v.encode()).decode()
+                if v is None:
+                    continue
+                if v == "":
+                    existing.pop(k, None)
+                    continue
+                if "key" in k or "secret" in k:
+                    existing[k] = cipher.encrypt(v.encode()).decode()
                 else:
-                    enc_config[k] = v
-            self.users[user_id]["llm_config"] = enc_config
+                    existing[k] = v
+            self.users[user_id]["llm_config"] = existing
             await self.save()
 
     def get_llm_config(self, user_id: str) -> dict:
@@ -115,6 +119,9 @@ users_store = UserStore()
 
 def get_current_user(request):
     """Возвращает текущего юзера. В HA-режиме — 'family', в OAuth — из куки."""
+    test_user = getattr(request.state, "test_mode_user", None)
+    if test_user:
+        return test_user
     from config import AUTH_MODE
     if AUTH_MODE == "oauth":
         session_id = request.cookies.get("rm_session")

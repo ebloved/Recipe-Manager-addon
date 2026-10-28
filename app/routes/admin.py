@@ -5,6 +5,9 @@ from services.auth import users_store
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 def check_admin(request: Request):
+    test_user = getattr(request.state, "test_mode_user", None)
+    if test_user:
+        return
     if AUTH_MODE == "oauth":
         session_id = request.cookies.get("rm_session")
         user = users_store.users.get(session_id)
@@ -47,4 +50,36 @@ async def delete_user(request: Request, email: str):
             del users_store.users[uid]
             
     await users_store.save()
+    return {"status": "ok"}
+
+
+@router.get("/piece_weights")
+async def get_piece_weights(request: Request):
+    check_admin(request)
+    from services.piece_weights import get_all_defaults
+    return {"weights": get_all_defaults()}
+
+
+@router.post("/piece_weights")
+async def set_piece_weight(request: Request, payload: dict = Body(...)):
+    check_admin(request)
+    from services.piece_weights import save_default_weight
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Name is required")
+    weight = payload.get("weight")
+    if weight is not None:
+        try:
+            weight = float(weight)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Invalid weight")
+    await save_default_weight(name, weight)
+    return {"status": "ok"}
+
+
+@router.delete("/piece_weights/{name:path}")
+async def delete_piece_weight(request: Request, name: str):
+    check_admin(request)
+    from services.piece_weights import save_default_weight
+    await save_default_weight(name, None)
     return {"status": "ok"}

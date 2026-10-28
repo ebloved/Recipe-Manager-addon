@@ -16,7 +16,6 @@
 
   async function load() {
     try { await loadUser(); } catch (e) { console.error("loadUser", e); }
-    try { await loadLLM(); } catch (e) { console.error("loadLLM", e); }
     try { await loadSettings(); } catch (e) { console.error("loadSettings", e); }
     try { await loadAdmin(); } catch (e) { console.error("loadAdmin", e); }
     try { await loadLLMForm(); } catch (e) { console.error("loadLLMForm", e); }
@@ -24,6 +23,7 @@
       try { await RM.sync.load(); } catch (e) { console.error("sync", e); }
     }
     try { await loadVersion(); } catch (e) { console.error("loadVersion", e); }
+    try { await loadPendingWeights(); } catch (e) { console.error("loadPendingWeights", e); }
   }
 
   async function loadUser() {
@@ -45,32 +45,6 @@
     }
   }
 
-  async function loadLLM() {
-    const box = $("cabinet-llm");
-    if (!box) return;
-    try {
-      const data = await getJSON("api/generator/status");
-      const p = data.providers || [];
-      const items = p.map((prov) => `
-        <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px;">
-          <span>${prov.name === 'hermes' ? '🤖 Hermes (OpenAI)' : '✨ Gemini'}</span>
-          ${prov.available 
-            ? '<span style="color:var(--success)">🟢 Доступен</span>' 
-            : '<span style="color:var(--text-muted)">🔴 Недоступен</span>'}
-        </div>`).join("");
-      
-      const active = data.active_provider ? `Активный: <b>${data.active_provider}</b>` : "Нет активного провайдера";
-      
-      box.innerHTML = `
-        <div class="hint">
-          <div style="font-size:14px; font-weight:600; margin-bottom:10px">Генерация рецептов</div>
-          ${items}
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:8px">${active}</div>
-        </div>`;
-    } catch (err) {
-      box.innerHTML = `<div class="hint" style="color:var(--danger)">Ошибка LLM: ${escHtml(err.message)}</div>`;
-    }
-  }
 
   async function loadSettings() {
     try {
@@ -187,6 +161,12 @@
 
       const adminCard = $("cabinet-admin");
       if (adminCard) adminCard.style.display = "block";
+      
+      const btnW = document.getElementById("btn-admin-weights");
+      if (btnW && typeof openWeightsAdmin === 'function' && !btnW.dataset.bound) {
+        btnW.dataset.bound = "1";
+        btnW.onclick = openWeightsAdmin;
+      }
 
       const data = await getJSON("api/admin/users");
       const list = $("admin-users-list");
@@ -233,158 +213,244 @@
     try {
       const me = await getJSON("api/me");
       if (me.source !== "oauth") return;
-      
+
       const form = $("cabinet-llm-form");
       if (form) form.style.display = "block";
-      
-      // Загружаем текущий статус
-      const conf = await getJSON("api/me/llm");
-      const statusDiv = $("llm-save-status");
-      const badge = $("llm-gemini-badge");
-      const gKeyInput = $("user-gemini-key");
-      const eUrlInput = $("user-ext-url");
-      const eKeyInput = $("user-ext-key");
-      
-      if (conf.external_llm_url) eUrlInput.value = conf.external_llm_url;
-      
-      if (conf.gemini_api_key_set) {
-        gKeyInput.placeholder = "•••••••• (сохранён)";
-        if (badge) {
-          badge.innerHTML = "🟢 Ваш ключ активен";
-          badge.style.color = "var(--success)";
-        }
-      } else {
-        gKeyInput.placeholder = "AIzaSy...";
-        if (badge) {
-          badge.innerHTML = "🟡 Встроенный ключ (лимит 5/день)";
-          badge.style.color = "#f5a623";
-        }
-      }
-      
-      if (conf.external_llm_key_set) {
-        eKeyInput.placeholder = "•••••••• (сохранён)";
-      } else {
-        eKeyInput.placeholder = "sk-...";
-      }
-      
-      const btn = $("btn-save-llm");
-      if (btn) {
-        btn.onclick = async () => {
-          btn.disabled = true;
-          
-          const gKey = gKeyInput.value.trim();
-          const eKey = eKeyInput.value.trim();
-          const eUrl = eUrlInput.value.trim();
-          
-          // Если введен новый Gemini ключ, сначала проверяем его
-          if (gKey) {
-            if (badge) {
-              badge.innerHTML = "⏳ Проверка ключа...";
-              badge.style.color = "var(--text-secondary)";
-            }
-            try {
-              await postJSON("api/me/llm/validate", { key: gKey });
-            } catch (err) {
-              if (badge) {
-                badge.innerHTML = "🔴 Ошибка: " + err.message;
-                badge.style.color = "var(--danger)";
-              }
-              btn.disabled = false;
-              return; // Прерываем сохранение, если ключ невалидный
-            }
-          }
-          
-          if (statusDiv) statusDiv.innerHTML = '⏳ Сохранение...';
-          
-          const payload = {
-            external_llm_url: eUrl || null,
-            preferred_provider: "auto"
-          };
-          
-          if (gKey) payload.gemini_api_key = gKey;
-          if (eKey) payload.external_llm_key = eKey;
-          
-          try {
-            await postJSON("api/me/llm", payload);
-            
-            if (statusDiv) {
-              statusDiv.innerHTML = '✅ Сохранено!';
-              statusDiv.style.color = 'var(--success)';
-            }
-            
-            // Если сохранили ключ, меняем бейдж на зеленый
-            if (gKey || conf.gemini_api_key_set) {
-              if (badge) {
-                badge.innerHTML = "🟢 Ваш ключ активен";
-                badge.style.color = "var(--success)";
-              }
-              gKeyInput.value = "";
-              gKeyInput.placeholder = "•••••••• (сохранён)";
-            }
-            
-            if (eKey) {
-              eKeyInput.value = "";
-              eKeyInput.placeholder = "•••••••• (сохранён)";
-            }
-            
-            setTimeout(() => { if (statusDiv && statusDiv.innerHTML === '✅ Сохранено!') statusDiv.innerHTML = ''; }, 3000);
-          } catch(e) {
-            if (statusDiv) {
-              statusDiv.innerHTML = '❌ Ошибка сохранения: ' + e.message;
-              statusDiv.style.color = 'var(--danger)';
-            }
-          } finally {
-            btn.disabled = false;
-          }
+
+      // Привязка кнопки «Загрузить модели» (v3.5.9)
+      const btnLoadModels = $("btn-load-models");
+      if (btnLoadModels) btnLoadModels.onclick = () => loadCustomModels();
+
+      // Загружаем: сохранённые ключи + текущую цепочку
+      let conf = {};
+      try { conf = await getJSON("api/me/llm") || {}; } catch (e) { console.warn("me/llm", e); }
+
+      let cascade = { chain: [], active: null, admin_providers: [] };
+      try { cascade = await getJSON("api/me/llm/cascade") || cascade; } catch (e) { console.warn("me/llm/cascade", e); }
+
+      // Логика удаления ключей (v3.6.5)
+      const btnClearOrca = $("btn-clear-orca");
+      if (btnClearOrca) {
+        btnClearOrca.style.display = conf.orcarouter_api_key_set ? "inline-block" : "none";
+        btnClearOrca.onclick = async () => {
+          if (!confirm("Удалить ключ OrcaRouter?")) return;
+          try { await postJSON("api/me/llm", { orcarouter_api_key: "" }); loadLLMForm(); } catch(e) { alert(e.message); }
         };
       }
-    } catch (e) { console.warn("LLM form error", e); }
-  }
 
-  
-  async function loadPendingWeights() {
-    try {
-      const data = await RM.api.getJSON("api/me/weights/pending");
-      console.log("[weights] pending response:", data);
-      
-      const box = document.getElementById("cabinet-weights");
-      if (!box) {
-        console.warn("[weights] cabinet-weights element not found");
-        return;
+      const btnClearExt = $("btn-clear-ext");
+      if (btnClearExt) {
+        btnClearExt.style.display = (conf.external_llm_url || conf.external_llm_key_set) ? "inline-block" : "none";
+        btnClearExt.onclick = async () => {
+          if (!confirm("Удалить настройки Custom AI?")) return;
+          try { await postJSON("api/me/llm", { external_llm_url: "", external_llm_key: "" }); loadLLMForm(); } catch(e) { alert(e.message); }
+        };
       }
-      
-      if (!data.product) {
-        console.log("[weights] no pending products. reason:", data.reason);
-        box.style.display = "none";
-        return;
+
+      const btnClearGemini = $("btn-clear-gemini");
+      if (btnClearGemini) {
+        btnClearGemini.style.display = conf.gemini_api_key_set ? "inline-block" : "none";
+        btnClearGemini.onclick = async () => {
+          if (!confirm("Удалить ключ Gemini?")) return;
+          try { await postJSON("api/me/llm", { gemini_api_key: "" }); loadLLMForm(); } catch(e) { alert(e.message); }
+        };
       }
-      
-      box.style.display = "block";
-      document.getElementById("weights-question").textContent = `Сколько грамм в 1 шт: ${data.product}?`;
-      document.getElementById("weights-input").value = "";
-      
-      document.getElementById("weights-save").onclick = async () => {
-        const val = document.getElementById("weights-input").value;
-        if (!val || parseFloat(val) <= 0) return;
-        const btn = document.getElementById("weights-save");
+
+
+      // ------- OrcaRouter -------
+      const orcaInput = $("user-orca-key");
+      const orcaBadge = $("orca-badge");
+      const orcaStatus = $("orca-status");
+      if (conf.orcarouter_api_key_set) {
+        orcaInput.placeholder = "•••••••• (сохранён)";
+        orcaBadge.innerHTML = "🟢 сохранён";
+        orcaBadge.style.color = "var(--success)";
+        orcaStatus.innerHTML = "🟢 активен";
+        orcaStatus.style.color = "var(--success)";
+      } else {
+        orcaInput.placeholder = "sk-orca-...";
+        orcaBadge.innerHTML = "";
+        orcaStatus.innerHTML = "⚪ не задан";
+        orcaStatus.style.color = "var(--text-muted)";
+      }
+
+      // ------- Custom AI -------
+      const extUrl = $("user-ext-url");
+      const extKey = $("user-ext-key");
+      const extModel = $("user-ext-model");
+      const customBadge = $("custom-badge");
+      const customStatus = $("custom-status");
+      if (conf.external_llm_url) extUrl.value = conf.external_llm_url;
+      if (conf.external_llm_model) extModel.value = conf.external_llm_model;
+      if (conf.external_llm_key_set) {
+        extKey.placeholder = "•••••••• (сохранён)";
+        customBadge.innerHTML = "🟢 сохранён";
+        customBadge.style.color = "var(--success)";
+        customStatus.innerHTML = "🟢 активен";
+        customStatus.style.color = "var(--success)";
+      } else {
+        extKey.placeholder = "sk-...";
+        customBadge.innerHTML = "";
+        customStatus.innerHTML = "⚪ не задан";
+        customStatus.style.color = "var(--text-muted)";
+      }
+
+      // ------- Gemini -------
+      const gemInput = $("user-gemini-key");
+      const gemBadge = $("gemini-badge");
+      const gemStatus = $("gemini-status");
+      if (conf.gemini_api_key_set) {
+        gemInput.placeholder = "•••••••• (сохранён)";
+        gemBadge.innerHTML = "🟢 сохранён";
+        gemBadge.style.color = "var(--success)";
+        gemStatus.innerHTML = "🟢 активен";
+        gemStatus.style.color = "var(--success)";
+      } else {
+        gemInput.placeholder = "AIzaSy...";
+        gemBadge.innerHTML = "🟡 без ключа — 5 RPD на admin-ключе";
+        gemBadge.style.color = "#f5a623";
+        gemStatus.innerHTML = "⚪ не задан (5 RPD)";
+        gemStatus.style.color = "var(--text-muted)";
+      }
+
+      // ------- Сейчас используется -------
+      const activeEl = $("llm-active");
+      if (activeEl) {
+        activeEl.textContent = cascade.active || "нет доступных провайдеров";
+        activeEl.style.fontWeight = "600";
+      }
+
+      // ------- Admin-резервные (только если пришли) -------
+      const adminBlock = $("llm-admin-block");
+      const adminList = $("llm-admin-list");
+      if (adminBlock && adminList) {
+        const aps = cascade.admin_providers || [];
+        if (aps.length) {
+          adminBlock.style.display = "block";
+          adminList.innerHTML = aps.map(p => {
+            const label = p.name === "gemini" ? "✨ Gemini" : p.name === "hermes" ? "🔧 Hermes" : p.name;
+            const status = p.available
+              ? '<span style="color:var(--success);">🟢 настроен</span>'
+              : '<span style="color:var(--text-muted);">🔴 не настроен</span>';
+            const model = p.model ? `<span style="color:var(--text-muted); margin-left:6px;">${escHtml(p.model)}</span>` : "";
+            return `<div style="display:flex; justify-content:space-between; padding:3px 0;">${label}${model}${status}</div>`;
+          }).join("");
+        } else {
+          adminBlock.style.display = "none";
+        }
+      }
+
+      // ------- Save -------
+      const btn = $("btn-save-llm");
+      const status = $("llm-save-status");
+      btn.onclick = async () => {
         btn.disabled = true;
+        if (status) { status.innerHTML = "⏳ Сохранение..."; status.style.color = "var(--text-muted)"; }
+
+        const orcaKey = orcaInput.value.trim();
+        const extUrlVal = extUrl.value.trim();
+        const extKeyVal = extKey.value.trim();
+        const extModelVal = extModel.value.trim();
+        const gemKey = gemInput.value.trim();
+
+        // Валидируем новые ключи перед сохранением
+        if (orcaKey) {
+          orcaBadge.innerHTML = "⏳ проверка…";
+          orcaBadge.style.color = "var(--text-muted)";
+          try {
+            await postJSON("api/me/llm/validate/orcarouter", { key: orcaKey });
+          } catch (err) {
+            orcaBadge.innerHTML = "🔴 " + err.message;
+            orcaBadge.style.color = "var(--danger)";
+            btn.disabled = false;
+            return;
+          }
+        }
+        if (extUrlVal && extKeyVal) {
+          customBadge.innerHTML = "⏳ проверка…";
+          customBadge.style.color = "var(--text-muted)";
+          try {
+            await postJSON("api/me/llm/validate/custom", {
+              url: extUrlVal,
+              key: extKeyVal,
+              model: extModelVal || "gpt-4o-mini",
+            });
+          } catch (err) {
+            customBadge.innerHTML = "🔴 " + err.message;
+            customBadge.style.color = "var(--danger)";
+            btn.disabled = false;
+            return;
+          }
+        }
+        if (gemKey) {
+          gemBadge.innerHTML = "⏳ проверка…";
+          gemBadge.style.color = "var(--text-muted)";
+          try {
+            await postJSON("api/me/llm/validate", { key: gemKey });
+          } catch (err) {
+            gemBadge.innerHTML = "🔴 " + err.message;
+            gemBadge.style.color = "var(--danger)";
+            btn.disabled = false;
+            return;
+          }
+        }
+
+        const payload = { preferred_provider: "auto" };
+        if (orcaKey) payload.orcarouter_api_key = orcaKey;
+        if (extUrlVal) payload.external_llm_url = extUrlVal;
+        if (extKeyVal) payload.external_llm_key = extKeyVal;
+        if (extModelVal) payload.external_llm_model = extModelVal;
+        if (gemKey) payload.gemini_api_key = gemKey;
+
         try {
-          await RM.api.postJSON("api/me/weights", { name: data.product, weight: val });
-          loadPendingWeights();
-        } catch(e) {
-          alert("Ошибка: " + e.message);
+          await postJSON("api/me/llm", payload);
+          if (status) { status.innerHTML = "✅ Сохранено!"; status.style.color = "var(--success)"; }
+
+          if (orcaKey) {
+            orcaInput.value = "";
+            orcaInput.placeholder = "•••••••• (сохранён)";
+            orcaBadge.innerHTML = "🟢 сохранён";
+            orcaBadge.style.color = "var(--success)";
+            orcaStatus.innerHTML = "🟢 активен";
+            orcaStatus.style.color = "var(--success)";
+          }
+          if (extKeyVal) {
+            extKey.value = "";
+            extKey.placeholder = "•••••••• (сохранён)";
+            customBadge.innerHTML = "🟢 сохранён";
+            customBadge.style.color = "var(--success)";
+            customStatus.innerHTML = "🟢 активен";
+            customStatus.style.color = "var(--success)";
+          }
+          if (gemKey) {
+            gemInput.value = "";
+            gemInput.placeholder = "•••••••• (сохранён)";
+            gemBadge.innerHTML = "🟢 сохранён";
+            gemBadge.style.color = "var(--success)";
+            gemStatus.innerHTML = "🟢 активен";
+            gemStatus.style.color = "var(--success)";
+          }
+
+          // Перечитываем активную цепочку
+          try {
+            const fresh = await getJSON("api/me/llm/cascade");
+            if (fresh && fresh.active) {
+              activeEl.textContent = fresh.active;
+            }
+          } catch (_) {}
+
+          setTimeout(() => {
+            if (status && status.innerHTML === "✅ Сохранено!") status.innerHTML = "";
+          }, 3000);
+        } catch (e) {
+          if (status) { status.innerHTML = "❌ " + e.message; status.style.color = "var(--danger)"; }
         } finally {
           btn.disabled = false;
         }
       };
-      
-      document.getElementById("weights-skip").onclick = () => {
-        box.style.display = "none";
-      };
-    } catch(e) { 
-      console.error("[weights] error:", e); 
-    }
+    } catch (e) { console.warn("LLM form error", e); }
   }
+
 
   async function loadVersion() {
     try {
@@ -402,6 +468,158 @@
       await del(`api/admin/users/${encodeURIComponent(email)}`);
       loadAdmin();
     } catch (e) { alert(e.message); }
+  }
+
+  async function loadPendingWeights() {
+    try {
+      const data = await RM.api.getJSON("api/me/weights/pending");
+      const box = document.getElementById("cabinet-weights");
+      if (!box) return;
+      if (!data.product) { box.style.display = "none"; return; }
+      box.style.display = "block";
+      document.getElementById("weights-question").textContent = `Сколько грамм в 1 шт: ${data.product}?`;
+      document.getElementById("weights-input").value = "";
+      document.getElementById("weights-save").onclick = async () => {
+        const val = document.getElementById("weights-input").value;
+        if (!val || parseFloat(val) <= 0) return;
+        const btn = document.getElementById("weights-save");
+        btn.disabled = true;
+        try {
+          await RM.api.postJSON("api/me/weights", { name: data.product, weight: val });
+          loadPendingWeights();
+        } catch (e) { alert("Ошибка: " + e.message); }
+        finally { btn.disabled = false; }
+      };
+      document.getElementById("weights-skip").onclick = () => { box.style.display = "none"; };
+    } catch (e) { console.error("[weights] error:", e); }
+  }
+
+  async function openWeightsAdmin() {
+    const modal = document.getElementById("weights-admin-modal");
+    if (!modal) return;
+    const list = document.getElementById("weights-admin-list");
+    list.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
+    modal.classList.add("show");
+    try {
+      const data = await RM.api.getJSON("api/admin/piece_weights");
+      const entries = Object.entries(data.weights || {}).sort((a, b) => a[0].localeCompare(b[0]));
+      if (!entries.length) {
+        list.innerHTML = '<p style="color:var(--text-muted)">Нет записей</p>';
+      } else {
+        list.innerHTML = entries.map(([name, weight]) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">
+            <span>${escHtml(name)}</span>
+            <span style="display:flex; gap:8px; align-items:center;">
+              <input type="number" value="${weight}" style="width:80px; padding:4px; border-radius:4px; border:1px solid var(--border); background:var(--surface); color:var(--text);" data-name="${escHtml(name)}">
+              <button class="btn" data-del="${escHtml(name)}" style="color:var(--danger); padding:2px 8px; font-size:12px;">×</button>
+            </span>
+          </div>
+        `).join("");
+        list.querySelectorAll("input[data-name]").forEach(inp => {
+          inp.onchange = async () => {
+            try { await RM.api.postJSON("api/admin/piece_weights", { name: inp.dataset.name, weight: parseFloat(inp.value) }); }
+            catch (e) { alert(e.message); }
+          };
+        });
+        list.querySelectorAll("button[data-del]").forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm("Удалить переопределение?")) return;
+            try {
+              await RM.api.del(`api/admin/piece_weights/${encodeURIComponent(btn.dataset.del)}`);
+              openWeightsAdmin();
+            } catch (e) { alert(e.message); }
+          };
+        });
+      }
+    } catch (e) {
+      list.innerHTML = `<p style="color:var(--danger)">Ошибка: ${escHtml(e.message)}</p>`;
+    }
+    const closeBtn = document.getElementById("weights-admin-close");
+    if (closeBtn) closeBtn.onclick = () => modal.classList.remove("show");
+    modal.onclick = (e) => { if (e.target === modal) modal.classList.remove("show"); };
+    const addBtn = document.getElementById("weights-admin-add");
+    if (addBtn && !addBtn.dataset.bound) {
+      addBtn.dataset.bound = "1";
+      addBtn.onclick = async () => {
+        const name = document.getElementById("weights-admin-new-name").value.trim();
+        const weight = parseFloat(document.getElementById("weights-admin-new-weight").value);
+        if (!name || !weight) return;
+        try {
+          await RM.api.postJSON("api/admin/piece_weights", { name, weight });
+          document.getElementById("weights-admin-new-name").value = "";
+          document.getElementById("weights-admin-new-weight").value = "";
+          openWeightsAdmin();
+        } catch (e) { alert(e.message); }
+      };
+    }
+  }
+
+  async function loadCustomModels() {
+    const url = $("user-ext-url").value.trim();
+    const key = $("user-ext-key").value.trim();
+    const status = $("custom-models-status");
+    const btn = $("btn-load-models");
+    const input = $("user-ext-model");
+    const select = $("user-ext-model-select");
+
+    if (!url || !key) {
+      if (status) {
+        status.innerHTML = "⚠ Введите URL и API Key";
+        status.style.color = "#f5a623";
+      }
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (status) {
+      status.innerHTML = "⏳ Загрузка моделей...";
+      status.style.color = "var(--text-muted)";
+    }
+
+    try {
+      const data = await postJSON("api/me/llm/custom/models", { url, key });
+      const models = data.models || [];
+      if (!models.length) {
+        if (status) {
+          status.innerHTML = "⚠ " + (data.error || "Список моделей пуст");
+          status.style.color = "#f5a623";
+        }
+        return;
+      }
+
+      select.innerHTML = '<option value="">— ввести вручную —</option>'
+        + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join("");
+
+      const current = input.value.trim();
+      if (current && models.includes(current)) {
+        select.value = current;
+      }
+
+      input.style.display = "none";
+      select.style.display = "block";
+
+      select.onchange = () => {
+        if (select.value === "") {
+          input.style.display = "block";
+          select.style.display = "none";
+          input.focus();
+        } else {
+          input.value = select.value;
+        }
+      };
+
+      if (status) {
+        status.innerHTML = `✓ ${models.length} моделей на endpoint`;
+        status.style.color = "var(--success)";
+      }
+    } catch (e) {
+      if (status) {
+        status.innerHTML = "✗ " + e.message;
+        status.style.color = "var(--danger)";
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   RM.cabinet = { setup, load, deleteUser };

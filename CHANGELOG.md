@@ -1,3 +1,176 @@
+## [3.6.7] — 2026-10-28
+
+Hotfix: ReferenceError в loadLLMForm.
+
+### Fixed
+
+- **`cabinet.js`**: при добавлении кнопок удаления ключей (🗑️) в v3.6.5 блок кода был вставлен до объявления `conf`, из-за чего возникал `ReferenceError: Cannot access 'conf' before initialization` и форма не сохранялась. Блок перемещен после загрузки `conf`.
+
+---
+
+## [3.6.5] — 2026-10-28
+
+UI: удаление ключей и умная валидация Gemini.
+
+### Added
+
+- **Кнопки «🗑️»** в Кабинете рядом с ключами OrcaRouter, Custom AI и Gemini. Позволяют сбросить ключ без перезаписи. Отправляют пустую строку в `POST /api/me/llm`, бэкенд удаляет ключ.
+
+### Fixed
+
+- **`me.py::validate_llm_key`**: если ключ отклоняется как API-ключ (401), бэкенд автоматически пробует передать его как `Authorization: Bearer <token>`. Это позволяет валидировать OAuth access-токены (`AQ...`).
+
+---
+
+## [3.6.3] — 2026-10-28
+
+Hotfix: валидация Gemini API-ключей нового формата (AQ...).
+
+### Fixed
+
+- **`me.py::validate_llm_key`**: Google начал выдавать API-ключи с префиксом `AQ.` (вместо `AIza...`). Старый эндпоинт `/v1beta/models?key=AQ...` возвращает `401 ACCESS_TOKEN_TYPE_UNSUPPORTED`. Теперь ключ передается через заголовок `x-goog-api-key`, что поддерживает оба формата.
+
+---
+
+## [3.6.2] — 2026-10-28
+
+Логи каскада и фикс resumer.py.
+
+### Fixed
+
+- **`resumer.py`**: при возобновлении Gemini-задач использовался admin `GEMINI_API_KEY`, что давало `401 Unauthorized` для задач, запущенных с ключом пользователя. Теперь `user_id` берется из `params` задачи, и ключ достается из профиля юзера.
+- **Логи `custom_llm`, `orcarouter`, `llm_cascade`**: `logger.info()` заменен на `print()`, так как `uvicorn` проглатывал `INFO` от кастомных логгеров. Теперь в HA-логах видно успешные шаги каскада (`[cascade] trying...`, `✓ ok`).
+
+---
+
+## [3.6.1] — 2026-10-28
+
+Hotfix: NameError в custom_llm.py.
+
+### Fixed
+
+- **`custom_llm.py`**: `logger` использовался в `complete()`, но не был объявлен (в v3.6.0 добавили лог, забыли `import logging` и `logger = logging.getLogger(__name__)`). Из-за этого Custom (Groq) падал с `NameError: name 'logger' is not defined`, и каскад сразу уходил на admin Gemini.
+
+---
+
+## [3.6.0] — 2026-10-28
+
+Каскад LLM: Custom AI первым, Orca вторым.
+
+### Changed
+
+- **Порядок каскада:** `user Custom → user Orca → user Gemini → admin Gemini → admin Hermes`. Custom (OpenAI-совместимый) теперь пробуется первым, так как обычно это самый быстрый и надёжный free-tier (Groq, ZvenoAI и т.д.).
+- **Порядок в UI:** блоки в Кабинете переставлены (1. Custom AI, 2. OrcaRouter, 3. Gemini).
+- **Логи:** `custom_llm.py` теперь пишет `[custom_llm] trying model=...`, `llm_cascade.py` пишет `[cascade] skipped custom: no url or key`, если Custom не настроен.
+
+### Fixed
+
+- **`orcarouter.py`** обновлён до актуальной версии v3.5.7: 403 `model_access_denied` теперь пропускает модель, а не обрывает весь каскад Orca.
+
+---
+
+## [3.5.9] — 2026-10-28
+
+Hotfix: кнопка «🔄 Загрузить» в Custom AI не работала.
+
+### Fixed
+
+- **`cabinet.js::loadLLMForm`** — привязка `btnLoadModels.onclick` не вставлялась из-за ошибочного условия идемпотентности в v3.5.8 (строка `$("btn-load-models")` уже присутствовала внутри `loadCustomModels()`, поэтому блок привязки считался «уже есть»). Теперь проверка по `btnLoadModels`, привязка ставится безусловно.
+
+### Notes
+
+- `loadCustomModels()` объявлена внутри IIFE — в консоли `typeof loadCustomModels === "undefined"` это норма, не баг.
+- Для Groq поле Model по умолчанию (`gpt-4o-mini`) не подходит — используй `llama-3.3-70b-versatile` или выбери из dropdown после загрузки.
+
+---
+
+## [3.5.8] — 2026-10-28
+
+UI: подгрузка списка моделей с Custom endpoint.
+
+### Added
+
+- **`POST /api/me/llm/custom/models`** — возвращает список моделей с `{url, key}`. Парсит OpenAI (`data[].id`), Ollama (`models[].name`), строки.
+- **Кнопка «🔄 Загрузить»** рядом с полем Model в Кабинете: подтягивает `/models` с endpoint'а, заменяет input на dropdown. Опция «— ввести вручную —» возвращает input.
+
+### Notes
+
+- Если endpoint не поддерживает `/models` (404) — кнопка показывает сообщение, input остаётся доступен для ручного ввода.
+- `<input id="user-ext-model">` остаётся source of truth: выбор из select обновляет input, форма читает значение оттуда.
+
+---
+
+## [3.5.6] — 2026-10-28
+
+OrcaRouter: fallback по моделям внутри провайдера.
+
+### Changed
+
+- **`OrcaRouterProvider.complete()`** итерирует `ORC_MODELS` (comma-separated, дефолт: tencent/hy4-preview-free → deepseek/deepseek-v4.1-flash-free → deepseek/deepseek-v4-flash-free → orca/orcaverify-text1.0-free).
+- **429/499** → следующая модель. **5xx/timeout** → следующая. **401/403** → abort (ключ не тот).
+- **`ORC_MODELS`** в `config.py` (env override).
+
+### Notes
+
+- `tencent/hy4-preview-free` на free-tier даёт **250 RPD / 50 RPM** против 50 RPD / 10 RPM у deepseek — в 5 раз больше до сброса дневной квоты.
+- Дневные лимиты и пороги пополнения: `GET /api/free-package/public` (без ключа).
+
+---
+
+## [3.5.5] — 2026-10-28
+
+Единый LLM-каскад для всех операций + единый UI.
+
+### Added
+
+- **`app/services/custom_llm.py`** — Custom OpenAI-совместимый провайдер (url + key + model, per-user).
+- **`GET /api/me/llm/cascade`** — текущая цепочка для UI, admin_providers только админу.
+- **`POST /api/me/llm/validate/custom`** — проверка endpoint'а.
+
+### Changed
+
+- **Линейный каскад:** `user Orca → user Custom → user Gemini → admin Gemini → admin Hermes`. Admin Orca не используется, RPD списывается один раз за проход.
+- **`active_time`** — через `call_llm_cascade` (`user_id=recipe.owner_id or "family"`).
+- **`gemini.py::call_gemini`** — через `call_llm_cascade`, `user_id` пробрасывается из `routes/youtube.py`.
+- **`matcher/cascade.py`** — генеративная валидация через `_CascadeProvider` + `ContextVar` user_id.
+- **`routes/matcher.py`** — `request` в `match`/`match-batch`/`validate`, `set_matcher_user_id`.
+- **`resumer.py`** — только Gemini (`gemini_embedder` напрямую).
+
+### UI
+
+- **Кабинет → один раздел «🤖 LLM-провайдеры»**: 3 блока (Orca / Custom / Gemini) в порядке каскада, «Сейчас используется», admin-секция с резервными (только для админа).
+- Старый `#cabinet-llm` («Генерация рецептов») и `loadLLM()` удалены.
+
+### Fixed
+
+- **`external_llm.complete()`** принимает `api_key=`.
+- **`auth.save_llm_config()`** merge-friendly.
+
+---
+
+## [3.5.4] — 2026-10-28
+
+Сводный фикс: OrcaRouter-каскад + правила fallback.
+
+### Added
+
+- **`app/services/orcarouter.py`** — OpenAI-совместимый клиент OrcaRouter (user-ключи).
+- **`app/services/llm_cascade.py`** — каскад:
+  - User Orca → Admin Gemini (5 RPD);
+  - User Gemini → только он;
+  - Orca+Gemini → user Orca → user Gemini (без admin);
+  - Нет ключей → Admin Gemini → Admin Hermes (1 RPD на проход).
+- **`POST /api/me/llm/validate/orcarouter`**.
+- **`ORC_BASE_URL` / `ORC_MODEL` / `ORC_TIMEOUT`** в config.py.
+
+### Fixed
+
+- **`external_llm.complete()`** принимает `api_key=`.
+- **`auth.save_llm_config()`** merge-friendly.
+- **`cabinet.js`**: восстановлены `loadPendingWeights` и `openWeightsAdmin`.
+
+---
+
 ## [3.3.4] — 2026-10-26
 
 Hotfix: SyntaxError в cabinet.js.

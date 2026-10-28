@@ -3,7 +3,6 @@ import json
 import logging
 import re
 from typing import Any
-from services.generator.providers import get_llm_provider
 from services.file_logger import log_llm_event
 from stores.settings import settings_store
 
@@ -26,21 +25,7 @@ SYSTEM_PROMPT = (
 )
 
 async def adapt_recipe_to_airfryer(recipe: dict[str, Any], job_id: str | None = None, user_id: str | None = None) -> dict[str, Any]:
-    from services.auth import users_store
-    from services.rate_limiter import rate_limiter
-    
-    user_key = None
-    if user_id:
-        conf = users_store.get_llm_config(user_id)
-        user_key = conf.get("gemini_api_key")
-        
-    if not user_key and user_id:
-        if not await rate_limiter.can_generate(user_id):
-            raise RuntimeError("Достигнут лимит 5 бесплатных генераций в день.")
-
-    provider, provider_name = get_llm_provider()
-    if provider is None:
-        raise RuntimeError("No LLM provider available")
+    from services.llm_cascade import call_llm_cascade
 
     prompt = (
         f"Справочник:\n{AIRFRYER_GUIDE}\n\n"
@@ -50,13 +35,10 @@ async def adapt_recipe_to_airfryer(recipe: dict[str, Any], job_id: str | None = 
     )
 
     try:
-        raw = await provider.complete(
-            prompt=prompt,
-            system=SYSTEM_PROMPT,
+        raw, provider_name = await call_llm_cascade(
+            user_id=user_id, prompt=prompt, system=SYSTEM_PROMPT,
             max_tokens=int(settings_store.get("adapter_max_tokens", 2000)),
-            temperature=0.3,
-            job_id=job_id,
-            api_key=user_key,
+            temperature=0.3, job_id=job_id,
         )
         
         s = raw.strip()

@@ -167,61 +167,35 @@ async def generate_suggestions(
     else:
         profile = gen_profiles_store.get_active()
 
-    from services.auth import users_store
-    from services.rate_limiter import rate_limiter
-    user_key = None
-    if user_id:
-        conf = users_store.get_llm_config(user_id)
-        user_key = conf.get("gemini_api_key")
-        
-    if not user_key and user_id:
-        if not await rate_limiter.can_generate(user_id):
-            from fastapi import HTTPException
-            raise HTTPException(429, "Достигнут лимит 5 бесплатных генераций в день. Добавьте свой Gemini API Key в Кабинете.")
-
-    provider, provider_name = get_llm_provider()
-    if provider is None:
-        raise HTTPException(
-            503,
-            "Нет доступных LLM-провайдеров. "
-            "Настройте matcher_external_* или GEMINI_API_KEY в конфиге.",
-        )
+    from services.llm_cascade import call_llm_cascade
 
     samples = _pick_samples(profile, samples_count)
     system, user = build_prompt(profile, samples, topic, count)
 
-    logger.info(
-        "[generator] provider=%s, count=%d, samples=%d, profile=%s",
-        provider_name, count, len(samples), (profile or {}).get("name"),
-    )
+    logger.info("[generator] count=%d, samples=%d, profile=%s",
+                count, len(samples), (profile or {}).get("name"))
 
     import time as _time
     _t0 = _time.monotonic()
     try:
-        raw_response = await provider.complete(
-            prompt=user, system=system,
-            max_tokens=int(settings_store.get("generator_max_tokens", GENERATOR_MAX_TOKENS)), temperature=0.7,
-            job_id=job_id,
-            api_key=user_key,
+        raw_response, provider_name = await call_llm_cascade(
+            user_id=user_id, prompt=user, system=system,
+            max_tokens=int(settings_store.get("generator_max_tokens", GENERATOR_MAX_TOKENS)),
+            temperature=0.7, job_id=job_id,
         )
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         _elapsed = round(_time.monotonic() - _t0, 2)
-        _usage = getattr(provider, "_last_usage", None) or {}
-        _record_attempt(status="error", provider=provider_name,
-                        model=_model_name(provider), elapsed_s=_elapsed,
-                        error=str(exc)[:300], at=_now(),
-                        usage=_usage)
-        logger.warning("[generator] provider %s failed (%.1fs): %s",
-                       provider_name, _elapsed, exc)
+        _record_attempt(status="error", provider="cascade", model="",
+                        elapsed_s=_elapsed, error=str(exc)[:300], at=_now(), usage={})
+        logger.warning("[generator] cascade failed (%.1fs): %s", _elapsed, exc)
         raise HTTPException(502, f"LLM вернул ошибку: {exc}") from exc
     _elapsed = round(_time.monotonic() - _t0, 2)
     log_llm_event(job_id, user_id, "generate", "success", raw_response)
-    _usage = getattr(provider, "_last_usage", None) or {}
-    _record_attempt(status="ok", provider=provider_name,
-                    model=_model_name(provider), elapsed_s=_elapsed,
-                    error=None, at=_now(),
-                    finish_reason=_usage.get("finish_reason"),
-                    usage=_usage)  # весь объект: attempts, models_tried, usage
+    _record_attempt(status="ok", provider=provider_name, model=provider_name,
+                    elapsed_s=_elapsed, error=None, at=_now(),
+                    finish_reason=None, usage={})
 
     raw_response = _clean_md(raw_response)
     if not raw_response:
@@ -236,7 +210,7 @@ async def generate_suggestions(
     if not parts:
         raise HTTPException(502, "Не удалось разбить ответ на рецепты")
 
-    model_name = _model_name(provider)
+    model_name = provider_name
 
     results: list[dict[str, Any]] = []
     for md in parts:

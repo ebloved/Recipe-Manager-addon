@@ -22,6 +22,7 @@
     $("shopping-new-name").addEventListener("keydown", (e) => {
       if (e.key === "Enter") onAddManual();
     });
+    $("shopping-export-connector").addEventListener("click", onExportConnector);
     $("shopping-clear-checked").addEventListener("click", onClearChecked);
     $("shopping-only-active").addEventListener("change", (e) => {
       state.shoppingOnlyActive = e.target.checked;
@@ -655,6 +656,42 @@
       state.shoppingItems.push(data.item);
     } catch (err) {
       alert("Ошибка: " + err.message);
+    }
+  }
+
+  
+  async function onExportConnector() {
+    try {
+      const data = await RM.api.getJSON("api/shopping/export-for-connector?store_id=vkusvill");
+      const jsonStr = JSON.stringify(data, null, 2);
+
+      if (data.meta && data.meta.total_items === 0) {
+        alert("Корзина пуста — добавьте рецепты, чтобы экспортировать.");
+        return;
+      }
+
+      // Показываем предупреждения
+      if (data.warnings && data.warnings.length) {
+        const msg = "⚠️ Некоторые позиции без веса:\n\n" + data.warnings.join("\n") + "\n\nПродолжить?";
+        if (!confirm(msg)) return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(jsonStr);
+        alert(`✅ JSON скопирован!\nПозиций: ${data.meta.total_items}\nКонвертировано из шт в г: ${data.meta.converted_from_pieces}\nБез веса: ${data.meta.unknown_weights}`);
+      } catch (err) {
+        // Fallback: скачиваем файл
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "cart_for_connector.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("Клипборд заблокирован — скачал файл cart_for_connector.json");
+      }
+    } catch (e) {
+      alert("Ошибка: " + e.message);
     }
   }
 

@@ -51,7 +51,7 @@ class ShoppingStore:
                 await self.save()
         except Exception as exc:  # noqa: BLE001
             print(f"[shopping] failed to load: {exc}")
-            self.items = [i for i in self.items if i.get('owner_id') != owner_id]
+            self.items = []
 
     async def save(self) -> None:
         async with self._lock:
@@ -176,11 +176,13 @@ class ShoppingStore:
                 return updated
         return None
 
-    async def toggle(self, item_id: str) -> dict[str, Any] | None:
+    async def toggle(self, item_id: str, owner_id: str) -> dict[str, Any] | None:
         item = self.get(item_id)
-        if not item:
+        if not item or item.get("owner_id") != owner_id:
             return None
-        return await self.update(item_id, {"checked": not item.get("checked", False)})
+        return await self.update(
+            item_id, owner_id, {"checked": not item.get("checked", False)}
+        )
 
     async def delete(self, item_id: str, owner_id: str) -> bool:
         before = len(self.items)

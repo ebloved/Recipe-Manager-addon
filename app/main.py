@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import (
+    TEST_MODE,
+    TEST_TOKEN,
     SECRET_KEY,
     AUTH_MODE,
     FEATURE_MATCHER,
@@ -141,6 +143,27 @@ async def ingress_middleware(request: Request, call_next):
     if ingress_path:
         request.scope["root_path"] = ingress_path
     return await call_next(request)
+
+
+if TEST_MODE:
+    print("[TEST_MODE] WARNING: auth bypass from 127.0.0.1/::1 enabled. Never use in prod!")
+
+    @app.middleware("http")
+    async def test_mode_middleware(request: Request, call_next):
+        client_host = request.client.host if request.client else ""
+        token = request.headers.get("X-Test-Token", "")
+        if (
+            TEST_TOKEN
+            and token == TEST_TOKEN
+            and client_host in ("127.0.0.1", "::1")
+        ):
+            request.state.test_mode_user = {
+                "id": "smoke-test-user",
+                "role": "admin",
+                "name": "Smoke Test",
+                "source": "test",
+            }
+        return await call_next(request)
 
 
 app.include_router(api_router)
