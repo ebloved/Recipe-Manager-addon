@@ -22,7 +22,10 @@ from services.generator import (
     get_providers_status,
 )
 from services.generator.generator import _now
-from services.telegram_service import telegram_service
+try:
+    from services.telegram_service import telegram_service
+except ImportError:
+    telegram_service = None
 from stores import jobs_store, recipe_store, suggestions_store
 
 logger = logging.getLogger(__name__)
@@ -68,13 +71,15 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count, user
             job_id, status="done", created=len(items),
             finished_at=_now(),
         )
-        await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
+        if telegram_service:
+            await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
         logger.info("[generator] job %s done in %.1fs, %d suggestions",
                     job_id, elapsed, len(items))
     except HTTPException as exc:
         await jobs_store.update(
             job_id, status="error", error=exc.detail, finished_at=_now())
-        await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
+        if telegram_service:
+            await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
         logger.warning("[generator] job %s failed: %s", job_id, exc.detail)
     except Exception as exc:  # noqa: BLE001
         await jobs_store.update(

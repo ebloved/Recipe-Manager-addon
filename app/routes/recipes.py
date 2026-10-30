@@ -415,9 +415,16 @@ async def _run_estimate_one_job(job_id: str, recipe_id: str, *, force: bool = Tr
     from services.generator.generator import _now
     from stores import jobs_store
 
-    from services.telegram_service import telegram_service
+    try:
+
+        from services.telegram_service import telegram_service
+
+    except ImportError:
+
+        telegram_service = None
     t0 = time.monotonic()
-    await telegram_service.send(f"♨️ <b>Начата адаптация под аэрогриль</b>\nJob ID: <code>{job_id}</code>\nРецепт: {recipe_id}")
+    if telegram_service:
+        await telegram_service.send(f"♨️ <b>Начата адаптация под аэрогриль</b>\nJob ID: <code>{job_id}</code>\nРецепт: {recipe_id}")
     try:
         recipe = recipe_store.get(recipe_id)
         if not recipe:
@@ -556,14 +563,18 @@ async def _run_adapt_job(job_id: str, recipe: dict, job_id_user: str):
     import time
     from stores import jobs_store
     from services.generator.generator import _now
-    from services.telegram_service import telegram_service
+    try:
+        from services.telegram_service import telegram_service
+    except ImportError:
+        telegram_service = None
     
     t0 = time.monotonic()
     try:
         msg = f"""♨️ <b>Начата адаптация под аэрогриль</b>
 Job ID: <code>{job_id}</code>
 Рецепт: {recipe.get('name')}"""
-        await telegram_service.send(msg)
+        if telegram_service:
+            await telegram_service.send(msg)
         
         adapt_data = await adapt_recipe_to_airfryer(recipe, job_id=job_id, user_id=job_id_user)
         
@@ -592,7 +603,8 @@ Job ID: <code>{job_id}</code>
         
         msg2 = f"""✅ <b>Адаптация завершена</b>
 Job ID: <code>{job_id}</code>"""
-        await telegram_service.send(msg2)
+        if telegram_service:
+            await telegram_service.send(msg2)
         
         logger.info(f"[adapter] job {job_id} done in {time.monotonic()-t0:.1f}s")
     except Exception as e:
@@ -602,7 +614,8 @@ Job ID: <code>{job_id}</code>"""
         msg3 = f"""❌ <b>Ошибка адаптации</b>
 Job ID: <code>{job_id}</code>
 {str(e)}"""
-        await telegram_service.send(msg3)
+        if telegram_service:
+            await telegram_service.send(msg3)
 
 
 @router.post("/-/find-by-ingredients")

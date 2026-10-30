@@ -1,3 +1,13 @@
+## [3.6.8] — 2026-10-30
+
+Hotfix: падение HA-аддона из-за отсутствия aiogram.
+
+### Fixed
+
+- **`routes/generator.py`, `routes/recipes.py`**: импорт `telegram_service` обернут в `try/except ImportError`. В HA-аддоне пакет `aiogram` не установлен, из-за чего падал весь `uvicorn` с `ModuleNotFoundError`. Теперь при отсутствии `aiogram` сервис просто отключается (`None`), а вызовы `send` пропускаются.
+
+---
+
 ## [3.6.7] — 2026-10-28
 
 Hotfix: ReferenceError в loadLLMForm.
