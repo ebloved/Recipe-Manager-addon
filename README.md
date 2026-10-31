@@ -12,7 +12,7 @@ Home Assistant add-on для управления рецептами, плани
 - **Markdown** с YAML front matter (одиночный файл или массовый batch)
 - **Веб-страницы** — JSON-LD / microdata
 - **Вручную** — встроенный редактор
-- **Генерация через LLM** — Gemini / Hermes / любой OpenAI-совместимый endpoint
+- **Генерация через LLM** — гибкий каскад: Custom (Groq/Zveno) → OrcaRouter → Gemini → Admin-провайдеры
 
 ### Организация
 - **Библиотека рецептов** с поиском по названию, тегам, ингредиентам
@@ -43,6 +43,14 @@ Home Assistant add-on для управления рецептами, плани
 
 После старта появится панель **Recipe Manager** в левом меню Home Assistant.
 
+## Управление LLM (Кабинет)
+В личном кабинете (вкладка «Профиль») можно настроить свои ключи для LLM:
+* **Custom AI** — любой OpenAI-совместимый API (Groq, ZvenoAI и др.). Есть кнопка загрузки списка моделей.
+* **OrcaRouter** — быстрый роутер с бесплатными моделями.
+* **Gemini** — ключ от Google AI Studio.
+
+Порядок работы: Custom → Orca → Gemini → (если ничего не задано) Admin Gemini → Admin Hermes. Без своих ключей доступно 5 бесплатных генераций в день.
+
 ## Основные опции
 
 Все параметры — в **Configuration** аддона (YAML / UI). Полный список
@@ -53,6 +61,7 @@ Home Assistant add-on для управления рецептами, плани
 | `runtime_mode` | `minimal` / `standard` / `full` — что включено |
 | `gemini_api_key` | Gemini: генерация, эмбеддинги, валидация |
 | `gemini_models` | Список моделей (fallback в cascade) |
+| `llm_providers` | Каскад: Custom -> Orca -> Gemini -> Admin |
 | `matcher_external_*` | OpenAI-совместимый endpoint (Hermes, OpenRouter, Ollama…) |
 | `local_embedder_enabled` | sentence-transformers на CPU (без сети) |
 | `github_*` | Синхронизация рецептов и продуктов с репозиторием |
@@ -107,7 +116,6 @@ DOWNLOAD_DIR=/tmp/rm_dl DATA_DIR=/tmp/rm_data \
 - Standalone embedding service — addon ходит в него за эмбеддингами
   (снимает 80 МБ модели из HA).
 - Публикация рецептов по ссылке с fork в личную библиотеку.
-- Per-user LLM keys в личном кабинете.
 
 ### Позже
 - Multi-md режим синхронизации с GitHub (папка вместо одного файла).
