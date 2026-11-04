@@ -19,7 +19,7 @@
 
 ### Repository and license
 
-- Новый репозиторий: https://github.com/ebloved/Recipe-Manager
+- Новый репозиторий: https://github.com/ebloved/Recipe-Manager-addon
 - Лицензия этой и последующих версий: AGPL-3.0-or-later.
 - Версии до 3.20.0 остаются под MIT; их условия не отзываются.
 - История Git начата заново, автор/коммиттер — `ebloved <ebloved@gmail.com>`.

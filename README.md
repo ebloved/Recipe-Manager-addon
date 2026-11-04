@@ -105,7 +105,7 @@ Home Assistant add-on для управления рецептами, плани
 ## Установка как HA add-on
 
 1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories**
-2. Добавить `https://github.com/ebloved/Recipe-Manager`
+2. Добавить `https://github.com/ebloved/Recipe-Manager-addon`
 3. Найти **Recipe Manager** → **Install**
 4. **Configuration** — указать минимум `gemini_api_key` (или
    `matcher_external_*` для Hermes / другого OpenAI-совместимого endpoint)

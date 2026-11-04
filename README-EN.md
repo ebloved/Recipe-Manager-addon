@@ -41,14 +41,14 @@ Gemini API call for recipe generation.
 
 ### Step 1 — Add the repository to Home Assistant
 
-[![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/ebloved/Recipe-Manager)
+[![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/ebloved/Recipe-Manager-addon)
 
 <details>
 <summary>Manual steps</summary>
 
 1. Go to **Settings → Add-ons → Add-on Store**.
 2. Click the three-dot menu (top right) → **Repositories**.
-3. Paste `https://github.com/ebloved/Recipe-Manager` and click
+3. Paste `https://github.com/ebloved/Recipe-Manager-addon` and click
    **Add**.
 4. Close the dialog and refresh the Add-on Store page.
 

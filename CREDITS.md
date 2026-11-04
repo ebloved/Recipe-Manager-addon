@@ -146,8 +146,8 @@
 - присылал рецепты для проверки каскада матчинга.
 
 Если у вас есть идея или вы нашли проблему — открывайте
-[Issue](https://github.com/ebloved/Recipe-Manager/issues)
-или [Pull Request](https://github.com/ebloved/Recipe-Manager/pulls).
+[Issue](https://github.com/ebloved/Recipe-Manager-addon/issues)
+или [Pull Request](https://github.com/ebloved/Recipe-Manager-addon/pulls).
 
 ---
 
