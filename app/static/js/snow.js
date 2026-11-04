@@ -37,11 +37,11 @@
   }
 
   function makeParticle() {
-    const big = Math.random() < 0.18;
+    const big = Math.random() < 0.22;
     return {
       x: rand(0, width || window.innerWidth),
       y: rand(-window.innerHeight, window.innerHeight),
-      r: big ? rand(3.1, 4.8) : rand(1.1, 2.9),
+      r: big ? rand(3.4, 5.2) : rand(2.0, 3.3),
       vy: rand(18, 58),
       vx: rand(-9, 9),
       phase: rand(0, Math.PI * 2),
@@ -73,18 +73,23 @@
 
   function drawParticle(p) {
     const rgb = dark ? "255,255,255" : "96,152,232";
-    if (p.r >= 3.1) {
-      ctx.strokeStyle = `rgba(${rgb},${p.alpha})`;
-      ctx.lineWidth = Math.max(0.7, p.r * 0.2);
-      for (let i = 0; i < 6; i += 1) {
-        const angle = p.rot + (i * Math.PI) / 3;
-        const dx = Math.cos(angle);
-        const dy = Math.sin(angle);
-        ctx.beginPath();
-        ctx.moveTo(p.x - dx * p.r * 1.25, p.y - dy * p.r * 1.25);
-        ctx.lineTo(p.x + dx * p.r * 1.25, p.y + dy * p.r * 1.25);
-        ctx.stroke();
+    const large = p.r >= 3.35;
+    ctx.strokeStyle = `rgba(${rgb},${p.alpha})`;
+    ctx.lineWidth = large ? Math.max(0.8, p.r * 0.18) : 0.75;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const arm = large ? 1.25 : 1.45;
 
+    for (let i = 0; i < 6; i += 1) {
+      const angle = p.rot + (i * Math.PI) / 3;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(p.x - dx * p.r * arm, p.y - dy * p.r * arm);
+      ctx.lineTo(p.x + dx * p.r * arm, p.y + dy * p.r * arm);
+      ctx.stroke();
+
+      if (large) {
         const bx = p.x + dx * p.r * 0.65;
         const by = p.y + dy * p.r * 0.65;
         for (const sign of [-1, 1]) {
@@ -98,11 +103,6 @@
           ctx.stroke();
         }
       }
-    } else {
-      ctx.fillStyle = `rgba(${rgb},${p.alpha})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
     }
   }
 
@@ -146,6 +146,7 @@
   }
 
   function sync() {
+    document.body.classList.toggle("snow-enabled", enabled);
     if (enabled && active && !reducedMotion) start();
     else stop();
   }

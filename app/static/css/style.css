@@ -3849,3 +3849,21 @@ header {
 @media (prefers-reduced-motion: reduce) {
   .snow-layer { display: none !important; }
 }
+
+
+/* Зимние украшения на карточках рецептов (только при включённом снеге) */
+.recipe-card::after {
+  content: "";
+  display: none;
+  height: 24px;
+  margin: 0 12px 8px;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%2024%22%3E%0A%3Cg%20fill%3D%22none%22%20stroke%3D%22%233f8f62%22%20stroke-width%3D%221.4%22%20stroke-linecap%3D%22round%22%3E%0A%3Cpath%20d%3D%22M8%2020%20C%2028%2017%2C%2048%2013%2C%2068%208%22%2F%3E%0A%3Cpath%20d%3D%22M18%2019%20L12%2013%20M25%2018%20L19%2011%20M32%2017%20L26%2010%20M39%2016%20L33%209%20M46%2014%20L40%208%20M53%2013%20L48%207%20M60%2011%20L55%206%22%2F%3E%0A%3Cpath%20d%3D%22M20%2019%20L26%2013%20M28%2018%20L34%2012%20M36%2017%20L42%2011%20M44%2015%20L50%2010%20M52%2013%20L58%209%22%2F%3E%0A%3C%2Fg%3E%0A%3Cg%3E%0A%3Cline%20x1%3D%22188%22%20y1%3D%223%22%20x2%3D%22188%22%20y2%3D%228%22%20stroke%3D%22%23b8860b%22%20stroke-width%3D%221%22%2F%3E%0A%3Ccircle%20cx%3D%22188%22%20cy%3D%2214%22%20r%3D%226%22%20fill%3D%22%23c62828%22%2F%3E%0A%3Ccircle%20cx%3D%22186%22%20cy%3D%2212%22%20r%3D%221.4%22%20fill%3D%22%23fff%22%20opacity%3D%220.55%22%2F%3E%0A%3Cline%20x1%3D%22212%22%20y1%3D%223%22%20x2%3D%22212%22%20y2%3D%228%22%20stroke%3D%22%23b8860b%22%20stroke-width%3D%221%22%2F%3E%0A%3Ccircle%20cx%3D%22212%22%20cy%3D%2214%22%20r%3D%225%22%20fill%3D%22%23f2b705%22%2F%3E%0A%3Ccircle%20cx%3D%22210.5%22%20cy%3D%2212.5%22%20r%3D%221.2%22%20fill%3D%22%23fff%22%20opacity%3D%220.6%22%2F%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% 22px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.snow-enabled .recipe-card::after {
+  display: block;
+}
