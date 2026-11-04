@@ -1962,7 +1962,7 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   border-color: var(--accent);
 }
 .product-card.deleted {
-  opacity: 0.5;
+  opacity: 0.55;
   background: var(--elevated);
 }
 
@@ -3885,19 +3885,20 @@ header::before {
   content: "";
   display: none;
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background-image: url("../img/garland.svg?v=115");
+  inset: 0;
+  background-image: url("../img/garland.svg?v=117");
   background-repeat: repeat-x;
   background-position: left top;
   background-size: auto 100%;
   pointer-events: none;
-}
-.snow-enabled header {
-  padding-top: 52px;
+  opacity: 0.55;
+  z-index: 0;
 }
 .snow-enabled header::before {
   display: block;
+}
+.snow-enabled header .header-top,
+.snow-enabled header .tabs {
+  position: relative;
+  z-index: 1;
 }
