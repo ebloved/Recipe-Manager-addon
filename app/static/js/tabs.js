@@ -83,6 +83,7 @@
           if (RM.cabinet && RM.cabinet.loadAudit) RM.cabinet.loadAudit();
           break;
       }
+    if (RM.snow) RM.snow.setActive(name === "recipes");
   }
 
   function switchToRecipes() {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=111">
+<link rel="stylesheet" href="static/css/style.css?v=113">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -50,6 +50,9 @@
 <main>
   <!-- ==================================================== Recipes -->
   <section class="panel active" id="panel-recipes">
+    <div class="snow-layer" id="snow-layer" aria-hidden="true">
+      <canvas id="snow-canvas"></canvas>
+    </div>
     <div class="panel-inner">
       <div class="search-row">
         <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
@@ -461,6 +464,21 @@
             <div class="field">
               <label>Хранить журнал действий (дней)</label>
               <input type="number" id="setting-audit-days" min="7" max="3650">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="setting-visual-effect">Визуальный эффект</label>
+              <select id="setting-visual-effect">
+                <option value="none">Нет</option>
+                <option value="snow">Снег</option>
+              </select>
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+              <div class="hint" style="font-size:12px; color:var(--text-muted);">
+                Видят все пользователи. Один эффект за раз.
+              </div>
             </div>
           </div>
 
@@ -1361,7 +1379,7 @@
 <script src="static/js/utils.js?v=108"></script>
 <script src="static/js/api.js?v=108"></script>
 <script src="static/js/state.js?v=108"></script>
-<script src="static/js/tabs.js?v=111"></script>
+<script src="static/js/tabs.js?v=113"></script>
 <script src="static/js/youtube.js?v=108"></script>
 <script src="static/js/imports.js?v=111"></script>
 <script src="static/js/recipes.js?v=108"></script>
@@ -1377,7 +1395,7 @@
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=108"></script>
 <script src="static/js/profiles.js?v=108"></script>
-<script src="static/js/cabinet.js?v=112"></script>
+<script src="static/js/cabinet.js?v=113"></script>
 <script src="static/js/help.js?v=108"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>
@@ -1385,6 +1403,7 @@
 <script src="static/js/walkthrough.js?v=108"></script>
 <script src="static/js/jobs.js?v=108"></script>
 <script src="static/js/finder.js?v=108"></script>
-<script src="static/js/app.js?v=108"></script>
+<script src="static/js/snow.js?v=113"></script>
+<script src="static/js/app.js?v=113"></script>
 </body>
 </html>

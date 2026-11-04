@@ -23,6 +23,9 @@
     RM.tabs.setupTopTabs();
     RM.tabs.setupSubTabs();
 
+    // Сезонный canvas-эффект (снег) — только если включён в админке.
+    if (RM.snow) RM.snow.setup();
+
     // Планировщик и покупки
     RM.planPicker.setup();
     RM.planner.setup();

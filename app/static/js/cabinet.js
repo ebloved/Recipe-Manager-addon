@@ -149,6 +149,7 @@
         if ($("setting-tts-enabled")) $("setting-tts-enabled").checked = !!data.tts_enabled;
         if ($("setting-tts-limit")) $("setting-tts-limit").value = data.tts_daily_limit || 10;
         if ($("setting-audit-days")) $("setting-audit-days").value = data.audit_retention_days || 90;
+        if ($("setting-visual-effect")) $("setting-visual-effect").value = data.visual_effect || "none";
 
         const btnSys = $("btn-save-sys-settings");
         if (btnSys) {
@@ -161,8 +162,12 @@
                 adapter_max_tokens: parseInt($("setting-adapt-tokens").value),
                 tts_enabled: !!$("setting-tts-enabled")?.checked,
                 tts_daily_limit: parseInt($("setting-tts-limit").value || "10", 10),
-                audit_retention_days: parseInt($("setting-audit-days").value || "90", 10)
+                audit_retention_days: parseInt($("setting-audit-days").value || "90", 10),
+                visual_effect: $("setting-visual-effect")?.value || "none"
               });
+              if (RM.snow) {
+                RM.snow.setEffect($("setting-visual-effect")?.value || "none");
+              }
               alert("Системные настройки сохранены!");
             } catch (e) { alert(e.message); }
             finally { btnSys.disabled = false; }

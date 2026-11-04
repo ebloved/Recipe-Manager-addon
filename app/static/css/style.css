@@ -3831,3 +3831,21 @@ header {
   .audit-json .json-number { color: #fcd34d; }
   .audit-json .json-bool { color: #93c5fd; }
 }
+
+/* Зимний эффект: canvas-снег на экране рецептов */
+.snow-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+.snow-layer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .snow-layer { display: none !important; }
+}

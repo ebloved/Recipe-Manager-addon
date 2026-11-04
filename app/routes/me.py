@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Body
 from config import AUTH_MODE
 from services.auth import get_current_user, users_store
 from services.activity import touch
+from stores.settings import settings_store
 from services.url_guard import UnsafeURLError, validate_public_url
 from pydantic import BaseModel
 
@@ -28,11 +29,18 @@ async def activity_ping(request: Request):
 async def get_me(request: Request):
     test_user = getattr(request.state, "test_mode_user", None)
     if test_user:
-        return {"authenticated": True, **test_user}
+        return {
+            "authenticated": True,
+            **test_user,
+            "visual_effect": settings_store.get("visual_effect", "none"),
+        }
     if AUTH_MODE == "oauth":
         user = get_current_user(request)
         if not user:
-            return {"authenticated": False}
+            return {
+                "authenticated": False,
+                "visual_effect": settings_store.get("visual_effect", "none"),
+            }
 
         return {
             "authenticated": True,
@@ -41,7 +49,8 @@ async def get_me(request: Request):
             "picture": user.get("picture"),
             "id": user["id"],
             "role": user.get("role"),
-            "source": "oauth"
+            "source": "oauth",
+            "visual_effect": settings_store.get("visual_effect", "none"),
         }
         
     name = request.headers.get("X-Remote-User-Display-Name") or request.headers.get("X-Remote-User-Name")
@@ -55,6 +64,7 @@ async def get_me(request: Request):
             "id": uid,
             "role": "admin",
             "source": "ha",
+            "visual_effect": settings_store.get("visual_effect", "none"),
         }
 
     return {
@@ -63,6 +73,7 @@ async def get_me(request: Request):
         "id": "local",
         "role": "admin",
         "source": "direct",
+        "visual_effect": settings_store.get("visual_effect", "none"),
     }
 
 @router.get("/llm")

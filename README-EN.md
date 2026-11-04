@@ -273,6 +273,17 @@ Normalization and product enrichment run before saving.
 
 ---
 
+## Seasonal effects
+
+Admins can enable a visual effect in the system settings (`None` / `Snow`).
+Snow is rendered on a canvas over the Recipes screen with randomized size,
+speed, opacity and sway. The layer uses `pointer-events: none`, pauses when
+the tab is hidden and respects `prefers-reduced-motion`. Only one effect can
+be active at a time. The setting is `visual_effect`; clients read it through
+`/api/me`.
+
+---
+
 ## Audit log
 
 Admins get a separate **Action log** tab in the header. Every event has a

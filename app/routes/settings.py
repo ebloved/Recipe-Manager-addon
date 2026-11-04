@@ -22,6 +22,7 @@ async def get_settings(request: Request):
         "tts_enabled": settings_store.get("tts_enabled", False),
         "tts_daily_limit": settings_store.get("tts_daily_limit", 10),
         "audit_retention_days": settings_store.get("audit_retention_days", 90),
+        "visual_effect": settings_store.get("visual_effect", "none"),
         "telegram_bot_token": settings_store.get("telegram_bot_token", ""),
         "telegram_chat_id": settings_store.get("telegram_chat_id", "")
     }
@@ -46,6 +47,11 @@ async def update_settings(request: Request, payload: dict = Body(...)):
             "audit_retention_days",
             max(7, min(3650, int(payload["audit_retention_days"]))),
         )
+    if "visual_effect" in payload:
+        value = str(payload["visual_effect"]).strip().lower()
+        if value not in ("none", "snow"):
+            value = "none"
+        await settings_store.set("visual_effect", value)
 
     if "telegram_bot_token" in payload or "telegram_chat_id" in payload:
         token = payload.get("telegram_bot_token", settings_store.get("telegram_bot_token", ""))
