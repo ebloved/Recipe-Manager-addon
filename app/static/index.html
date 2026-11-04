@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=110">
+<link rel="stylesheet" href="static/css/style.css?v=111">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -361,6 +361,24 @@
             <label for="voice-recipe-text">Текст рецепта</label>
             <textarea id="voice-recipe-text" rows="8" lang="ru-RU" inputmode="text" autocapitalize="sentences" placeholder="Например: Сырники. Ингредиенты: творог 500 грамм, яйцо 1 штука, мука 3 столовые ложки, сахар 2 столовые ложки. Шаги: смешать творог с яйцом и сахаром, добавить муку, сформировать сырники, обжарить по 3 минуты с каждой стороны."></textarea>
           </div>
+
+          <details style="margin:4px 0 14px;">
+            <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);">
+              💡 Как диктовать, чтобы разобралось с первого раза
+            </summary>
+            <div class="hint" style="margin-top:8px;font-size:12px;line-height:1.6;">
+              <ul style="margin:0;padding-left:18px;">
+                <li>Называйте разделы: «Название…», «Ингредиенты…», «Шаги…».</li>
+                <li>Один рецепт за раз, с паузой между разделами.</li>
+                <li>Количества и единицы проговаривайте явно: «творог 500 грамм», «яйцо 1 штука».</li>
+                <li>Шаги — отдельными предложениями, с точками.</li>
+                <li>Если распознало с ошибкой — поправьте в предпросмотре перед сохранением.</li>
+                <li>Локальный парсер работает без LLM; LLM подключается только если структуры не хватило.</li>
+                <li>Аудио никуда не отправляется — в приложение попадает только распознанный текст.</li>
+              </ul>
+            </div>
+          </details>
+
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn primary" id="voice-recipe-parse">Разобрать</button>
             <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
@@ -1339,9 +1357,9 @@
 <script src="static/js/utils.js?v=108"></script>
 <script src="static/js/api.js?v=108"></script>
 <script src="static/js/state.js?v=108"></script>
-<script src="static/js/tabs.js?v=110"></script>
+<script src="static/js/tabs.js?v=111"></script>
 <script src="static/js/youtube.js?v=108"></script>
-<script src="static/js/imports.js?v=110"></script>
+<script src="static/js/imports.js?v=111"></script>
 <script src="static/js/recipes.js?v=108"></script>
 <script src="static/js/cooking.js?v=108"></script>
 <script src="static/js/detail.js?v=108"></script>
@@ -1355,7 +1373,7 @@
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=108"></script>
 <script src="static/js/profiles.js?v=108"></script>
-<script src="static/js/cabinet.js?v=110"></script>
+<script src="static/js/cabinet.js?v=111"></script>
 <script src="static/js/help.js?v=108"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>
