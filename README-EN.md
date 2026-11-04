@@ -286,6 +286,16 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## Air-fryer sub-recipes
+
+Air-fryer adaptations are sub-recipes, not separate cards in the main
+library. The parent recipe shows a `♨️ air fryer` chip and the detail view
+switches between oven and air-fryer versions. `/api/recipes` excludes
+adapted sub-recipes by default; pass `?include_adapted=true` to include them.
+Recipe pickers and the cooking screen see only main recipes.
+
+---
+
 ## Audit log
 
 Admins get a separate **Action log** tab in the header. Every event has a

@@ -227,7 +227,13 @@ function filterAndRender(q) {
         return;
       }
 
-      let filtered = state.recipes;
+      const subIds = new Set();
+      for (const r of state.recipes) {
+        for (const childId of Object.values(r.adapted_versions || {})) {
+          if (childId) subIds.add(String(childId));
+        }
+      }
+      let filtered = state.recipes.filter((r) => !subIds.has(String(r.id)));
       if (ownerFilter === "my" && RM.state.user) {
         filtered = filtered.filter(r => r.owner_id === RM.state.user.id);
       }
@@ -407,6 +413,12 @@ function filterAndRender(q) {
       const at = chip("🎯 " + r.active_time + " мин акт." + (r.active_time_estimated ? "*" : ""), false);
       at.title = "Активное время (сколько вы заняты готовкой)" + (r.active_time_estimated ? ". Оценка ИИ" : "");
       meta.appendChild(at);
+    }
+
+    if (r.adapted_versions && r.adapted_versions.airfryer) {
+      const af = chip("♨️ аэрогриль", false);
+      af.title = "Есть отдельная версия этого рецепта для аэрогриля";
+      meta.appendChild(af);
     }
     
     // Нормализация по стандарту recipe_template.md

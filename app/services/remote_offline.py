@@ -57,6 +57,13 @@ async def handle(request: Request, body: bytes) -> JSONResponse | None:
     if path == "/api/recipes":
         if method == "GET":
             items = remote_cache.recipes()
+            if request.query_params.get("include_adapted") not in ("1", "true", "True"):
+                sub_ids = set()
+                for parent in items:
+                    for child_id in (parent.get("adapted_versions") or {}).values():
+                        if child_id:
+                            sub_ids.add(str(child_id))
+                items = [r for r in items if str(r.get("id")) not in sub_ids]
             q = request.query_params.get("q") or ""
             items = [r for r in items if _match(r, q)]
             return _json({"recipes": items, "count": len(items)})

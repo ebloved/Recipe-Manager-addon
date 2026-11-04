@@ -88,11 +88,31 @@ def _schedule_active_time(recipe_id: str, expected_hash: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 @router.get("")
-async def list_recipes(request: Request, q: str | None = None, show_hidden: bool = False):
-    """Возвращает список рецептов с опциональным поиском."""
+async def list_recipes(
+    request: Request,
+    q: str | None = None,
+    show_hidden: bool = False,
+    include_adapted: bool = False,
+):
+    """Возвращает список рецептов с опциональным поиском.
+
+    Адаптированные версии (например, аэрогриль) по умолчанию не попадают
+    в общий список: это sub-рецепты, доступные через родителя.
+    """
     user = get_current_user(request)
     uid = user["id"] if user else None
-    items = [r for r in recipe_store.get_all() if show_hidden or uid not in (r.get("hidden_by") or [])]
+    all_recipes = recipe_store.get_all()
+    sub_ids: set[str] = set()
+    if not include_adapted:
+        for parent in all_recipes:
+            for child_id in (parent.get("adapted_versions") or {}).values():
+                if child_id:
+                    sub_ids.add(str(child_id))
+    items = [
+        r for r in all_recipes
+        if (show_hidden or uid not in (r.get("hidden_by") or []))
+        and str(r.get("id")) not in sub_ids
+    ]
 
     if q:
         lower = q.strip().lower()
@@ -155,6 +175,11 @@ async def restore_recipe(recipe_id: str, request: Request):
     restored = await recipe_store.restore(recipe_id)
     if not restored:
         raise HTTPException(404, "Deleted recipe not found")
+    # Возвращаем sub-версии к восстановленному родителю.
+    for child_id in (restored.get("adapted_versions") or {}).values():
+        child = recipe_store.get(str(child_id)) if child_id else None
+        if child and not child.get("parent_id"):
+            await recipe_store.update(child["id"], {"parent_id": recipe_id})
     return {"recipe": restored}
 
 
@@ -347,6 +372,13 @@ async def delete_recipe(recipe_id: str, request: Request):
                 if v == recipe_id:
                     del adapted[k]
             await recipe_store.update(parent_id, {"adapted_versions": adapted})
+
+    # Если удаляем основной рецепт, его sub-версии не должны оставаться
+    # с висящей ссылкой на удалённого родителя. Отвязываем их.
+    for child_id in (existing.get("adapted_versions") or {}).values():
+        child = recipe_store.get(str(child_id)) if child_id else None
+        if child:
+            await recipe_store.update(child["id"], {"parent_id": None})
 
     ok = await recipe_store.delete(recipe_id)
     if not ok:
