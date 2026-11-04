@@ -712,6 +712,39 @@ async def get_event(event_id: str) -> dict[str, Any] | None:
     return _to_dict(row) if row else None
 
 
+async def mark_stale_running() -> int:
+    """Помечает незавершённые события прошлого запуска как прерванные."""
+    try:
+        now = _now()
+        async with SessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(AuditEvent).where(
+                        AuditEvent.status == "running",
+                        AuditEvent.finished_at.is_(None),
+                    )
+                )
+            ).scalars().all()
+            for row in rows:
+                row.status = "error"
+                row.error = "Прервано перезапуском сервера"
+                row.finished_at = now
+                created = row.created_at
+                if created is not None:
+                    if created.tzinfo is None:
+                        created = created.replace(tzinfo=timezone.utc)
+                    row.duration_ms = max(
+                        0, int((now - created).total_seconds() * 1000)
+                    )
+            await session.commit()
+        if rows:
+            print(f"[audit] marked {len(rows)} interrupted events")
+        return len(rows)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[audit] stale check failed: {type(exc).__name__}: {exc}")
+        return 0
+
+
 async def cleanup(retention_days: int) -> int:
     days = max(1, min(int(retention_days or 90), 3650))
     cutoff = _now() - timedelta(days=days)

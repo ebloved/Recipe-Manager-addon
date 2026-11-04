@@ -45,6 +45,9 @@ async def lifespan(app: FastAPI):
     from db import init_db
     await init_db()
 
+    from services import audit
+    await audit.mark_stale_running()
+
     # --- Store'ы -----------------------------------------------------
     await recipe_store.load()
     await meal_plan_store.load()
