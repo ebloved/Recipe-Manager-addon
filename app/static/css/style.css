@@ -23,6 +23,7 @@ body {
   display: flex; flex-direction: column;
 }
 header {
+  position: relative;
   background: var(--surface); border-bottom: 1px solid var(--border);
   padding: 12px 16px; display: flex; align-items: center;
   gap: 14px; flex-shrink: 0; flex-wrap: wrap;
@@ -3877,3 +3878,26 @@ header {
   z-index: 1;
 }
 
+
+
+/* Новогодняя гирлянда в шапке (только при включённом снеге) */
+header::before {
+  content: "";
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background-image: url("../img/garland.svg?v=115");
+  background-repeat: repeat-x;
+  background-position: left top;
+  background-size: auto 100%;
+  pointer-events: none;
+}
+.snow-enabled header {
+  padding-top: 52px;
+}
+.snow-enabled header::before {
+  display: block;
+}
