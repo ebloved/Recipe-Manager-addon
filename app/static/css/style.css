@@ -3805,3 +3805,29 @@ header {
 .trash-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .trash-actions .btn { font-size: 12px; padding: 6px 10px; }
 .btn.danger { color: #991b1b; border-color: #fecaca; }
+
+
+/* Журнал действий: JSON в модалке */
+.audit-json {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.audit-json .json-key { color: #7c3aed; }
+.audit-json .json-string { color: #15803d; }
+.audit-json .json-number { color: #b45309; }
+.audit-json .json-bool { color: #1d4ed8; }
+.audit-json .json-null { color: var(--text-muted); }
+@media (prefers-color-scheme: dark) {
+  .audit-json .json-key { color: #c4b5fd; }
+  .audit-json .json-string { color: #86efac; }
+  .audit-json .json-number { color: #fcd34d; }
+  .audit-json .json-bool { color: #93c5fd; }
+}

@@ -261,9 +261,22 @@ This add-on bundles logic from two sources:
 
 ---
 
+## Voice input
+
+The **Add → 🎙 Voice** tab accepts text dictated with the phone keyboard's
+built-in speech-to-text. Audio is never uploaded; only the recognized text
+reaches the app. A local parser first extracts the name, ingredients and
+steps. If the structure is insufficient, the text is sent to the LLM with a
+strict "structure only, do not invent" prompt. By default the parsed recipe
+opens in the editor for review; "Save immediately" skips the preview.
+Normalization and product enrichment run before saving.
+
+---
+
 ## Audit log
 
-Admins get an **Action log** card in the cabinet. It records mutations,
+Admins get a separate **Action log** tab in the header. Event details open in
+a modal with JSON syntax highlighting. It records mutations,
 generations, imports, settings changes, user management and background
 jobs with actor, target, status, duration, error and details. Recipe views,
 meal plans and shopping lists are intentionally not logged. Secrets and

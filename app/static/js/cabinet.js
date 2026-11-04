@@ -12,6 +12,21 @@
 
     // Синхронизация управляется своим модулем
     if (RM.sync) RM.sync.setup();
+
+    // Вкладка журнала — только для админа.
+    refreshAuditTab();
+  }
+
+  async function refreshAuditTab() {
+    try {
+      let me = RM.state.user;
+      if (!me) me = await getJSON("api/me");
+      const tab = $("tab-audit");
+      if (tab) tab.style.display = me && me.role === "admin" ? "" : "none";
+    } catch (e) {
+      const tab = $("tab-audit");
+      if (tab) tab.style.display = "none";
+    }
   }
 
   async function load() {
@@ -25,7 +40,6 @@
     }
     try { await loadVersion(); } catch (e) { console.error("loadVersion", e); }
     try { await loadPendingWeights(); } catch (e) { console.error("loadPendingWeights", e); }
-    try { await loadAudit(); } catch (e) { console.error("loadAudit", e); }
   }
 
   async function loadApify() {
@@ -218,11 +232,14 @@
   async function loadAdmin() {
     try {
       const me = await getJSON("api/me");
+      const auditTab = $("tab-audit");
       if (me.role !== "admin") {
+        if (auditTab) auditTab.style.display = "none";
         const syncCard = $("cabinet-sync");
         if (syncCard) syncCard.style.display = "none";
         return;
       }
+      if (auditTab) auditTab.style.display = "";
 
       const adminCard = $("cabinet-admin");
       if (adminCard) adminCard.style.display = "block";
@@ -692,6 +709,7 @@
   // --- Журнал действий ------------------------------------------------
   const AUDIT_PAGE = 100;
   let auditOffset = 0;
+  const auditCache = new Map();
   let auditBound = false;
   let auditActionsLoaded = false;
   let auditTimer = null;
@@ -740,18 +758,7 @@
   }
 
   function auditRow(e) {
-    const detailPayload = {
-      path: e.path,
-      method: e.method,
-      http_status: e.http_status,
-      ip: e.ip,
-      user_agent: e.user_agent,
-      error: e.error,
-      details: e.details
-    };
-    const details = `<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Детали</summary>
-      <pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:240px;overflow:auto;margin:4px 0 0;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:6px;">${escHtml(JSON.stringify(detailPayload, null, 2))}</pre>
-    </details>`;
+    const details = `<button class="btn" data-audit-id="${escHtml(e.id)}" style="padding:4px 8px;font-size:11px;white-space:nowrap;">Детали</button>`;
     const dur = auditDuration(e.duration_ms);
     return `<tr>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top;font-size:11px;">${escHtml(auditTime(e.created_at))}</td>
@@ -761,6 +768,63 @@
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${auditStatus(e.status)}${dur ? `<div style="color:var(--text-muted);margin-top:3px;">${escHtml(dur)}</div>` : ""}</td>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${e.error ? `<div style="color:var(--danger);word-break:break-word;">${escHtml(e.error)}</div>` : ""}${details}</td>
     </tr>`;
+  }
+
+  function jsonHtml(value, indent = 0) {
+    const pad = "  ".repeat(indent);
+    const padInner = "  ".repeat(indent + 1);
+    if (value === null || value === undefined) return '<span class="json-null">null</span>';
+    if (typeof value === "string") return `<span class="json-string">${escHtml(JSON.stringify(value))}</span>`;
+    if (typeof value === "number") return `<span class="json-number">${escHtml(String(value))}</span>`;
+    if (typeof value === "boolean") return `<span class="json-bool">${value}</span>`;
+    if (Array.isArray(value)) {
+      if (!value.length) return "[]";
+      return "[\n" + value.map((item) => padInner + jsonHtml(item, indent + 1)).join(",\n") + "\n" + pad + "]";
+    }
+    if (typeof value === "object") {
+      const keys = Object.keys(value);
+      if (!keys.length) return "{}";
+      return "{\n" + keys.map((key) =>
+        padInner + `<span class="json-key">${escHtml(JSON.stringify(key))}</span>: ` + jsonHtml(value[key], indent + 1)
+      ).join(",\n") + "\n" + pad + "}";
+    }
+    return escHtml(String(value));
+  }
+
+  function openAuditModal(eventId) {
+    const e = auditCache.get(eventId);
+    if (!e) return;
+    const payload = {
+      time: e.created_at,
+      actor: {
+        kind: e.actor_kind,
+        id: e.actor_id,
+        name: e.actor_name,
+        email: e.actor_email,
+        role: e.actor_role
+      },
+      action: { code: e.action, label: e.action_label },
+      target: { type: e.target_type, id: e.target_id, name: e.target_name },
+      status: e.status,
+      http_status: e.http_status,
+      duration_ms: e.duration_ms,
+      method: e.method,
+      path: e.path,
+      ip: e.ip,
+      user_agent: e.user_agent,
+      error: e.error,
+      details: e.details,
+      correlation_id: e.correlation_id
+    };
+    const body = $("audit-modal-body");
+    if (body) body.innerHTML = `<div class="audit-json">${jsonHtml(payload)}</div>`;
+    const modal = $("audit-modal");
+    if (modal) modal.classList.add("show");
+  }
+
+  function closeAuditModal() {
+    const modal = $("audit-modal");
+    if (modal) modal.classList.remove("show");
   }
 
   function auditTable(items) {
@@ -806,6 +870,20 @@
     if (refresh) refresh.onclick = () => loadAudit(true);
     const more = $("audit-more");
     if (more) more.onclick = () => loadAudit(false);
+    const list = $("audit-list");
+    if (list) list.onclick = (event) => {
+      const btn = event.target.closest("[data-audit-id]");
+      if (btn) openAuditModal(btn.dataset.auditId);
+    };
+    const close = $("audit-modal-close");
+    if (close) close.onclick = closeAuditModal;
+    const modal = $("audit-modal");
+    if (modal) modal.onclick = (event) => {
+      if (event.target === modal) closeAuditModal();
+    };
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAuditModal();
+    });
   }
 
   async function loadAudit(reset = true) {
@@ -841,6 +919,7 @@
       const data = await getJSON("api/admin/audit?" + params.toString());
       const items = data.items || [];
       const total = Number(data.total || 0);
+      items.forEach((item) => auditCache.set(item.id, item));
       if (reset) {
         const list = $("audit-list");
         if (list) list.innerHTML = auditTable(items);
@@ -862,5 +941,5 @@
     }
   }
 
-  RM.cabinet = { setup, load, deleteUser };
+  RM.cabinet = { setup, load, deleteUser, loadAudit };
 })(window.RM);

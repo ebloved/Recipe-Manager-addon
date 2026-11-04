@@ -79,6 +79,9 @@
         case "cabinet":
           if (RM.cabinet) RM.cabinet.load();
           break;
+        case "audit":
+          if (RM.cabinet && RM.cabinet.loadAudit) RM.cabinet.loadAudit();
+          break;
       }
   }
 

@@ -29,6 +29,7 @@ from . import (
     remote,
     media,
     voice,
+    voice_recipe,
 )
 
 api_router = APIRouter()
@@ -59,5 +60,6 @@ api_router.include_router(sync_v1.router)
 api_router.include_router(remote.router)
 api_router.include_router(media.router)
 api_router.include_router(voice.router)
+api_router.include_router(voice_recipe.router)
 
 __all__ = ["api_router"]

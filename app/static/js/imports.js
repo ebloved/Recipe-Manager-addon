@@ -42,6 +42,9 @@
 
     // --- Manual: open editor ---
     bind("manual-open-editor", onManualOpen);
+
+    // --- Voice: parse dictated text ---
+    bind("voice-recipe-parse", onVoiceParse);
   }
 
   // -----------------------------------------------------------------
@@ -332,6 +335,58 @@
       RM.tabs.switchToRecipes();
       RM.recipes.load();
     });
+  }
+
+  // -----------------------------------------------------------------
+  // Voice: parse dictated text
+  // -----------------------------------------------------------------
+  async function onVoiceParse() {
+    const text = $("voice-recipe-text").value.trim();
+    const status = $("voice-recipe-status");
+    const btn = $("voice-recipe-parse");
+    if (!text) {
+      setStatus(status, "Наговорите или вставьте текст рецепта.", "error");
+      return;
+    }
+
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Разбор…';
+    clearStatus(status);
+
+    try {
+      const save = !!$("voice-recipe-save")?.checked;
+      const data = await postJSON("api/voice/recipe-parse", { text, save });
+      const recipe = data.recipe;
+      const source = data.parse_source === "local" ? "локально" : "через LLM";
+      const issues = Array.isArray(data.issues) ? data.issues : [];
+
+      if (data.saved) {
+        setStatus(status, `✓ Рецепт «${recipe.name}» сохранён (${source}).`, "success");
+        $("voice-recipe-text").value = "";
+        state.recipes = [];
+        if (RM.matcherBatch && recipe.id) {
+          RM.matcherBatch.processAfterImport([recipe.id]).catch((e) => {
+            console.warn("matcherBatch:", e);
+          });
+        }
+        RM.tabs.switchToRecipes();
+        RM.recipes.load();
+      } else {
+        const suffix = issues.length ? ` Замечаний обогащения: ${issues.length}.` : "";
+        setStatus(status, `✓ Разобрано ${source}. Проверьте и сохраните.${suffix}`, "success");
+        RM.editor.open(recipe, () => {
+          state.recipes = [];
+          RM.tabs.switchToRecipes();
+          RM.recipes.load();
+        });
+      }
+    } catch (err) {
+      setStatus(status, "Ошибка: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label || "Разобрать";
+    }
   }
 
   // -----------------------------------------------------------------

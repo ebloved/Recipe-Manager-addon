@@ -39,13 +39,14 @@ _EXCLUDE_PREFIXES = (
     "/api/embeddings",
     "/api/auth/",
     "/api/admin/audit",
-    "/api/voice/",
     "/api/v1/shopping",
 )
 _EXCLUDE_EXACT = {
     "/api/health",
     "/api/v1/auth/device/poll",
     "/api/remote/pair/poll",
+    "/api/voice/tts",
+    "/api/voice/live-token",
 }
 _EXCLUDE_CART = re.compile(r"^/api/stores/[^/]+/cart$")
 
@@ -81,6 +82,7 @@ _RULES: tuple[Rule, ...] = (
     _r("POST", r"^/api/recipes/-/find-by-ingredients$", "recipe.find_by_ingredients", "Поиск рецептов по ингредиентам"),
     _r("POST", r"^/api/recipes/([^/]+)/step-audio/(\d+)$", "recipe.step_audio", "Генерация озвучки шага", "recipe", 1),
     # --- Импорт / YouTube -------------------------------------------
+    _r("POST", r"^/api/voice/recipe-parse$", "recipe.voice_parse", "Разбор рецепта голосом"),
     _r("POST", r"^/api/recipes/import-url$", "recipe.import_url", "Импорт рецепта по URL"),
     _r("POST", r"^/api/recipes/import-text$", "recipe.import_text", "Импорт рецепта из текста"),
     _r("POST", r"^/api/recipes/import-batch$", "recipe.import_batch", "Массовый импорт рецептов"),
