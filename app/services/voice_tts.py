@@ -6,6 +6,7 @@ import base64
 import hashlib
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -18,7 +19,22 @@ _LOCK = asyncio.Lock()
 
 
 class TTSError(RuntimeError):
-    pass
+    """Ошибка TTS с данными о провайдере и модели для аудита."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: str = "gemini",
+        model: str | None = None,
+        status_code: int | None = None,
+        attempts: list[dict[str, Any]] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider = provider
+        self.model = model
+        self.status_code = status_code
+        self.attempts = attempts or []
 
 
 def cache_key(text: str) -> str:
@@ -53,7 +69,7 @@ def _to_mp3(wav: bytes) -> bytes:
 
 async def _call_model(model: str, text: str) -> bytes:
     if not GEMINI_API_KEY:
-        raise TTSError("GEMINI_API_KEY не задан")
+        raise TTSError("GEMINI_API_KEY не задан", model=model)
     payload = {
         "contents": [{"role": "user", "parts": [{"text": text}]}],
         "generationConfig": {
@@ -69,10 +85,12 @@ async def _call_model(model: str, text: str) -> bytes:
             params={"key": GEMINI_API_KEY},
             json=payload,
         )
-    if resp.status_code == 429:
-        raise TTSError("429")
     if resp.status_code >= 400:
-        raise TTSError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        raise TTSError(
+            f"HTTP {resp.status_code}: {resp.text[:300]}",
+            model=model,
+            status_code=resp.status_code,
+        )
     try:
         parts = resp.json()["candidates"][0]["content"]["parts"]
         for part in parts:
@@ -80,8 +98,8 @@ async def _call_model(model: str, text: str) -> bytes:
             if inline and inline.get("data"):
                 return base64.b64decode(inline["data"])
     except Exception as exc:  # noqa: BLE001
-        raise TTSError(f"bad TTS response: {exc}") from exc
-    raise TTSError("no audio in TTS response")
+        raise TTSError(f"bad TTS response: {exc}", model=model) from exc
+    raise TTSError("no audio in TTS response", model=model)
 
 
 async def synthesize_ex(text: str) -> tuple[bytes, bool, str]:
@@ -98,6 +116,7 @@ async def synthesize_ex(text: str) -> tuple[bytes, bool, str]:
         if path.is_file():
             return path.read_bytes(), True, "cache"
         last_error: Exception | None = None
+        attempts: list[dict[str, Any]] = []
         for model in _MODELS:
             try:
                 wav = await _call_model(model, clean)
@@ -108,8 +127,21 @@ async def synthesize_ex(text: str) -> tuple[bytes, bool, str]:
                 return mp3, False, model
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
+                attempts.append({
+                    "model": model,
+                    "status_code": getattr(exc, "status_code", None),
+                    "error": str(exc)[:300],
+                })
                 continue
-        raise TTSError(str(last_error)[:300])
+        raise TTSError(
+            str(last_error)[:300] if last_error else "TTS failed",
+            model=(
+                getattr(last_error, "model", None)
+                or (attempts[-1]["model"] if attempts else None)
+            ),
+            status_code=getattr(last_error, "status_code", None),
+            attempts=attempts,
+        )
 
 
 async def synthesize(text: str) -> bytes:

@@ -19,6 +19,9 @@ async def list_audit(
     q: str | None = Query(None),
     status: str | None = Query(None),
     action: str | None = Query(None),
+    error_code: str | None = Query(None),
+    error_provider: str | None = Query(None),
+    error_model: str | None = Query(None),
     target_type: str | None = Query(None),
     target_id: str | None = Query(None),
     since: str | None = Query(None),
@@ -31,6 +34,9 @@ async def list_audit(
         q=q,
         status=status,
         action=action,
+        error_code=error_code,
+        error_provider=error_provider,
+        error_model=error_model,
         target_type=target_type,
         target_id=target_id,
         since=since,
@@ -44,6 +50,16 @@ async def list_audit(
 async def list_actions(request: Request):
     _require_admin(request)
     return {"items": await audit.list_actions()}
+
+
+@router.get("/stats")
+async def error_stats(
+    request: Request,
+    since: str | None = Query(None),
+    until: str | None = Query(None),
+):
+    _require_admin(request)
+    return await audit.error_stats(since=since, until=until)
 
 
 @router.get("/{event_id}")

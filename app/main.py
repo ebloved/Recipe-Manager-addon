@@ -271,12 +271,23 @@ async def audit_log_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as exc:  # noqa: BLE001
+        state_error = getattr(request.state, "audit_error", None) or {}
+        state_details = dict(getattr(request.state, "audit_details", None) or {})
+        state_details.update(state_error.get("details") or {})
         await audit.finish_event(
             event_id,
             status="error",
             error=f"{type(exc).__name__}: {exc}",
+            error_code=state_error.get("code") or "exception",
+            error_provider=state_error.get("provider"),
+            error_model=state_error.get("model"),
+            details_extra=state_details or None,
         )
         raise
+
+    state_error = getattr(request.state, "audit_error", None) or {}
+    state_details = dict(getattr(request.state, "audit_details", None) or {})
+    state_details.update(state_error.get("details") or {})
 
     if response.status_code >= 400:
         # BaseHTTPMiddleware отдаёт streaming-response, поэтому тело ошибки
@@ -290,6 +301,12 @@ async def audit_log_middleware(request: Request, call_next):
             status=audit.response_status(response),
             http_status=response.status_code,
             error=audit.error_from_body(body),
+            error_code=state_error.get("code") or audit.error_code_for_status(
+                response.status_code
+            ),
+            error_provider=state_error.get("provider"),
+            error_model=state_error.get("model"),
+            details_extra=state_details or None,
         )
         headers = {
             key: value
@@ -303,7 +320,12 @@ async def audit_log_middleware(request: Request, call_next):
             media_type=response.media_type,
         )
 
-    await audit.finish_from_response(event_id, response)
+    await audit.finish_from_response(
+        event_id,
+        response,
+        audit_error=state_error,
+        details_extra=state_details or None,
+    )
     return response
 
 

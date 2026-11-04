@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -216,6 +218,132 @@ def _search_blob(*values: Any) -> str:
     return " ".join(
         str(value) for value in values if value not in (None, "")
     ).lower()[:4000]
+
+
+_HTTP_HUMAN = {
+    400: "Некорректный запрос",
+    401: "Требуется авторизация",
+    403: "Доступ запрещён",
+    404: "Не найдено",
+    409: "Конфликт состояния",
+    413: "Слишком большой запрос",
+    422: "Ошибка валидации",
+    429: "Слишком много запросов",
+    500: "Внутренняя ошибка сервера",
+    502: "Ошибка внешнего сервиса",
+    503: "Сервис недоступен",
+    504: "Таймаут внешнего сервиса",
+}
+
+
+def _uuid7() -> uuid.UUID:
+    """UUIDv7 для Python < 3.14; на 3.14+ используем встроенный."""
+    if hasattr(uuid, "uuid7"):
+        return uuid.uuid7()
+    timestamp_ms = int(time.time() * 1000) & ((1 << 48) - 1)
+    rand_a = secrets.randbits(12)
+    rand_b = secrets.randbits(62)
+    value = (
+        (timestamp_ms << 80)
+        | (0x7 << 76)
+        | (rand_a << 64)
+        | (0x2 << 62)
+        | rand_b
+    )
+    return uuid.UUID(int=value)
+
+
+def _new_event_id() -> str:
+    """UUIDv7: сортируемый по времени, с случайной частью."""
+    return str(_uuid7())
+
+
+def error_code_for_status(code: int | None) -> str | None:
+    if not code:
+        return None
+    if code == 429:
+        return "http_429"
+    if 400 <= code < 500:
+        return f"http_{code}"
+    if code >= 500:
+        return "http_5xx"
+    return None
+
+
+def humanize_error(
+    error: str | None,
+    *,
+    http_status: int | None = None,
+    error_code: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> str:
+    """Превращает код/сырой текст в понятное человеку сообщение."""
+    text = str(error or "").strip()
+
+    if error_code == "tts_quota":
+        parts = [
+            "Gemini TTS: слишком много запросов (429). "
+            "Лимит Gemini исчерпан или превышен."
+        ]
+        if model:
+            parts.append(f"Модель: {model}.")
+        if provider:
+            parts.append(f"Провайдер: {provider}.")
+        return " ".join(parts)
+
+    if error_code == "tts_daily_limit":
+        parts = ["Дневной лимит озвучки исчерпан."]
+        if model:
+            parts.append(f"Модель: {model}.")
+        if text and "Дневной лимит" not in text:
+            parts.append(text[:500])
+        return " ".join(parts)
+
+    if error_code == "tts_disabled":
+        return "Озвучка отключена в админке."
+
+    if error_code == "tts_not_generated":
+        return "Аудио шага ещё не сгенерировано."
+
+    if error_code == "step_not_found":
+        return "Шаг рецепта не найден."
+
+    if error_code == "tts_error":
+        parts = ["Ошибка Gemini TTS."]
+        if model:
+            parts.append(f"Модель: {model}.")
+        if text and not text.startswith("Gemini TTS"):
+            parts.append(text[:1000])
+        return " ".join(parts)
+
+    if "TTSError" in text and "429" in text:
+        parts = [
+            "Gemini TTS: слишком много запросов (429). "
+            "Лимит Gemini исчерпан или превышен."
+        ]
+        if model:
+            parts.append(f"Модель: {model}.")
+        return " ".join(parts)
+
+    if error_code == "exception":
+        return "Внутренняя ошибка сервера." + (f" {text[:1500]}" if text else "")
+
+    if http_status in _HTTP_HUMAN:
+        base = f"{_HTTP_HUMAN[http_status]} ({http_status})."
+        if text and text not in (str(http_status), "429"):
+            base += f" {text[:1500]}"
+        return base
+
+    if any(
+        token in text.lower()
+        for token in ("timeout", "timed out", "readtimeout", "connecttimeout")
+    ):
+        return "Внешний сервис не ответил вовремя (таймаут)." + (
+            f" {text[:500]}" if text else ""
+        )
+
+    return text[:2000] if text else "Неизвестная ошибка"
 
 
 def _limit_details(details: Any) -> Any:
@@ -429,7 +557,7 @@ async def start_request_event(request) -> str | None:
         body = await _read_body(request)
         info = classify_request(request.method, path, body)
         actor = actor_from_request(request)
-        event_id = uuid.uuid4().hex
+        event_id = _new_event_id()
         row = AuditEvent(
             id=event_id,
             created_at=_now(),
@@ -448,6 +576,7 @@ async def start_request_event(request) -> str | None:
             status="running",
             details=info["details"],
             search_text=_search_blob(
+                event_id, event_id.replace("-", ""),
                 info["action"], info["action_label"], actor["name"], actor["email"],
                 actor["id"], info["target_type"], info["target_id"],
                 info["target_name"], path,
@@ -470,31 +599,60 @@ async def finish_event(
     status: str,
     http_status: int | None = None,
     error: str | None = None,
+    error_code: str | None = None,
+    error_provider: str | None = None,
+    error_model: str | None = None,
     details_extra: dict[str, Any] | None = None,
 ) -> None:
     if not event_id:
         return
     try:
         now = _now()
+        raw_error = str(error) if error else None
+        effective_code = error_code or error_code_for_status(http_status)
+        human_error = (
+            humanize_error(
+                raw_error,
+                http_status=http_status,
+                error_code=effective_code,
+                provider=error_provider,
+                model=error_model,
+            )
+            if (raw_error or effective_code)
+            else None
+        )
         async with SessionLocal() as session:
             row = await session.get(AuditEvent, event_id)
             if row is None:
                 return
             row.status = status
             row.http_status = http_status
-            row.error = (str(error) if error else None)
-            if row.error:
-                row.error = row.error[:_MAX_ERROR]
+            row.error = human_error[:_MAX_ERROR] if human_error else None
+            row.error_code = effective_code
+            row.error_provider = error_provider
+            row.error_model = error_model
             row.finished_at = now
             created = row.created_at
             if created is not None:
                 if created.tzinfo is None:
                     created = created.replace(tzinfo=timezone.utc)
                 row.duration_ms = max(0, int((now - created).total_seconds() * 1000))
+            merged = dict(row.details or {})
             if details_extra:
-                merged = dict(row.details or {})
                 merged.update(details_extra)
+            if raw_error and human_error and raw_error != human_error:
+                merged.setdefault("raw_error", raw_error[:1000])
+            if merged:
                 row.details = _limit_details(merged)
+            model_names = []
+            if isinstance(details_extra, dict):
+                for attempt in details_extra.get("models_tried") or []:
+                    if isinstance(attempt, dict) and attempt.get("model"):
+                        model_names.append(str(attempt["model"]))
+            row.search_text = _search_blob(
+                row.search_text, effective_code, error_provider,
+                error_model, human_error, raw_error, *model_names,
+            )
             await session.commit()
     except Exception as exc:  # noqa: BLE001
         print(f"[audit] finish failed: {type(exc).__name__}: {exc}")
@@ -531,14 +689,30 @@ def response_status(response) -> str:
     return "error"
 
 
-async def finish_from_response(event_id: str | None, response) -> None:
+async def finish_from_response(
+    event_id: str | None,
+    response,
+    *,
+    audit_error: dict[str, Any] | None = None,
+    details_extra: dict[str, Any] | None = None,
+) -> None:
     if not event_id:
         return
+    info = audit_error or {}
     code = int(response.status_code)
     status = response_status(response)
     error = _error_from_response(response) if code >= 400 else None
+    extra = dict(details_extra or {})
+    extra.update(info.get("details") or {})
     await finish_event(
-        event_id, status=status, http_status=code, error=error
+        event_id,
+        status=status,
+        http_status=code,
+        error=error,
+        error_code=info.get("code") or error_code_for_status(code),
+        error_provider=info.get("provider"),
+        error_model=info.get("model"),
+        details_extra=extra or None,
     )
 
 
@@ -556,6 +730,9 @@ async def log_event(
     target_name: str | None = None,
     status: str = "ok",
     error: str | None = None,
+    error_code: str | None = None,
+    error_provider: str | None = None,
+    error_model: str | None = None,
     details: Any = None,
     method: str | None = None,
     path: str | None = None,
@@ -567,7 +744,25 @@ async def log_event(
         if actor_kind == "automation" and not actor_name:
             actor_name = "Автоматизация"
         now = _now()
-        event_id = uuid.uuid4().hex
+        event_id = _new_event_id()
+        raw_error = str(error) if error else None
+        effective_code = error_code or error_code_for_status(http_status)
+        human_error = (
+            humanize_error(
+                raw_error,
+                http_status=http_status,
+                error_code=effective_code,
+                provider=error_provider,
+                model=error_model,
+            )
+            if (raw_error or effective_code)
+            else None
+        )
+        detail_value = safe_details(details) if details else {}
+        if raw_error and human_error and raw_error != human_error:
+            if not isinstance(detail_value, dict):
+                detail_value = {"details": detail_value}
+            detail_value.setdefault("raw_error", raw_error[:1000])
         row = AuditEvent(
             id=event_id,
             created_at=now,
@@ -587,11 +782,16 @@ async def log_event(
             path=path[:500] if path else None,
             status=status,
             http_status=http_status,
-            error=(str(error)[:_MAX_ERROR] if error else None),
-            details=_limit_details(safe_details(details)) if details else None,
+            error=(human_error[:_MAX_ERROR] if human_error else None),
+            error_code=effective_code,
+            error_provider=error_provider,
+            error_model=error_model,
+            details=_limit_details(detail_value) if detail_value else None,
             search_text=_search_blob(
+                event_id, event_id.replace("-", ""),
                 action, label, actor_name, actor_email, actor_id,
-                target_type, target_id, target_name, path, error,
+                target_type, target_id, target_name, path,
+                raw_error, effective_code, error_provider, error_model,
             ),
             correlation_id=correlation_id,
         )
@@ -625,6 +825,9 @@ def _to_dict(row: AuditEvent) -> dict[str, Any]:
         "status": row.status,
         "http_status": row.http_status,
         "error": row.error,
+        "error_code": row.error_code,
+        "error_provider": row.error_provider,
+        "error_model": row.error_model,
         "details": row.details,
         "ip": row.ip,
         "user_agent": row.user_agent,
@@ -649,6 +852,9 @@ async def list_events(
     q: str | None = None,
     status: str | None = None,
     action: str | None = None,
+    error_code: str | None = None,
+    error_provider: str | None = None,
+    error_model: str | None = None,
     target_type: str | None = None,
     target_id: str | None = None,
     since: str | None = None,
@@ -664,6 +870,12 @@ async def list_events(
         filters.append(AuditEvent.status == status)
     if action:
         filters.append(AuditEvent.action == action)
+    if error_code:
+        filters.append(AuditEvent.error_code == error_code)
+    if error_provider:
+        filters.append(AuditEvent.error_provider == error_provider)
+    if error_model:
+        filters.append(AuditEvent.error_model == error_model)
     if target_type:
         filters.append(AuditEvent.target_type == target_type)
     if target_id:
@@ -706,6 +918,60 @@ async def list_actions() -> list[dict[str, str]]:
         {"action": str(action), "label": str(label)}
         for action, label in rows
     ]
+
+
+async def error_stats(
+    *, since: str | None = None, until: str | None = None
+) -> dict[str, Any]:
+    """Сводка ошибок по коду и модели — для быстрой статистики."""
+    filters = [AuditEvent.status == "error"]
+    since_dt = _parse_dt(since)
+    if since_dt:
+        filters.append(AuditEvent.created_at >= since_dt)
+    until_dt = _parse_dt(until)
+    if until_dt:
+        filters.append(AuditEvent.created_at <= until_dt)
+
+    async with SessionLocal() as session:
+        total = await session.scalar(
+            select(func.count()).select_from(AuditEvent).where(*filters)
+        )
+        code_rows = (
+            await session.execute(
+                select(AuditEvent.error_code, func.count())
+                .where(*filters, AuditEvent.error_code.is_not(None))
+                .group_by(AuditEvent.error_code)
+                .order_by(func.count().desc())
+            )
+        ).all()
+        model_rows = (
+            await session.execute(
+                select(
+                    AuditEvent.error_provider,
+                    AuditEvent.error_model,
+                    func.count(),
+                )
+                .where(*filters, AuditEvent.error_model.is_not(None))
+                .group_by(AuditEvent.error_provider, AuditEvent.error_model)
+                .order_by(func.count().desc())
+            )
+        ).all()
+
+    return {
+        "total_errors": int(total or 0),
+        "by_code": [
+            {"code": str(code), "count": int(count)}
+            for code, count in code_rows
+        ],
+        "by_model": [
+            {
+                "provider": str(provider) if provider else None,
+                "model": str(model),
+                "count": int(count),
+            }
+            for provider, model, count in model_rows
+        ],
+    }
 
 
 async def get_event(event_id: str) -> dict[str, Any] | None:

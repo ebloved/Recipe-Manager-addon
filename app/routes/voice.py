@@ -83,5 +83,11 @@ async def generate_step_audio(recipe_id: str, index: int, request: Request):
     try:
         item = await step_audio.get_or_create(recipe, index)
     except step_audio.StepAudioError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        request.state.audit_error = {
+            "code": exc.code,
+            "provider": exc.provider,
+            "model": exc.model,
+            "details": exc.details,
+        }
+        raise HTTPException(exc.status_code, str(exc)) from exc
     return {"item": item, "usage": step_audio.usage()}

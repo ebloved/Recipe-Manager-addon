@@ -162,6 +162,31 @@ async def init_db() -> None:
             ))
             print("[db] shopping_items.deleted_at added")
 
+        # v3.22.2: структурированные ошибки в журнале действий.
+        audit_cols = (await conn.execute(text("PRAGMA table_info(audit_events)"))).all()
+        audit_names = {str(c[1]) for c in audit_cols}
+        for column, ddl in (
+            ("error_code", "ALTER TABLE audit_events ADD COLUMN error_code VARCHAR(64)"),
+            ("error_provider", "ALTER TABLE audit_events ADD COLUMN error_provider VARCHAR(64)"),
+            ("error_model", "ALTER TABLE audit_events ADD COLUMN error_model VARCHAR(128)"),
+        ):
+            if audit_names and column not in audit_names:
+                await conn.execute(text(ddl))
+                print(f"[db] audit_events.{column} added")
+        if audit_names:
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_audit_events_error_code "
+                "ON audit_events(error_code)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_audit_events_error_provider "
+                "ON audit_events(error_provider)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_audit_events_error_model "
+                "ON audit_events(error_model)"
+            ))
+
     # Backfill revision для существующих shopping-позиций (phase 2b).
     try:
         from stores.db_models import RecipeChange, ShoppingItem

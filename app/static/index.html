@@ -686,7 +686,7 @@
         <div class="row" style="margin-top:12px;">
           <div class="field">
             <label for="audit-q">Поиск</label>
-            <input type="text" id="audit-q" placeholder="кто, действие, объект, ошибка">
+            <input type="text" id="audit-q" placeholder="ID, кто, действие, объект, ошибка">
           </div>
           <div class="field">
             <label for="audit-status">Статус</label>
@@ -705,6 +705,7 @@
         </div>
 
         <div class="hint" id="audit-summary" style="margin:10px 0;"></div>
+        <div class="hint" id="audit-stats" style="margin:0 0 8px;display:none;"></div>
         <div id="audit-list"></div>
         <button class="btn" id="audit-more" style="display:none; width:100%; margin-top:10px;">Показать ещё</button>
       </div>
@@ -1164,7 +1165,10 @@
       <h3 id="audit-modal-title">Детали события</h3>
       <button class="product-editor-close" id="audit-modal-close">×</button>
     </div>
-    <div class="product-editor-body" id="audit-modal-body" style="max-height:72vh; overflow:auto;"></div>
+    <div class="product-editor-body" style="max-height:72vh; overflow:auto;">
+      <div id="audit-modal-meta"></div>
+      <div id="audit-modal-body"></div>
+    </div>
   </div>
 </div>
 
@@ -1373,7 +1377,7 @@
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=108"></script>
 <script src="static/js/profiles.js?v=108"></script>
-<script src="static/js/cabinet.js?v=111"></script>
+<script src="static/js/cabinet.js?v=112"></script>
 <script src="static/js/help.js?v=108"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

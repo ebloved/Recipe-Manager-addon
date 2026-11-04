@@ -760,13 +760,22 @@
   function auditRow(e) {
     const details = `<button class="btn" data-audit-id="${escHtml(e.id)}" style="padding:4px 8px;font-size:11px;white-space:nowrap;">Детали</button>`;
     const dur = auditDuration(e.duration_ms);
+    const shortId = (e.id || "").slice(0, 8);
+    const triedModels = (e.details && Array.isArray(e.details.models_tried))
+      ? e.details.models_tried.map((item) => item && item.model).filter(Boolean)
+      : [];
+    const errorMeta = [
+      e.error_code,
+      e.error_provider,
+      ...(triedModels.length ? triedModels : [e.error_model])
+    ].filter(Boolean).join(" · ");
     return `<tr>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top;font-size:11px;">${escHtml(auditTime(e.created_at))}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top;font-size:11px;">${escHtml(auditTime(e.created_at))}<div title="${escHtml(e.id || "")}" style="font-size:10px;color:var(--text-muted);font-family:ui-monospace,monospace;">${escHtml(shortId)}…</div></td>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditActor(e)}</td>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${escHtml(e.action_label || e.action || "—")}<div style="font-size:11px;color:var(--text-muted)">${escHtml(e.action || "")}</div></td>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditTarget(e)}</td>
       <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${auditStatus(e.status)}${dur ? `<div style="color:var(--text-muted);margin-top:3px;">${escHtml(dur)}</div>` : ""}</td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${e.error ? `<div style="color:var(--danger);word-break:break-word;">${escHtml(e.error)}</div>` : ""}${details}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${e.error ? `<div style="color:var(--danger);word-break:break-word;">${escHtml(e.error)}</div>` : ""}${errorMeta ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${escHtml(errorMeta)}</div>` : ""}${details}</td>
     </tr>`;
   }
 
@@ -791,10 +800,36 @@
     return escHtml(String(value));
   }
 
+  async function copyAuditId(value, button) {
+    const text = String(value || "");
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      if (button) {
+        const label = button.textContent;
+        button.textContent = "Скопировано";
+        setTimeout(() => { button.textContent = label; }, 1500);
+      }
+    } catch (e) {
+      if (button) button.textContent = "Не удалось";
+    }
+  }
+
   function openAuditModal(eventId) {
     const e = auditCache.get(eventId);
     if (!e) return;
     const payload = {
+      id: e.id,
       time: e.created_at,
       actor: {
         kind: e.actor_kind,
@@ -813,9 +848,22 @@
       ip: e.ip,
       user_agent: e.user_agent,
       error: e.error,
+      error_code: e.error_code,
+      error_provider: e.error_provider,
+      error_model: e.error_model,
       details: e.details,
       correlation_id: e.correlation_id
     };
+    const meta = $("audit-modal-meta");
+    if (meta) {
+      meta.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <span style="font-size:12px;color:var(--text-muted)">ID события:</span>
+        <code style="font-size:12px;word-break:break-all;">${escHtml(e.id)}</code>
+        <button class="btn" id="audit-modal-copy" style="padding:4px 8px;font-size:11px;">Копировать</button>
+      </div>`;
+      const copy = $("audit-modal-copy");
+      if (copy) copy.onclick = () => copyAuditId(e.id, copy);
+    }
     const body = $("audit-modal-body");
     if (body) body.innerHTML = `<div class="audit-json">${jsonHtml(payload)}</div>`;
     const modal = $("audit-modal");
@@ -886,6 +934,27 @@
     });
   }
 
+  async function loadAuditStats() {
+    const el = $("audit-stats");
+    if (!el) return;
+    try {
+      const data = await getJSON("api/admin/audit/stats");
+      const total = Number(data.total_errors || 0);
+      if (!total) {
+        el.style.display = "none";
+        return;
+      }
+      const models = (data.by_model || []).slice(0, 3).map((item) => {
+        const provider = item.provider ? ` (${item.provider})` : "";
+        return `${item.model}${provider} — ${item.count}`;
+      }).join(" · ");
+      el.innerHTML = `<b>Всего ошибок:</b> ${total}` + (models ? ` · по моделям: ${escHtml(models)}` : "");
+      el.style.display = "block";
+    } catch (e) {
+      el.style.display = "none";
+    }
+  }
+
   async function loadAudit(reset = true) {
     const card = $("cabinet-audit");
     if (!card) return;
@@ -933,6 +1002,7 @@
         summary.style.color = "var(--text-muted)";
       }
       if (more) more.style.display = auditOffset < total ? "block" : "none";
+      if (reset) await loadAuditStats();
     } catch (e) {
       if (summary) {
         summary.textContent = "Ошибка загрузки журнала: " + e.message;

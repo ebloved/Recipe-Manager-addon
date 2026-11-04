@@ -325,6 +325,9 @@ class AuditEvent(Base):
     status: Mapped[str] = mapped_column(String(16), default="running", index=True)
     http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    error_provider: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    error_model: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     details: Mapped[Any | None] = mapped_column(JSON, nullable=True)
     # Lowercased строка для поиска, включая кириллицу (SQLite lower() её не умеет).
     search_text: Mapped[str | None] = mapped_column(Text, nullable=True)

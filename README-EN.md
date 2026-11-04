@@ -275,8 +275,11 @@ Normalization and product enrichment run before saving.
 
 ## Audit log
 
-Admins get a separate **Action log** tab in the header. Event details open in
-a modal with JSON syntax highlighting. It records mutations,
+Admins get a separate **Action log** tab in the header. Every event has a
+time-ordered UUID, and details open in a modal with JSON syntax highlighting,
+copyable ID and structured error fields (`error_code`, `error_provider`,
+`error_model`). Human-readable messages translate HTTP 429 and TTS quota
+errors, including the model that was called. It records mutations,
 generations, imports, settings changes, user management and background
 jobs with actor, target, status, duration, error and details. Recipe views,
 meal plans and shopping lists are intentionally not logged. Secrets and

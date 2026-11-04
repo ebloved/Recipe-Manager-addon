@@ -45,8 +45,8 @@ async def step_audio_worker() -> None:
                         },
                     )
                 except step_audio.StepAudioError as exc:
-                    if "daily limit" in str(exc):
-                        print("[tts] daily limit reached")
+                    if exc.code in ("tts_daily_limit", "tts_quota"):
+                        print(f"[tts] pause: {exc}")
                         await asyncio.sleep(3600)
                         continue
                     print(f"[tts] skip {recipe.get('name')!r} step {index + 1}: {exc}")
@@ -58,7 +58,10 @@ async def step_audio_worker() -> None:
                         target_name=recipe.get("name"),
                         status="error",
                         error=str(exc),
-                        details={"step_index": index + 1},
+                        error_code=exc.code,
+                        error_provider=exc.provider,
+                        error_model=exc.model,
+                        details={**exc.details, "step_index": index + 1},
                     )
             await asyncio.sleep(5)
         except asyncio.CancelledError:
