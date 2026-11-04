@@ -1,0 +1,453 @@
+"use strict";
+(function (RM) {
+  const { $, escHtml, formatTime } = RM.utils;
+  const { getJSON } = RM.api;
+  const state = RM.state;
+
+  let searchTimer = null;
+  state.recipesSort = "name_asc";
+  state.recipeKind = "all";
+  state.deletedRecipes = [];
+  state.trashLoaded = false;
+  
+  function getActiveProfile() {
+    return (RM.profiles && RM.profiles.getActive) ? RM.profiles.getActive() : null;
+  }
+  
+  function fitsProfile(recipe, profile) {
+    if (!profile) return true;
+    const c = profile.constraints || {};
+    const num = (v) => (v === null || v === undefined || v === "") ? null : Number(v);
+    if (c.max_calories_per_serving != null) {
+      const cal = num((recipe.nutrition || {}).calories);
+      if (cal == null || cal > Number(c.max_calories_per_serving)) return false;
+    }
+    if (c.max_total_time_min != null) {
+      let t = num(recipe.total_time);
+      if (t == null) t = num(recipe.time);
+      if (t == null) {
+        const pc = (recipe.prep_time || 0) + (recipe.cook_time || 0);
+        t = pc > 0 ? pc : null;
+      }
+      if (t == null || t > Number(c.max_total_time_min)) return false;
+    }
+    if (c.max_active_time_min != null) {
+      // v1.9.0: только active_time, без fallback на prep_time.
+      // Если не оценён — рецепт не подходит (оцени через «🎯 Оценить active_time»).
+      const active = num(recipe.active_time);
+      if (active == null || active > Number(c.max_active_time_min)) return false;
+    }
+    if (c.min_protein_per_serving_g != null) {
+      const p = num((recipe.nutrition || {}).protein);
+      if (p == null || p < Number(c.min_protein_per_serving_g)) return false;
+    }
+    if (c.max_sugar_per_serving_g != null) {
+      const sg = num((recipe.nutrition || {}).sugar);
+      if (sg == null || sg > Number(c.max_sugar_per_serving_g)) return false;
+    }
+    return true;
+  }
+  
+  function toggleProfileFilter() {
+    state.profileFilterActive = !state.profileFilterActive;
+    filterAndRender();
+  }
+  
+  function updateFilterButton() {
+    const btn = $("profile-filter-btn");
+    if (!btn) return;
+    const active = getActiveProfile();
+    if (!active) {
+      btn.style.display = "none";
+      state.profileFilterActive = false;
+      return;
+    }
+    btn.style.display = "";
+    const total = state.recipes.length;
+    const fitting = state.recipes.filter((r) => fitsProfile(r, active)).length;
+    btn.textContent = `🎯 Только под профиль (${fitting}/${total})`;
+    btn.title = active.name || "Активный профиль";
+    if (state.profileFilterActive) btn.classList.add("profile-filter-active");
+    else btn.classList.remove("profile-filter-active");
+  }
+
+  function kindOf(r) {
+    const values = [
+      ...(r.tags || []),
+      ...(r.courses || []),
+      ...(r.categories || []),
+      r.category || "",
+    ].map((x) => String(x).toLowerCase());
+    if (values.some((x) => x.includes("салат"))) return "salad";
+    if (values.some((x) => x.includes("гарнир"))) return "side";
+    if (values.some((x) => x.includes("десерт") || x.includes("выпечка") || x.includes("завтрак"))) {
+      return "other";
+    }
+    return "main";
+  }
+
+  function setupKindTabs() {
+    document.querySelectorAll(".recipe-kind-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const kind = btn.dataset.kind;
+        if (kind === "cooking") {
+          RM.tabs.activateTab("cooking");
+          return;
+        }
+        state.recipeKind = kind || "all";
+        document.querySelectorAll(".recipe-kind-tab").forEach((x) => {
+          x.classList.toggle("active", x === btn);
+        });
+        filterAndRender();
+      });
+    });
+  }
+
+  function setup() {
+      setupKindTabs();
+      $("search").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => filterAndRender(), 200);
+      });
+      const filterBtn = $("profile-filter-btn");
+      if (filterBtn) filterBtn.addEventListener("click", toggleProfileFilter);
+      const ownerSel = $("filter-owner");
+      if (ownerSel) ownerSel.addEventListener("change", () => {
+        if (ownerSel.value === "trash") loadTrash();
+        else if (!state.recipes.length) load();
+        else filterAndRender();
+      });
+      const sortSel = $("sort-select");
+      if (sortSel) sortSel.addEventListener("change", (e) => {
+        state.recipesSort = e.target.value;
+        filterAndRender();
+      });
+      const hiddenCb = $("show-hidden-cb");
+      if (hiddenCb) hiddenCb.addEventListener("change", () => load(true));
+      const estBtn = $("estimate-all-btn");
+      if (estBtn) estBtn.addEventListener("click", estimateAllActiveTime);
+    }
+
+    async function estimateAllActiveTime() {
+      const btn = $("estimate-all-btn");
+      if (!btn) return;
+      if (!confirm("Оценить active_time для всех рецептов? Это может занять несколько минут (LLM вызов на каждый рецепт).")) return;
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = "⏳ Запуск…";
+      try {
+        const data = await RM.api.postJSON("api/recipes/estimate-active-time?force=false", {});
+        const jobId = data.job_id;
+        if (!jobId) { alert("Нет job_id в ответе"); return; }
+        const t0 = Date.now();
+        while (true) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const elapsed = Math.round((Date.now() - t0) / 1000);
+          btn.textContent = `⏳ ${elapsed}s…`;
+          let j;
+          try { j = await RM.api.getJSON(`api/generator/jobs/${jobId}`); }
+          catch (e) { if (/404/.test(e.message || "")) { alert("Задача потеряна"); return; } continue; }
+          if (j.status === "done") {
+            alert(`Готово за ${elapsed}s. Обновлено: ${j.created || 0}`);
+            await load();
+            return;
+          }
+          if (j.status === "error") { alert("Ошибка: " + (j.error || "—")); return; }
+          if (elapsed > 900) { alert("Таймаут 15 минут"); return; }
+        }
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+  async function load(force = false) {
+      const container = $("recipes-container");
+      if (force) state.recipes = [];
+      if (state.recipes.length) {
+        filterAndRender();
+        return;
+      }
+      container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка…</div>';
+      try {
+        const showHidden = $("show-hidden-cb")?.checked;
+      const url = showHidden ? "api/recipes?show_hidden=true" : "api/recipes";
+      const data = await getJSON(url);
+        state.recipes = data.recipes || [];
+        filterAndRender();
+      } catch (err) {
+        container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить: ${escHtml(err.message)}</p></div>`;
+      }
+    }
+
+      function sortRecipes(arr) {
+      const mode = state.recipesSort || "name_asc";
+      if (!mode) return arr;
+      
+      const getAct = (r) => r.active_time != null ? r.active_time : 99999;
+      const getTot = (r) => r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || 99999;
+      
+      return [...arr].sort((a, b) => {
+        if (mode === "active_asc") return getAct(a) - getAct(b);
+        if (mode === "total_asc") return getTot(a) - getTot(b);
+        
+        if (mode === "combined") {
+          const diffAct = getAct(a) - getAct(b);
+          if (diffAct !== 0) return diffAct;
+          return getTot(a) - getTot(b);
+        }
+        
+        if (mode === "course_asc") {
+          const ca = (a.courses && a.courses[0]) || "я";
+          const cb = (b.courses && b.courses[0]) || "я";
+          if (ca !== cb) return ca.localeCompare(cb);
+          return (a.name || "").localeCompare(b.name || "");
+        }
+        
+        if (mode === "name_asc") return (a.name || "").localeCompare(b.name || "");
+        
+        return 0;
+      });
+    }
+
+function filterAndRender(q) {
+      const query = (q !== undefined ? q : ($("search").value || "")).trim();
+      const active = getActiveProfile();
+      const applyProfile = state.profileFilterActive && active;
+      const ownerFilter = $("filter-owner")?.value || "all";
+
+      if (ownerFilter === "trash") {
+        if (!state.trashLoaded) {
+          loadTrash();
+        } else {
+          renderTrash(query);
+        }
+        return;
+      }
+
+      let filtered = state.recipes;
+      if (ownerFilter === "my" && RM.state.user) {
+        filtered = filtered.filter(r => r.owner_id === RM.state.user.id);
+      }
+      if (applyProfile) filtered = filtered.filter((r) => fitsProfile(r, active));
+      if (state.recipeKind && state.recipeKind !== "all") {
+        filtered = filtered.filter((r) => kindOf(r) === state.recipeKind);
+      }
+      if (query) {
+        const lower = query.toLowerCase();
+        filtered = filtered.filter((r) => {
+          if ((r.name || "").toLowerCase().includes(lower)) return true;
+          if ((r.description || "").toLowerCase().includes(lower)) return true;
+          for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
+            if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
+          }
+          for (const ing of r.ingredients || []) {
+            const name = typeof ing === "string" ? ing : ing.name;
+            if (name && String(name).toLowerCase().includes(lower)) return true;
+          }
+          return false;
+        });
+      }
+      filtered = sortRecipes(filtered);
+      render(filtered);
+    }
+
+  async function loadTrash() {
+    const container = $("recipes-container");
+    container.innerHTML = '<div class="loading"><span class="spinner"></span> Загрузка корзины…</div>';
+    try {
+      const data = await getJSON("api/recipes/trash");
+      state.deletedRecipes = data.recipes || [];
+      state.trashLoaded = true;
+      renderTrash(($("search").value || "").trim());
+    } catch (err) {
+      container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Не удалось загрузить корзину: ${escHtml(err.message)}</p></div>`;
+    }
+  }
+
+  function renderTrash(query) {
+    const container = $("recipes-container");
+    let items = state.deletedRecipes || [];
+    if (query) {
+      const q = query.toLowerCase();
+      items = items.filter((r) =>
+        String(r.name || "").toLowerCase().includes(q)
+        || String(r.description || "").toLowerCase().includes(q)
+      );
+    }
+    if (!items.length) {
+      container.innerHTML = '<div class="empty"><div class="icon">🗑</div><p>Корзина пуста.</p></div>';
+      return;
+    }
+    container.innerHTML = `<div class="recipe-grid">${items.map((r) => {
+      const thumb = r.image_thumb_url || r.image_url;
+      const date = r.deleted_at ? new Date(r.deleted_at).toLocaleString("ru-RU") : "—";
+      return `<div class="recipe-card deleted">
+        ${thumb ? `<div class="recipe-thumb"><img src="${escHtml(RM.utils.mediaUrl(thumb))}" alt="" loading="lazy" decoding="async"></div>` : `<div class="recipe-thumb picker-placeholder">🗑</div>`}
+        <div class="recipe-body">
+          <div class="deleted-badge">Удалён ${escHtml(date)}</div>
+          <h3 class="recipe-name">${escHtml(r.name || "(без названия)")}</h3>
+          <div class="trash-actions">
+            <button class="btn primary" data-restore="${escHtml(r.id)}">↩ Восстановить</button>
+            <button class="btn danger" data-purge="${escHtml(r.id)}">Удалить навсегда</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("")}</div>`;
+
+    container.querySelectorAll("[data-restore]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await RM.api.postJSON(`api/recipes/${btn.dataset.restore}/restore`, {});
+          state.trashLoaded = false;
+          state.recipes = [];
+          await loadTrash();
+        } catch (e) {
+          alert("Ошибка восстановления: " + e.message);
+          btn.disabled = false;
+        }
+      });
+    });
+    container.querySelectorAll("[data-purge]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Удалить рецепт навсегда? Восстановить его будет нельзя.")) return;
+        btn.disabled = true;
+        try {
+          await RM.api.del(`api/recipes/${btn.dataset.purge}/permanent`);
+          state.deletedRecipes = state.deletedRecipes.filter((r) => r.id !== btn.dataset.purge);
+          renderTrash(($("search").value || "").trim());
+        } catch (e) {
+          alert("Ошибка удаления: " + e.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function render(recipes) {
+    const container = $("recipes-container");
+    if (!recipes.length) {
+      container.innerHTML = '<div class="empty"><div class="icon">📖</div><p>Рецептов пока нет.</p></div>';
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "recipe-grid";
+    for (const r of recipes) {
+      grid.appendChild(cardFor(r));
+    }
+    container.innerHTML = "";
+    container.appendChild(grid);
+  }
+
+  function cardFor(r) {
+    const card = document.createElement("div");
+    const thumbUrl = r.image_thumb_url || r.image_url;
+    card.className = "recipe-card" + (thumbUrl ? "" : " no-thumb");
+    card.addEventListener("click", () => RM.detail.open(r));
+
+    if (thumbUrl) {
+      const thumb = document.createElement("div");
+      thumb.className = "recipe-thumb";
+      const img = document.createElement("img");
+      img.src = RM.utils.mediaUrl(thumbUrl);
+      img.alt = r.name || "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.width = 480;
+      img.height = 360;
+      thumb.appendChild(img);
+      card.appendChild(thumb);
+    }
+
+    const cookBtn = document.createElement("button");
+    cookBtn.className = "card-cook-btn";
+    cookBtn.title = "На кухню";
+    cookBtn.textContent = "🍳";
+    cookBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      RM.cooking.start(r);
+    });
+    card.appendChild(cookBtn);
+
+    const planBtn = document.createElement("button");
+    planBtn.className = "card-plan-btn";
+    planBtn.title = "Добавить в план";
+    planBtn.textContent = "📅";
+    planBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      RM.planPicker.open(r);
+    });
+    card.appendChild(planBtn);
+
+    const body = document.createElement("div");
+    body.className = "recipe-body";
+
+    const name = document.createElement("h3");
+    name.className = "recipe-name";
+    name.textContent = r.name || "(без названия)";
+    body.appendChild(name);
+
+    const meta = document.createElement("div");
+    meta.className = "recipe-meta";
+    const _activeProfile = getActiveProfile();
+    if (_activeProfile && fitsProfile(r, _activeProfile)) {
+      const fitChip = chip("🎯", false);
+      fitChip.classList.add("fit");
+      fitChip.title = "Подходит под профиль: " + (_activeProfile.name || "");
+      meta.appendChild(fitChip);
+    }
+    const t = r.total_time || r.time || ((r.prep_time || 0) + (r.cook_time || 0)) || null;
+    if (t) meta.appendChild(chip("⏱ " + formatTime(t), false));
+    if (r.servings) meta.appendChild(chip("👥 " + r.servings, false));
+
+    if (r.active_time != null) {
+      const at = chip("🎯 " + r.active_time + " мин акт." + (r.active_time_estimated ? "*" : ""), false);
+      at.title = "Активное время (сколько вы заняты готовкой)" + (r.active_time_estimated ? ". Оценка ИИ" : "");
+      meta.appendChild(at);
+    }
+    
+    // Нормализация по стандарту recipe_template.md
+    if (r.normalization_status) {
+      const issues = r.normalization_issues || [];
+      const warnings = issues.filter((i) => i.severity === "error" || i.severity === "warning").length;
+      const badge = chip(warnings ? `⚠️ ${warnings}` : "✅ норма", false);
+      badge.title = issues.length
+        ? issues.map((i) => `[${i.severity}] ${i.code}: ${i.message}`).join("\n")
+        : "Рецепт соответствует стандарту";
+      badge.classList.add(warnings ? "norm-issues" : "norm-ok");
+      meta.appendChild(badge);
+    }
+
+    // B3: Индикатор связок продуктов
+    const ings = r.ingredients || [];
+    if (ings.length > 0) {
+      let linked = 0;
+      for (const ing of ings) {
+        if (typeof ing !== "string" && ing.product_id) linked++;
+      }
+      const badge = chip(`🔗 ${linked}/${ings.length}`, false);
+      badge.title = "Связано с базой продуктов";
+      if (linked === ings.length) badge.classList.add("linked-all");
+      else if (linked > 0) badge.classList.add("linked-partial");
+      else badge.classList.add("linked-none");
+      meta.appendChild(badge);
+    }
+    
+    for (const tag of (r.tags || []).slice(0, 3)) meta.appendChild(chip(tag, true));
+    body.appendChild(meta);
+    card.appendChild(body);
+    return card;
+  }
+
+  function chip(text, isTag) {
+    const el = document.createElement("span");
+    el.className = "meta-chip" + (isTag ? " tag" : "");
+    el.textContent = text;
+    return el;
+  }
+
+  RM.recipes = { setup, load, filterAndRender, render, fitsProfile, updateFilterButton, kindOf };
+})(window.RM);

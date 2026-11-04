@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "description": "Дефолтные профили генерации рецептов. Поставляются с плагином, при первом запуске копируются в /data/gen_profiles.json. Пользователь может редактировать локальную копию и создавать свои профили.",
+  "profiles": [
+    {
+      "key": "healthy_quick",
+      "name": "Здоровое и быстрое",
+      "description": "Без жарки, поменьше жира, не стоять долго у плиты",
+      "icon": "🥗",
+      "constraints": {
+        "max_calories_per_serving": 400,
+        "max_active_time_min": 25,
+        "max_total_time_min": 60,
+        "avoid_methods": ["жарка", "фритюр", "гриль"],
+        "prefer_methods": ["варка", "пар", "запекание", "тушение"],
+        "avoid_ingredients": [],
+        "prefer_ingredients": [],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "light_meal",
+      "name": "Лёгкое",
+      "description": "Небольшая порция, минимум калорий, для перекуса или ужина",
+      "icon": "🥒",
+      "constraints": {
+        "max_calories_per_serving": 250,
+        "max_active_time_min": 20,
+        "max_total_time_min": 45,
+        "avoid_methods": ["жарка", "фритюр"],
+        "prefer_methods": ["варка", "пар", "салат"],
+        "avoid_ingredients": ["майонез", "сливки"],
+        "prefer_ingredients": ["овощи", "зелень"],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "high_protein",
+      "name": "Высокий белок",
+      "description": "Много белка, умеренные жиры и углеводы",
+      "icon": "🍗",
+      "constraints": {
+        "max_calories_per_serving": 500,
+        "max_active_time_min": 30,
+        "max_total_time_min": 90,
+        "avoid_methods": ["фритюр"],
+        "prefer_methods": ["варка", "пар", "запекание", "гриль"],
+        "avoid_ingredients": [],
+        "prefer_ingredients": ["курица", "индейка", "рыба", "яйца", "творог"],
+        "min_protein_per_serving_g": 25,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "no_oven",
+      "name": "Без духовки",
+      "description": "Только плита — варка, тушение, сковорода",
+      "icon": "🍳",
+      "constraints": {
+        "max_calories_per_serving": null,
+        "max_active_time_min": 40,
+        "max_total_time_min": 90,
+        "avoid_methods": ["запекание", "выпечка"],
+        "prefer_methods": ["варка", "тушение", "сковорода"],
+        "avoid_ingredients": [],
+        "prefer_ingredients": [],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "seasonal_summer",
+      "name": "Летнее",
+      "description": "Сезонные овощи и фрукты, свежие блюда",
+      "icon": "☀️",
+      "constraints": {
+        "max_calories_per_serving": null,
+        "max_active_time_min": 30,
+        "max_total_time_min": 60,
+        "avoid_methods": ["запекание в духовке"],
+        "prefer_methods": ["салат", "варка", "гриль"],
+        "avoid_ingredients": [],
+        "prefer_ingredients": ["помидоры", "огурцы", "кабачки", "баклажаны", "перцы", "зелень", "ягоды"],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "kids_friendly",
+      "name": "Детское",
+      "description": "Без острых специй и алкоголя, простые вкусы",
+      "icon": "🧒",
+      "constraints": {
+        "max_calories_per_serving": null,
+        "max_active_time_min": 30,
+        "max_total_time_min": 90,
+        "avoid_methods": ["фритюр"],
+        "prefer_methods": ["варка", "пар", "запекание"],
+        "avoid_ingredients": ["острый перец", "чили", "алкоголь", "вино", "горчица"],
+        "prefer_ingredients": [],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    },
+    {
+      "key": "meal_prep",
+      "name": "Заготовки на неделю",
+      "description": "Блюда, которые хорошо хранятся и разогреваются",
+      "icon": "📦",
+      "constraints": {
+        "max_calories_per_serving": null,
+        "max_active_time_min": 45,
+        "max_total_time_min": 120,
+        "avoid_methods": ["фритюр"],
+        "prefer_methods": ["варка", "тушение", "запекание"],
+        "avoid_ingredients": ["свежая зелень для подачи", "хрустящие топпинги"],
+        "prefer_ingredients": ["крупы", "бобовые", "мясо", "птица"],
+        "min_protein_per_serving_g": null,
+        "max_sugar_per_serving_g": null
+      }
+    }
+  ]
+}

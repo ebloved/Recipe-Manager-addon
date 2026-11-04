@@ -1,0 +1,205 @@
+"""Список покупок: CRUD + lookup по штрих-коду + добавление из рецепта."""
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Body, HTTPException, Request
+from services.auth import get_current_user
+
+from services.product_lookup import lookup_barcode
+from stores import ingredients_store, recipe_store, shopping_store
+
+router = APIRouter(prefix="/api/shopping", tags=["shopping"])
+
+
+# --- CRUD -------------------------------------------------------------------
+
+@router.get("")
+async def list_items(request: Request, only_active: bool = False):
+    user = get_current_user(request)
+    items = shopping_store.get_all(owner_id=user['id'], only_active=only_active)
+    active = sum(1 for i in items if not i.get("checked"))
+    return {
+        "items": items,
+        "count": len(items),
+        "active": active,
+    }
+
+
+@router.post("")
+async def add_item(request: Request, payload: dict[str, Any] = Body(...)):
+    user = get_current_user(request)
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "'name' is required")
+    item = await shopping_store.add(payload, owner_id=user['id'])
+    return {"item": item}
+
+
+@router.patch("/{item_id}")
+async def update_item(item_id: str, request: Request, patch: dict[str, Any] = Body(...)):
+    item = await shopping_store.update(item_id, owner_id=get_current_user(request)['id'], patch=patch)
+    if not item:
+        raise HTTPException(404, "Item not found")
+    return {"item": item}
+
+
+@router.post("/{item_id}/toggle")
+async def toggle_item(item_id: str, request: Request):
+    user = get_current_user(request)
+    item = shopping_store.get(item_id)
+    if not item or item.get('owner_id') != user['id']:
+        raise HTTPException(404, "Item not found")
+    updated = await shopping_store.update(
+        item_id, owner_id=user['id'], patch={'checked': not item.get('checked', False)}
+    )
+    if not updated:
+        raise HTTPException(404, "Item not found")
+    return {"item": updated}
+
+
+@router.delete("/checked")
+async def clear_checked(request: Request):
+    removed = await shopping_store.clear_checked(owner_id=get_current_user(request)['id'])
+    return {"removed": removed}
+
+
+@router.delete("/all")
+async def clear_all(request: Request):
+    removed = await shopping_store.clear_all(owner_id=get_current_user(request)['id'])
+    return {"removed": removed}
+
+
+@router.delete("/{item_id}")
+async def delete_item(item_id: str, request: Request):
+    ok = await shopping_store.delete(item_id, owner_id=get_current_user(request)['id'])
+    if not ok:
+        raise HTTPException(404, "Item not found")
+    return {"deleted": True}
+
+
+# --- Lookup -----------------------------------------------------------------
+
+@router.post("/lookup")
+async def lookup(payload: dict[str, Any] = Body(...)):
+    """Ищет товар по штрих-коду. НЕ сохраняет — только возвращает данные."""
+    barcode = (payload.get("barcode") or "").strip()
+    if not barcode:
+        raise HTTPException(400, "'barcode' is required")
+    product = await lookup_barcode(barcode)
+    return {"product": product}
+
+
+# --- Add from recipe --------------------------------------------------------
+
+@router.post("/from-recipe")
+async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...)):
+    """Добавляет ингредиенты рецепта в список покупок.
+
+    Payload:
+        recipe_id: str
+        ingredient_indices: list[int] | None
+            Если не указан — берём все не-заголовки.
+        multiplier: float = 1
+    """
+    recipe_id = payload.get("recipe_id")
+    if not recipe_id:
+        raise HTTPException(400, "'recipe_id' is required")
+
+    recipe = recipe_store.get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found")
+
+    multiplier = float(payload.get("multiplier") or 1)
+    indices = payload.get("ingredient_indices")
+
+    raw = recipe.get("ingredients") or []
+    normalized = [
+        ({"name": i, "amount": None, "unit": None, "notes": None}
+         if isinstance(i, str) else i)
+        for i in raw
+    ]
+
+    if indices is None:
+        selected = [
+            (idx, ing) for idx, ing in enumerate(normalized)
+            if not ing.get("is_heading") and not (ing.get("name") or "").startswith("#")
+        ]
+    else:
+        wanted = set(int(i) for i in indices)
+        selected = [(idx, normalized[idx]) for idx in wanted if 0 <= idx < len(normalized)]
+
+    # B2: resolve product names for ingredients with product_id
+    _products_by_id: dict[str, dict[str, Any]] = {}
+    try:
+        _raw_products = getattr(ingredients_store, "products", None) or {}
+        _products = _raw_products.values() if isinstance(_raw_products, dict) else _raw_products
+        for _p in _products:
+            if isinstance(_p, dict):
+                _pid = _p.get("id")
+                if _pid:
+                    _products_by_id[_pid] = _p
+    except Exception:  # noqa: BLE001
+        _products_by_id = {}
+
+    added = 0
+    merged = 0
+    for _, ing in selected:
+        name = (ing.get("name") or "").strip()
+        if not name:
+            continue
+        amount = ing.get("amount")
+        if amount and multiplier != 1:
+            amount = _scale_amount(amount, multiplier)
+        product = _products_by_id.get(ing.get("product_id")) if ing.get("product_id") else None
+        resolved_name = (product.get("name") or "").strip() if product else ""
+        item_data: dict[str, Any] = {
+            "name": resolved_name or name,
+            "amount": amount,
+            "unit": ing.get("unit"),
+            "note": ing.get("notes"),
+            "recipe_id": recipe_id,
+            "recipe_name": recipe.get("name"),
+            "source": "recipe",
+            "product_id": ing.get("product_id") or None,
+        }
+        if product:
+            item_data["brand"] = product.get("brand")
+            item_data["barcode"] = product.get("barcode")
+            item_data["image_url"] = product.get("image_url")
+            item_data["category"] = product.get("category")
+        _, was_merged = await shopping_store.add_or_merge(item_data, owner_id=get_current_user(request)['id'])
+        if was_merged:
+            merged += 1
+        else:
+            added += 1
+
+    return {
+        "added": added,
+        "merged": merged,
+        "total": added + merged,
+    }
+
+
+def _scale_amount(amount: Any, mult: float) -> Any:
+    try:
+        num = float(str(amount).replace(",", "."))
+    except (TypeError, ValueError):
+        return amount
+    result = num * mult
+    if result.is_integer():
+        return int(result)
+    return round(result, 2)
+
+
+# ---------------------------------------------------------------------------
+# Export for external MCP connector (VkusVill and others)
+# ---------------------------------------------------------------------------
+
+@router.get("/export-for-connector")
+async def export_for_connector(request: Request, store_id: str = "vkusvill"):
+    """Возвращает корзину в формате для внешнего MCP-коннектора."""
+    from services.connector_export import build_connector_cart
+
+    user = get_current_user(request)
+    return build_connector_cart(user["id"], store_id, user)

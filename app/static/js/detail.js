@@ -1,0 +1,913 @@
+"use strict";
+(function (RM) {
+  const { $, escHtml, formatTime, scaleAmount } = RM.utils;
+  const { getJSON, patchJSON, del } = RM.api;
+  const state = RM.state;
+
+  // Кэш продуктов, связанных с текущим рецептом.
+  // Ключ — product_id, значение — объект продукта из /api/ingredients/{id}.
+  // Заполняется при открытии detail-view.
+  state.productCache = state.productCache || {};
+
+  async function onEstimateActiveTime() {
+    const r = state.currentRecipe;
+    if (!r || !r.id) return;
+    const chip = document.querySelector("[data-action='estimate-active-time']");
+    const origText = chip ? chip.textContent : "";
+    if (chip) {
+      chip.textContent = "⏳ Оценка… 0s";
+      chip.disabled = true;
+    }
+
+    let resp;
+    try {
+      resp = await RM.api.postJSON(
+        `api/recipes/${r.id}/estimate-active-time?force=true`, {}
+      );
+    } catch (err) {
+      alert("Ошибка запроса: " + (err.message || "сеть"));
+      if (chip) { chip.textContent = origText; chip.disabled = false; }
+      return;
+    }
+
+    if (!resp || !resp.job_id) {
+      alert("Сервер не вернул job_id. Обновите страницу (Ctrl+Shift+R).");
+      if (chip) { chip.textContent = origText; chip.disabled = false; }
+      return;
+    }
+
+    const jobId = resp.job_id;
+    const t0 = Date.now();
+
+    while (true) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      if (chip) chip.textContent = `⏳ Оценка… ${elapsed}s`;
+
+      if (elapsed > 600) {
+        alert("Оценка занимает больше 10 минут. Прерываем.");
+        if (chip) { chip.textContent = origText; chip.disabled = false; }
+        return;
+      }
+
+      let j;
+      try {
+        j = await RM.api.getJSON(`api/generator/jobs/${jobId}`);
+      } catch (err) {
+        const msg = err.message || "";
+        if (/404/.test(msg)) {
+          alert("Задача потеряна (перезапуск аддона?)");
+          if (chip) { chip.textContent = origText; chip.disabled = false; }
+          return;
+        }
+        continue;
+      }
+
+      if (j.status === "done") {
+        try {
+          const full = await RM.api.getJSON(`api/recipes/${r.id}`);
+          if (full && full.recipe) {
+            state.currentRecipe = full.recipe;
+            render();
+            if (RM.recipes && RM.recipes.filterAndRender) RM.recipes.filterAndRender();
+          }
+        } catch (_) {}
+        return;
+      }
+
+      if (j.status === "error") {
+        alert("Ошибка оценки: " + (j.error || "неизвестно"));
+        if (chip) { chip.textContent = origText; chip.disabled = false; }
+        return;
+      }
+    }
+  }
+
+  async function onShareRecipe() {
+    const r = state.currentRecipe;
+    if (!r || !r.id) return;
+    try {
+      const data = await RM.api.postJSON(`api/sharing/${r.id}/share`, {});
+      const base = (state.remoteServerUrl || window.location.origin).replace(/\/+$/, "");
+      const url = `${base}/share/${data.token}`;
+      openShareModal(url);
+    } catch (e) { alert("Ошибка: " + e.message); }
+  }
+
+  function openShareModal(url) {
+    const overlay = $("share-modal");
+    if (!overlay) return;
+    $("share-link-input").value = url;
+    const qrBox = $("share-qr");
+    if (qrBox) {
+      qrBox.innerHTML = "";
+      try {
+        const qr = qrcode(0, "M");
+        qr.addData(url);
+        qr.make();
+        qrBox.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2 });
+        const svg = qrBox.querySelector("svg");
+        if (svg) {
+          svg.removeAttribute("width");
+          svg.removeAttribute("height");
+          svg.style.width = "100%";
+          svg.style.height = "auto";
+        }
+      } catch (e) {
+        qrBox.textContent = "QR недоступен";
+      }
+    }
+    overlay.classList.add("show");
+  }
+
+  function closeShareModal() {
+    const overlay = $("share-modal");
+    if (overlay) overlay.classList.remove("show");
+  }
+
+  async function copyShareLink() {
+    const input = $("share-link-input");
+    const btn = $("share-copy");
+    if (!input) return;
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch (e) {
+      input.focus(); input.select();
+      try { document.execCommand("copy"); } catch (_) { /* ignore */ }
+    }
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = "Скопировано";
+      setTimeout(() => { btn.textContent = old; }, 2000);
+    }
+  }
+
+
+  async function onHideRecipe() {
+    if (!state.currentRecipe) return;
+    if (!confirm("Скрыть рецепт из своей библиотеки?")) return;
+    try {
+      await RM.api.postJSON(`api/recipes/${state.currentRecipe.id}/hide`, {});
+      close();
+      RM.recipes.load();
+    } catch(e) { alert(e.message); }
+  }
+
+  function setupEquipmentSwitcher(recipe) {
+    const btnHide = document.getElementById("btn-hide-recipe");
+    if (btnHide) btnHide.onclick = onHideRecipe;
+
+    if (!recipe) return;
+    const switcher = $("equipment-switcher");
+    if (!switcher) return;
+
+    switcher.style.display = "";
+
+    const eq = recipe.equipment && recipe.equipment[0] ? recipe.equipment[0] : "oven";
+    switcher.querySelectorAll(".eq-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.eq === eq);
+    });
+    
+    switcher.querySelectorAll(".eq-btn").forEach(btn => {
+      btn.onclick = async () => {
+        const target = btn.dataset.eq;
+        if (target === eq) return;
+        
+        if (target === "airfryer") {
+          // Проверяем, есть ли привязанная версия
+          const adaptedId = recipe.adapted_versions?.airfryer;
+          if (adaptedId) {
+            try {
+              const res = await RM.api.getJSON(`api/recipes/${adaptedId}`);
+              RM.detail.open(res.recipe);
+              return;
+            } catch (err) {
+              console.warn("Adapted version not found (404), falling back to generate prompt:", err);
+              // Если рецепт удален, просто идем дальше и показываем заглушку
+            }
+          }
+          
+          // Если нет - показываем заглушку
+          const panel = $("detail-panel");
+          panel.innerHTML = `
+            <div class="detail-close" id="detail-close">×</div>
+            <div style="text-align:center; padding: 40px 20px;">
+              <h2>♨️ Версия для аэрогриля отсутствует</h2>
+              <p style="color:var(--text-secondary); margin-bottom:20px;">ИИ может пересчитать время и температуру по правилам.</p>
+              <button class="btn primary" id="btn-adapt-af">✨ Адаптировать под аэрогриль</button>
+            </div>
+          `;
+          $("detail-close").onclick = close;
+          
+          $("btn-adapt-af").onclick = async () => {
+            const btn = $("btn-adapt-af");
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Генерация…';
+            try {
+              const job = await RM.api.postJSON(`api/recipes/${recipe.id}/adapt-to-airfryer`, {});
+              // Поллинг с защитой от сетевых сбоев
+              while(true) {
+                await new Promise(r => setTimeout(r, 2000));
+                let j;
+                try {
+                  j = await RM.api.getJSON(`api/generator/jobs/${job.job_id}`);
+                } catch (err) {
+                  console.warn("Polling network error, retrying...", err);
+                  continue; // Продолжаем ждать при сбое сети
+                }
+                if (j.status === "done") {
+                  const parent = await RM.api.getJSON(`api/recipes/${recipe.id}`);
+                  const adaptedId = parent.recipe.adapted_versions?.airfryer;
+                  if (adaptedId) {
+                    const res = await RM.api.getJSON(`api/recipes/${adaptedId}`);
+                    RM.detail.open(res.recipe);
+                  } else {
+                    alert("Готово, но не удалось найти ID.");
+                  }
+                  return;
+                }
+                if (j.status === "error") { alert("Ошибка: " + j.error); break; }
+              }
+            } catch(e) { alert(e.message); }
+          };
+          return;
+        }
+        
+        if (target === "oven") {
+           // Если переключились на духовку с аэрогриля - открываем родителя
+           if (recipe.parent_id) {
+               const res = await RM.api.getJSON(`api/recipes/${recipe.parent_id}`);
+               RM.detail.open(res.recipe);
+               return;
+           }
+        }
+      };
+    });
+  }
+
+  function setup() {
+    // v1.9.1: делегирование для active_time chip (render пересоздаёт DOM)
+    document.addEventListener("click", (e) => {
+      if (e.target.closest('#btn-share-recipe')) { onShareRecipe(); return; }
+      const chip = e.target.closest("[data-action='estimate-active-time']");
+      if (!chip) return;
+      e.preventDefault();
+      onEstimateActiveTime();
+    });
+    $("detail-overlay").addEventListener("click", (e) => {
+      if (e.target === $("detail-overlay")) close();
+    });
+
+    const shareModal = $("share-modal");
+    if (shareModal) {
+      shareModal.addEventListener("click", (e) => {
+        if (e.target === shareModal) closeShareModal();
+      });
+    }
+    const shareClose = $("share-modal-close");
+    if (shareClose) shareClose.addEventListener("click", closeShareModal);
+    const shareCopy = $("share-copy");
+    if (shareCopy) shareCopy.addEventListener("click", copyShareLink);
+  }
+
+  async function open(recipe) {
+    if (!recipe) {
+      alert("Рецепт не найден");
+      return;
+    }
+    state.currentRecipe = recipe;
+    state.servingMult = 1;
+    
+    state.completedSteps = new Set();
+
+    // Показываем оверлей сразу с "Загрузка…" — чтобы не было пустоты
+    $("detail-overlay").classList.add("show");
+    $("detail-panel").innerHTML = `
+      <div class="equipment-switcher" id="equipment-switcher">
+        <button class="eq-btn active" data-eq="oven">🍳 Духовка</button>
+        <button class="eq-btn" data-eq="airfryer">♨️ Аэрогриль</button>
+      </div>
+      <div class="detail-header-actions">
+        <button class="btn" id="btn-hide-recipe" title="Скрыть у себя">🙈 Скрыть</button>
+        <button class="detail-close" id="detail-close">×</button>
+      </div>
+      <div class="loading" style="padding:60px 0">
+        <span class="spinner"></span> Загрузка…
+      </div>`;
+    $("detail-close").addEventListener("click", close);
+
+    // Подгружаем информацию о связанных продуктах
+    await loadLinkedProducts(recipe);
+
+    render();
+    setupEquipmentSwitcher(recipe);
+  }
+
+  function close() {
+    $("detail-overlay").classList.remove("show");
+    state.currentRecipe = null;
+  }
+
+  // -----------------------------------------------------------------
+  // Загрузка продуктов, связанных с ингредиентами
+  // -----------------------------------------------------------------
+  async function loadLinkedProducts(recipe) {
+    if (!recipe || !Array.isArray(recipe.ingredients)) return;
+
+    // Собираем уникальные product_id, которых ещё нет в кэше
+    const missing = new Set();
+    for (const ing of recipe.ingredients) {
+      if (ing && typeof ing === "object" && ing.product_id) {
+        if (!state.productCache[ing.product_id]) {
+          missing.add(ing.product_id);
+        }
+      }
+    }
+
+    if (!missing.size) return;
+
+    // Параллельно запрашиваем каждый продукт
+    const tasks = [...missing].map(async (id) => {
+      try {
+        const data = await getJSON(`api/ingredients/${id}`);
+        return [id, data.product];
+      } catch (err) {
+        // Продукт мог быть удалён — не считаем это ошибкой
+        return [id, null];
+      }
+    });
+
+    const results = await Promise.all(tasks);
+    for (const [id, product] of results) {
+      if (product) {
+        state.productCache[id] = product;
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------
+  function render() {
+    const r = state.currentRecipe;
+    if (!r) return;
+    const panel = $("detail-panel");
+
+    const ingredients = (r.ingredients || []).map((ing) =>
+      typeof ing === "string" ? { name: ing, amount: null, unit: null, notes: null } : ing
+    );
+
+    const metaChips = [];
+    if (r.servings_text || r.servings)
+      metaChips.push(`<span class="meta-chip-large" title="Количество порций">👥 ${escHtml(r.servings_text || r.servings)}</span>`);
+      
+    // Автор рецепта
+    const authorName = r.owner_name || (r.owner_id === "family" || !r.owner_id ? "НЛО" : null);
+    if (authorName) {
+      const isMe = window.RM?.state?.user?.name === authorName;
+      const icon = authorName === "НЛО" ? "🛸" : "👤";
+      metaChips.push(`<span class="meta-chip-large" title="Автор рецепта">${icon} ${escHtml(isMe ? "Вы" : authorName)}</span>`);
+    }
+    
+    // v1.9.3: показываем все времена с явными подписями
+    if (r.prep_time) {
+      metaChips.push(`<span class="meta-chip-large" title="Время на подготовку (нарезка, замес и т.д.)">🔪 ${formatTime(r.prep_time)} подг.</span>`);
+    }
+    if (r.cook_time) {
+      metaChips.push(`<span class="meta-chip-large" title="Время термической обработки">🔥 ${formatTime(r.cook_time)} готовки</span>`);
+    }
+    const totalTime = r.total_time || r.time || ((r.prep_time||0)+(r.cook_time||0));
+    if (totalTime) {
+      metaChips.push(`<span class="meta-chip-large" title="Общее время (включая пассивные периоды)">⏱ ${formatTime(totalTime)} всего</span>`);
+    }
+    // v1.9.1: active_time chip — кликабельный
+    if (r.active_time != null) {
+      const star = r.active_time_estimated ? "*" : "";
+      metaChips.push(`<button class="meta-chip-large clickable" data-action="estimate-active-time" title="${r.active_time_estimated ? 'Оценка ИИ. Клик — пересчитать' : 'Точное значение. Клик — пересчитать'}. Активное время — сколько вы заняты готовкой.">🎯 ${r.active_time} мин акт.${star} ⟳</button>`);
+    } else {
+      metaChips.push(`<button class="meta-chip-large clickable estimate-missing" data-action="estimate-active-time" title="Оценить активное время (сколько вы стоите у плиты) через LLM">🎯 Оценить акт.</button>`);
+    }
+
+    const chipsRows = [];
+    if ((r.courses || []).length) {
+      chipsRows.push(`<div class="chips-row">
+        <span class="chips-label">Курс:</span>
+        ${r.courses.map((c) => `<button class="chip course" data-filter="${escHtml(c)}">${escHtml(c)}</button>`).join("")}
+      </div>`);
+    }
+    if ((r.categories || []).length) {
+      chipsRows.push(`<div class="chips-row">
+        <span class="chips-label">Категория:</span>
+        ${r.categories.map((c) => `<button class="chip category" data-filter="${escHtml(c)}">${escHtml(c)}</button>`).join("")}
+      </div>`);
+    }
+    if ((r.collections || []).length) {
+      chipsRows.push(`<div class="chips-row">
+        <span class="chips-label">Коллекция:</span>
+        ${r.collections.map((c) => `<button class="chip collection" data-filter="${escHtml(c)}">${escHtml(c)}</button>`).join("")}
+      </div>`);
+    }
+
+    const photoUrl = RM.utils.mediaUrl(r.image_card_url || r.image_url);
+    const fullPhotoUrl = RM.utils.mediaUrl(r.image_url || photoUrl);
+    const photoBlock = photoUrl
+      ? `<button class="photo-toggle" id="photo-toggle">📷 Показать фото</button>
+         <div class="photo-box" id="photo-box">
+           <img src="${escHtml(photoUrl)}" alt="${escHtml(r.name)}" loading="lazy" decoding="async">
+           ${fullPhotoUrl && fullPhotoUrl !== photoUrl ? `<a href="${escHtml(fullPhotoUrl)}" target="_blank" rel="noopener" class="photo-full-link">Открыть оригинал</a>` : ""}
+         </div>`
+      : "";
+
+    const hasNutrition = r.nutrition && Object.values(r.nutrition).some((v) => v != null && v !== "");
+    const nutritionBlock = hasNutrition ? renderNutrition(r) : "";
+    const rdaBlock = hasNutrition ? renderRDA(r) : "";
+
+    const stepsHtml = (r.instructions || []).length
+      ? `<ol class="steps-list">
+          ${(r.instructions || []).map((s, i) => `
+            <li class="step-item" data-step-idx="${i}">
+              <div class="step-num" data-toggle-step="${i}">${i + 1}</div>
+              <div class="step-text">${renderStepText(s)}</div>
+            </li>
+          `).join("")}
+        </ol>`
+      : `<p style="color:var(--text-secondary);font-size:14px;">Шаги не указаны.</p>`;
+
+    const notesHtml = r.notes
+      ? `<div class="section-card">
+          <div class="section-title">📝 Заметки</div>
+          <div class="notes-box">⚠️ ${RM.utils.renderMarkdown(r.notes)}</div>
+        </div>`
+      : "";
+
+    const ingredientsHtml = ingredients.length
+      ? `<ul class="ingredients-list">
+          ${ingredients.map((ing, idx) => renderIngredientRow(ing, idx)).join("")}
+        </ul>`
+      : `<p style="color:var(--text-secondary);font-size:14px;">Ингредиенты не указаны.</p>`;
+
+    panel.innerHTML = `
+      <div class="equipment-switcher" id="equipment-switcher">
+        <button class="eq-btn active" data-eq="oven">🍳 Духовка</button>
+        <button class="eq-btn" data-eq="airfryer">♨️ Аэрогриль</button>
+      </div>
+      <div class="detail-header-actions">
+        <button class="btn" id="btn-hide-recipe" title="Скрыть у себя">🙈 Скрыть</button>
+        <button class="detail-close" id="detail-close">×</button>
+      </div>
+
+      <div class="detail-head">
+        <h2 class="detail-title">${escHtml(r.name || "")}</h2>
+        ${r.description ? `<div class="detail-description">${escHtml(r.description)}</div>` : ""}
+
+        <div class="detail-toolbar">
+          <button class="toolbar-btn ${r.is_favourite ? "fav-active" : ""}" id="tbtn-fav">
+            <span class="ico">${r.is_favourite ? "❤️" : "🤍"}</span>
+            <span>Избранное</span>
+          </button>
+          <button class="toolbar-btn" id="tbtn-cook">
+            <span class="ico">🍳</span>
+            <span>На кухню</span>
+          </button>
+          <button class="toolbar-btn" id="tbtn-plan">
+            <span class="ico">📅</span>
+            <span>В план</span>
+          </button>
+          <button class="toolbar-btn" id="tbtn-shop">
+            <span class="ico">🛒</span>
+            <span>В покупки</span>
+          </button>
+          <button class="toolbar-btn" id="tbtn-edit">
+            <span class="ico">✏️</span>
+            <span>Правка</span>
+          </button>
+          <button class="toolbar-btn danger" id="tbtn-delete">
+            <span class="ico">🗑️</span>
+            <span>Удалить</span>
+          </button>
+        </div>
+
+        ${photoBlock}
+        ${metaChips.length ? `<div class="meta-chips">${metaChips.join("")}</div>` : ""}
+        ${chipsRows.length ? `<div class="chips-area">${chipsRows.join("")}</div>` : ""}
+      </div>
+
+      <div class="detail-stack">
+
+        <div class="section-card">
+          <div class="section-title">🥕 Ингредиенты</div>
+          ${ingredientsHtml}
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">📋 Шаги приготовления</div>
+          ${stepsHtml}
+        </div>
+
+        <div class="section-card">
+          <div class="scaler-row">
+            <span class="scaler-label">Порции</span>
+            <div class="scaler">
+              <button class="scaler-btn" id="scale-minus">−</button>
+              <span class="scaler-val" id="scale-val">×1</span>
+              <button class="scaler-btn" id="scale-plus">+</button>
+            </div>
+          </div>
+        </div>
+
+        ${hasNutrition ? `<div class="section-card">${nutritionBlock}${rdaBlock}</div>` : ""}
+
+        ${notesHtml}
+
+        <div class="detail-share-row">
+          <button class="btn" id="btn-share-recipe">🔗 Поделиться</button>
+        </div>
+
+      </div>
+    `;
+
+    // --- Events ---
+    $("detail-close").addEventListener("click", close);
+    $("tbtn-delete").addEventListener("click", () => onDelete(r));
+    $("tbtn-fav").addEventListener("click", () => onToggleFav(r));
+    $("tbtn-cook").addEventListener("click", () => RM.cooking.start(r));
+    $("tbtn-plan").addEventListener("click", () => RM.planPicker.open(r));
+    $("tbtn-shop").addEventListener("click", () => {
+      RM.shopping.openRecipeShop(r, state.servingMult);
+    });
+    $("tbtn-edit").addEventListener("click", () => {
+      RM.editor.open(r, (updated) => {
+        state.currentRecipe = { ...r, ...updated };
+        const idx = state.recipes.findIndex((x) => x.id === r.id);
+        if (idx >= 0) state.recipes[idx] = state.currentRecipe;
+        render();
+        RM.recipes.render(state.recipes);
+      });
+    });
+
+    const photoToggle = $("photo-toggle");
+    if (photoToggle) {
+      photoToggle.addEventListener("click", () => {
+        const box = $("photo-box");
+        box.classList.toggle("show");
+        photoToggle.textContent = box.classList.contains("show") ? "📷 Скрыть фото" : "📷 Показать фото";
+      });
+    }
+
+    $("scale-minus").addEventListener("click", () => {
+      if (state.servingMult <= 0.25) return;
+      state.servingMult = Math.max(0.25, state.servingMult - 0.25);
+      updateServingDisplay();
+    });
+    $("scale-plus").addEventListener("click", () => {
+      state.servingMult += 0.25;
+      updateServingDisplay();
+    });
+
+    panel.querySelectorAll("[data-toggle-step]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const idx = parseInt(el.dataset.toggleStep, 10);
+        if (state.completedSteps.has(idx)) state.completedSteps.delete(idx);
+        else state.completedSteps.add(idx);
+        updateStepDisplay();
+      });
+    });
+
+    panel.querySelectorAll("[data-filter]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const val = el.dataset.filter;
+        close();
+        RM.tabs.switchToRecipes();
+        $("search").value = val;
+        RM.recipes.filterAndRender(val);
+      });
+    });
+
+    // Event delegation на список ингредиентов:
+    //   .ing-cart-btn   → добавить в покупки
+    //   .ing-link-btn   → открыть product-picker (связать)
+    //   .ing-product    → открыть product-picker (изменить/отвязать связку)
+    const ingList = panel.querySelector(".ingredients-list");
+    if (ingList) {
+      ingList.addEventListener("click", (e) => {
+        // 1. Корзина — добавить в покупки
+        const cartBtn = e.target.closest(".ing-cart-btn");
+        if (cartBtn) {
+          e.stopPropagation();
+          const idx = parseInt(cartBtn.dataset.ingIdx, 10);
+          const ings = normalizedIngredients(r);
+          const ing = ings[idx];
+          if (ing) {
+            RM.shopping.addIngredient(ing, r, state.servingMult);
+            cartBtn.textContent = "✓";
+            setTimeout(() => { cartBtn.textContent = "🛒"; }, 900);
+          }
+          return;
+        }
+
+        // 2. Привязка/изменение связки
+        const linkEl = e.target.closest(".ing-status-btn");
+        if (linkEl) {
+          e.stopPropagation();
+          const idx = parseInt(linkEl.dataset.ingIdx, 10);
+          onLinkClick(idx);
+        }
+      });
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Row rendering
+  // -----------------------------------------------------------------
+  function normalizedIngredients(r) {
+    return (r.ingredients || []).map((ing) =>
+      typeof ing === "string" ? { name: ing, amount: null, unit: null, notes: null } : ing
+    );
+  }
+
+  function renderIngredientRow(ing, idx) {
+    // Подзаголовок
+    if (ing.is_heading || (ing.name || "").startsWith("#")) {
+      const text = (ing.name || "").replace(/^#\s*/, "");
+      return `<li class="ing-heading">${escHtml(text)}</li>`;
+    }
+
+    const amount = scaleAmount(ing.amount, state.servingMult);
+    const unit = ing.unit || "";
+    const amountStr = [amount, unit].filter(Boolean).join(" ");
+
+    // Продукт
+    const productId = ing.product_id || null;
+    const product = productId ? state.productCache[productId] : null;
+
+    let productHtml = "";
+    if (productId && product) {
+      // Связка есть — только компактная иконка, без длинного названия.
+      const title = `${product.name || ""}${product.brand ? " (" + product.brand + ")" : ""}`;
+      productHtml = `
+        <button class="ing-status-btn matched" data-ing-idx="${idx}"
+                title="Связан: ${escHtml(title)} — изменить/отвязать">✅</button>`;
+    } else if (productId) {
+      productHtml = `
+        <button class="ing-status-btn missing" data-ing-idx="${idx}"
+                title="Продукт не найден — открыть для замены">❓</button>`;
+    } else {
+      productHtml = `
+        <button class="ing-status-btn" data-ing-idx="${idx}"
+                title="Связать с продуктом">🔗</button>`;
+    }
+
+    return `<li class="ing-item">
+      <span class="ing-amount">${escHtml(amountStr || "—")}</span>
+      <span class="ing-name">${escHtml(ing.name || "")}${
+        ing.notes ? ` <span class="ing-notes">(${escHtml(ing.notes)})</span>` : ""
+      }</span>
+      ${productHtml}
+      <button class="ing-cart-btn" data-ing-idx="${idx}" title="Добавить в покупки">🛒</button>
+    </li>`;
+  }
+
+  // -----------------------------------------------------------------
+  // Open product picker for an ingredient
+  // -----------------------------------------------------------------
+  function onLinkClick(idx) {
+    const r = state.currentRecipe;
+    if (!r) return;
+    const ings = normalizedIngredients(r);
+    const ing = ings[idx];
+    if (!ing) return;
+
+    const currentProductId = ing.product_id || null;
+
+    RM.productPicker.open(ing.name || "", currentProductId, async (productId, product) => {
+      await applyLinkToIngredient(r, idx, productId, product);
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // Save link back to recipe
+  // -----------------------------------------------------------------
+  async function applyLinkToIngredient(recipe, idx, productId, product) {
+    const ings = [...(recipe.ingredients || [])];
+    const current = ings[idx];
+
+    // Нормализуем в объект
+    let normalized;
+    if (typeof current === "string") {
+      normalized = { name: current };
+    } else {
+      normalized = { ...current };
+    }
+
+    if (productId) {
+      normalized.product_id = productId;
+      // Обновим локальный кэш, чтобы UI не ждал следующего запроса
+      if (product) {
+        state.productCache[productId] = product;
+      }
+    } else {
+      // Отвязка
+      delete normalized.product_id;
+    }
+
+    ings[idx] = normalized;
+
+    // Оптимистично обновляем локальный state
+    state.currentRecipe = { ...recipe, ingredients: ings };
+    const recipeIdx = state.recipes.findIndex((x) => x.id === recipe.id);
+    if (recipeIdx >= 0) {
+      state.recipes[recipeIdx] = { ...state.recipes[recipeIdx], ingredients: ings };
+    }
+
+    try {
+      await patchJSON(`api/recipes/${recipe.id}`, { ingredients: ings });
+      // Перерисовать detail и карточку в списке
+      render();
+      RM.recipes.render(state.recipes);
+    } catch (err) {
+      // Откатываем
+      state.currentRecipe = recipe;
+      if (recipeIdx >= 0) {
+        state.recipes[recipeIdx] = recipe;
+      }
+      alert("Не удалось сохранить связку: " + err.message);
+      render();
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Steps / serving display
+  // -----------------------------------------------------------------
+  function renderStepText(text) {
+    return RM.utils.renderMarkdown(text);
+  }
+
+  function updateServingDisplay() {
+    const el = $("scale-val");
+    if (el) el.textContent = "×" + state.servingMult;
+    const r = state.currentRecipe;
+    if (!r) return;
+    const list = document.querySelector(".ingredients-list");
+    if (!list) return;
+    const ingredients = normalizedIngredients(r);
+    list.innerHTML = ingredients.map((ing, idx) => renderIngredientRow(ing, idx)).join("");
+  }
+
+  function updateStepDisplay() {
+    document.querySelectorAll(".step-item").forEach((el) => {
+      const idx = parseInt(el.dataset.stepIdx, 10);
+      const num = el.querySelector(".step-num");
+      if (state.completedSteps.has(idx)) {
+        el.classList.add("done");
+        num.classList.add("done");
+        num.textContent = "✓";
+      } else {
+        el.classList.remove("done");
+        num.classList.remove("done");
+        num.textContent = idx + 1;
+      }
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // Nutrition ring
+  // -----------------------------------------------------------------
+  function renderNutrition(r) {
+    const n = r.nutrition || {};
+    const carbs = parseFloat(n.carbohydrates) || 0;
+    const fat = parseFloat(n.fat) || 0;
+    const protein = parseFloat(n.protein) || 0;
+    const calories = parseFloat(n.calories) || 0;
+
+    const calCarbs = carbs * 4;
+    const calFat = fat * 9;
+    const calProtein = protein * 4;
+    const totalCal = calCarbs + calFat + calProtein;
+
+    const r0 = 42;
+    const C = 2 * Math.PI * r0;
+    const gap = 6;
+    const lenCarbs = totalCal > 0 ? Math.max(0, (calCarbs / totalCal) * C - gap) : 0;
+    const lenFat   = totalCal > 0 ? Math.max(0, (calFat   / totalCal) * C - gap) : 0;
+    const lenProt  = totalCal > 0 ? Math.max(0, (calProtein/ totalCal) * C - gap) : 0;
+
+    const startCarbs = -90;
+    const startFat = startCarbs + (totalCal > 0 ? (calCarbs / totalCal) * 360 : 0);
+    const startProt = startFat + (totalCal > 0 ? (calFat / totalCal) * 360 : 0);
+
+    const displayCal = calories > 0 ? Math.round(calories) : (totalCal > 0 ? Math.round(totalCal) : "—");
+
+    return `
+      <div class="section-title">🥗 Пищевая ценность</div>
+      <div class="nutr-block">
+        <div class="nutr-ring-wrap">
+          <svg width="90" height="90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="${r0}" fill="none" stroke="var(--border)" stroke-width="7"/>
+            <circle cx="50" cy="50" r="${r0}" fill="none"
+              stroke="var(--carbs)" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="${lenCarbs} ${C}"
+              transform="rotate(${startCarbs} 50 50)"
+              opacity="${lenCarbs > 0 ? 1 : 0}"/>
+            <circle cx="50" cy="50" r="${r0}" fill="none"
+              stroke="var(--fat)" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="${lenFat} ${C}"
+              transform="rotate(${startFat} 50 50)"
+              opacity="${lenFat > 0 ? 1 : 0}"/>
+            <circle cx="50" cy="50" r="${r0}" fill="none"
+              stroke="var(--protein)" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="${lenProt} ${C}"
+              transform="rotate(${startProt} 50 50)"
+              opacity="${lenProt > 0 ? 1 : 0}"/>
+            <text x="50" y="48" text-anchor="middle" class="nutr-ring-text-main">${displayCal}</text>
+            <text x="50" y="62" text-anchor="middle" class="nutr-ring-text-sub">kcal</text>
+          </svg>
+        </div>
+        <div class="nutr-macros">
+          ${macroCol("Углеводы", carbs, calCarbs, totalCal, "var(--carbs)")}
+          ${macroCol("Жиры", fat, calFat, totalCal, "var(--fat)")}
+          ${macroCol("Белок", protein, calProtein, totalCal, "var(--protein)")}
+        </div>
+      </div>
+      <div class="nutr-serving-note">на 1 порцию</div>
+    `;
+  }
+
+  function macroCol(label, grams, cal, totalCal, color) {
+    const pct = totalCal > 0 ? Math.round((cal / totalCal) * 100) : 0;
+    const val = grams > 0 ? `${grams} г` : "—";
+    return `<div class="nutr-macro">
+      <span class="nutr-macro-val" style="color:${color}">${val}</span>
+      <span class="nutr-macro-label">${label}</span>
+      ${pct > 0 ? `<span class="nutr-macro-pct" style="color:${color}">${pct}% cal</span>` : ""}
+    </div>`;
+  }
+
+  const RDA_LOOKUP = {
+    calories:      { label: "Калории",         unit: "kcal", value: 2000 },
+    fat:           { label: "Жиры",            unit: "г",    value: 65 },
+    saturated_fat: { label: "Насыщенные жиры", unit: "г",    value: 20 },
+    cholesterol:   { label: "Холестерин",      unit: "мг",   value: 300 },
+    sodium:        { label: "Натрий",          unit: "мг",   value: 2300 },
+    carbohydrates: { label: "Углеводы",        unit: "г",    value: 300 },
+    fiber:         { label: "Клетчатка",       unit: "г",    value: 28 },
+    sugar:         { label: "Сахара",          unit: "г",    value: 50 },
+    protein:       { label: "Белок",           unit: "г",    value: 50 },
+  };
+
+  function renderRDA(r) {
+    const n = r.nutrition || {};
+    const order = ["calories","fat","saturated_fat","cholesterol","sodium","carbohydrates","fiber","sugar","protein"];
+    const rows = [];
+    for (const key of order) {
+      const v = parseFloat(n[key]);
+      if (!v || isNaN(v)) continue;
+      const rda = RDA_LOOKUP[key];
+      if (!rda) continue;
+      const pct = Math.min(Math.round((v / rda.value) * 100), 999);
+      rows.push(`<div class="rda-row">
+        <span class="rda-label">${rda.label}</span>
+        <span class="rda-val">${v} ${rda.unit}</span>
+        <span class="rda-pct">${pct}%</span>
+        <div class="rda-bar-wrap"><div class="rda-bar ${pct > 100 ? "over" : ""}" style="width:${Math.min(pct,100)}%"></div></div>
+      </div>`);
+    }
+    if (!rows.length) return "";
+    return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div class="section-title" style="margin-bottom:8px;">📊 Дневная норма (на 1 порцию)</div>
+      <div class="rda-list">${rows.join("")}</div>
+    </div>`;
+  }
+
+  // -----------------------------------------------------------------
+  // Actions
+  // -----------------------------------------------------------------
+  async function onDelete(r) {
+    if (!confirm(`Удалить рецепт «${r.name}»?`)) return;
+    try {
+      await del(`api/recipes/${r.id}`);
+      state.recipes = state.recipes.filter((x) => x.id !== r.id);
+      close();
+      RM.recipes.render(state.recipes);
+    } catch (err) {
+      alert("Ошибка удаления: " + err.message);
+    }
+  }
+
+  async function onToggleFav(r) {
+    try {
+      const data = await patchJSON(`api/recipes/${r.id}`, { is_favourite: !r.is_favourite });
+      state.currentRecipe = data.recipe;
+      const idx = state.recipes.findIndex((x) => x.id === r.id);
+      if (idx >= 0) state.recipes[idx] = data.recipe;
+      render();
+      RM.recipes.render(state.recipes);
+    } catch (err) {
+      alert("Ошибка: " + err.message);
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // Public
+  // -----------------------------------------------------------------
+  RM.detail = { setup, open, close, render };
+})(window.RM);

@@ -1,0 +1,176 @@
+"""Эндпоинты генератора рецептов."""
+from __future__ import annotations
+
+from typing import Any
+
+import asyncio
+import logging
+
+from fastapi import APIRouter, Body, HTTPException, Query, Request
+
+from config import (
+    ADDON_VERSION,
+    GEMINI_MODELS,
+    GEMINI_PROXY,
+    GENERATOR_DEFAULT_COUNT,
+    GENERATOR_DEFAULT_SAMPLES,
+    GENERATOR_MAX_COUNT,
+    GENERATOR_SAMPLES_MAX,
+)
+from services.generator import (
+    generate_suggestions,
+    get_providers_status,
+)
+from services.generator.generator import _now
+try:
+    from services.telegram_service import telegram_service
+except ImportError:
+    telegram_service = None
+from stores import jobs_store, recipe_store, suggestions_store
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/generator", tags=["generator"])
+
+
+@router.post("/run", status_code=202)
+async def run_generation(request: Request, payload: dict[str, Any] = Body(...)):
+    profile_id = payload.get("profile_id")
+    topic = payload.get("topic")
+    count = int(payload.get("count") or GENERATOR_DEFAULT_COUNT)
+    samples_count = int(payload.get("samples_count") or GENERATOR_DEFAULT_SAMPLES)
+
+    from services.auth import get_current_user
+    _u = get_current_user(request)
+    user_id = _u.get("id") if _u else "family"
+
+    params = {
+        "profile_id": profile_id, "topic": topic,
+        "count": count, "samples_count": samples_count,
+        "user_id": user_id,
+    }
+    job = await jobs_store.create(params)
+    asyncio.create_task(_run_job(job["id"], **params))
+    return {"job_id": job["id"], "status": "pending", "created_at": job["created_at"]}
+
+
+async def _run_job(job_id: str, *, profile_id, topic, count, samples_count, user_id: str = "family"):
+    import time
+    t0 = time.monotonic()
+    try:
+        items = await generate_suggestions(
+            profile_id=profile_id, topic=topic,
+            count=count, samples_count=samples_count,
+            max_count=GENERATOR_MAX_COUNT, samples_max=GENERATOR_SAMPLES_MAX,
+            job_id=job_id,
+            user_id=user_id,
+        )
+        await suggestions_store.add_many(items)
+        elapsed = round(time.monotonic() - t0, 2)
+        await jobs_store.update(
+            job_id, status="done", created=len(items),
+            finished_at=_now(),
+        )
+        if telegram_service:
+            await telegram_service.send(f"✅ <b>Генерация завершена</b>\nJob ID: <code>{job_id}</code>\nСоздано: {len(items)}")
+        logger.info("[generator] job %s done in %.1fs, %d suggestions",
+                    job_id, elapsed, len(items))
+    except HTTPException as exc:
+        await jobs_store.update(
+            job_id, status="error", error=exc.detail, finished_at=_now())
+        if telegram_service:
+            await telegram_service.send(f"❌ <b>Ошибка генерации</b>\nJob ID: <code>{job_id}</code>\n{exc.detail}")
+        logger.warning("[generator] job %s failed: %s", job_id, exc.detail)
+    except Exception as exc:  # noqa: BLE001
+        await jobs_store.update(
+            job_id, status="error", error=str(exc), finished_at=_now())
+        logger.exception("[generator] job %s crashed", job_id)
+
+
+@router.get("/jobs")
+async def list_jobs(status: str | None = Query(None)):
+    if status == "pending":
+        return {"jobs": jobs_store.list_pending()}
+    return {"jobs": jobs_store.list_all()}
+
+
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: str):
+    job = jobs_store.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
+
+
+@router.get("/suggestions")
+async def list_suggestions(status: str | None = Query("pending")):
+    items = suggestions_store.get_all(status=status)
+    return {"suggestions": items, "count": len(items)}
+
+
+@router.get("/suggestions/{sid}")
+async def get_suggestion(sid: str):
+    s = suggestions_store.get(sid)
+    if not s:
+        raise HTTPException(404, "Suggestion not found")
+    return {"suggestion": s}
+
+
+@router.post("/suggestions/{sid}/accept")
+async def accept_suggestion(sid: str):
+    s = suggestions_store.get(sid)
+    if not s:
+        raise HTTPException(404, "Suggestion not found")
+    if s.get("status") == "accepted":
+        raise HTTPException(409, "Already accepted")
+    if s.get("error"):
+        raise HTTPException(400, f"Cannot accept: {s['error']}")
+    data = s.get("recipe_data")
+    if not isinstance(data, dict):
+        raise HTTPException(400, "Suggestion has no parsed recipe_data")
+
+    data = {**data, "generated_by": "llm"}
+    recipe = await recipe_store.add(data)
+    await suggestions_store.update(sid, {"status": "accepted"})
+    return {"recipe": recipe}
+
+
+@router.delete("/suggestions/{sid}")
+async def reject_suggestion(sid: str):
+    ok = await suggestions_store.delete(sid)
+    if not ok:
+        raise HTTPException(404, "Suggestion not found")
+    return {"deleted": True}
+
+
+@router.get("/status")
+async def generator_status():
+    from services.generator.generator import get_last_attempt
+    s = get_providers_status()
+    s["version"] = ADDON_VERSION
+    s["last_attempt"] = get_last_attempt()
+    return s
+
+
+@router.get("/diag")
+async def generator_diag():
+    """Диагностика без shell-доступа в контейнер."""
+    from services.generator.generator import get_last_attempt
+    try:
+        from services.matcher.gemini_embedder import _GENERATE_TIMEOUT
+        t = {"total_s": _GENERATE_TIMEOUT.read,
+             "connect_s": _GENERATE_TIMEOUT.connect}
+    except Exception as e:  # noqa: BLE001
+        t = {"error": str(e)}
+    return {
+        "addon_version": ADDON_VERSION,
+        "gemini_models": GEMINI_MODELS,
+        "gemini_proxy_set": bool(GEMINI_PROXY),
+        "complete_timeout": t,
+        "default_count": GENERATOR_DEFAULT_COUNT,
+        "default_samples": GENERATOR_DEFAULT_SAMPLES,
+        "max_count": GENERATOR_MAX_COUNT,
+        "samples_max": GENERATOR_SAMPLES_MAX,
+        "last_attempt": get_last_attempt(),
+        "nginx_hint": "HA ingress cuts at ~60s; keep Gemini call <50s",
+    }

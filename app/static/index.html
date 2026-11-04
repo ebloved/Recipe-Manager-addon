@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/x-icon" href="static/favicon.ico">
+<title>Recipe Manager</title>
+<link rel="stylesheet" href="static/css/style.css?v=108">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div id="remote-banner" style="display:none;position:sticky;top:0;z-index:2000;background:#fef3c7;color:#92400e;padding:8px 14px;font-size:13px;text-align:center;"></div>
+
+  <div id="auth-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+    <div class="card" style="text-align:center; padding:40px; max-width:400px;">
+      <h1 style="margin-bottom:20px;">Recipe Manager</h1>
+      <p style="color:var(--text-secondary); margin-bottom:30px;">Войдите, чтобы получить доступ к своим рецептам</p>
+      <a href="api/auth/login" class="btn primary" style="display:inline-block; padding:12px 24px; text-decoration:none; font-size:16px;">Войти через Google</a>
+    </div>
+  </div>
+
+<header>
+  <div class="header-top">
+    <h1 class="app-title">Recipe Manager</h1>
+    <div class="header-right">
+      <div id="global-job-indicator" style="display:none; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary); margin-right:12px;"></div>
+      <button class="tab cabinet-tab" data-panel="cabinet">👤 Кабинет</button>
+      <div class="profile-selector" id="profile-selector">
+        <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
+        <select id="profile-select" class="profile-select" title="Активный профиль">
+          <option value="">Без профиля</option>
+        </select>
+
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-panel="recipes">Рецепты</button>
+    <button class="tab" data-panel="planner">📅 Планировщик</button>
+    <button class="tab" data-panel="shopping">🛒 Покупки</button>
+    <button class="tab" data-panel="finder">🍳 Из того, что есть</button>
+    <button class="tab" data-panel="generator">✨ Генератор</button>
+    <button class="tab" data-panel="products">🧺 Продукты</button>
+    <button class="tab" data-panel="stores">🏪 Магазины</button>
+    <button class="tab" data-panel="add">➕ Добавить</button>
+  </div>
+</header>
+
+<main>
+  <!-- ==================================================== Recipes -->
+  <section class="panel active" id="panel-recipes">
+    <div class="panel-inner">
+      <div class="search-row">
+        <input type="search" id="search" placeholder="🔍 Поиск по названию, тегам, ингредиентам…">
+        <select id="filter-owner" class="sort-select" style="max-width: 150px;">
+          <option value="all">Все рецепты</option>
+          <option value="my">Только мои</option>
+          <option value="trash">🗑 Удалённые</option>
+        </select>
+        <label id="show-hidden-label" style="display:none; align-items:center; gap:5px; font-size:13px; margin-left:10px;">
+          <input type="checkbox" id="show-hidden-cb"> Показать скрытые
+        </label>
+        <select id="sort-select" class="sort-select">
+          <option value="name_asc" selected>По алфавиту (А-Я)</option>
+          <option value="combined">⚡ Сначала быстрые</option>
+          <option value="active_asc">По активному времени (↑)</option>
+          <option value="total_asc">По общему времени (↑)</option>
+          <option value="course_asc">По типу блюда</option>
+        </select>
+
+        <button class="btn" id="profile-filter-btn" style="display:none" title="Показать только рецепты, подходящие под активный профиль">🎯 Только под профиль</button>
+
+      </div>
+      <div class="recipe-kind-tabs" id="recipe-kind-tabs">
+        <button class="recipe-kind-tab active" data-kind="all">Все</button>
+        <button class="recipe-kind-tab" data-kind="main">Основные</button>
+        <button class="recipe-kind-tab" data-kind="side">Гарниры</button>
+        <button class="recipe-kind-tab" data-kind="salad">Салаты</button>
+        <button class="recipe-kind-tab" data-kind="cooking" id="recipe-kind-cooking">🍳 Готовлю сейчас <span id="cooking-badge" class="cooking-badge" style="display:none"></span></button>
+      </div>
+      <div id="recipes-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Cooking now -->
+  <section class="panel" id="panel-cooking">
+    <div class="panel-inner">
+      <label class="cooking-assistant-toggle">
+        <input type="checkbox" id="cooking-assistant-visible"> Показать ассистента
+      </label>
+      <div class="cooking-topbar">
+        <button class="btn" id="cooking-back">← Рецепты</button>
+        <div class="cooking-heading" id="cooking-heading">Готовлю сейчас</div>
+        <div class="cooking-actions">
+          <button class="btn" id="cooking-send-plan">📅 Отправить в Сегодня</button>
+          <button class="btn" id="cooking-send-shopping">🛒 Отправить в покупки</button>
+          <button class="btn danger" id="cooking-finish">✅ Завершить готовку</button>
+        </div>
+      </div>
+      <div id="cooking-root">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+  <!-- ==================================================== Generator -->
+  <section class="panel" id="panel-generator">
+    <div class="panel-inner">
+      <div class="card">
+        <div class="hint">
+          Генерация новых рецептов через LLM (Hermes или Gemini).
+          Используется активный профиль из шапки — можно переопределить ниже.
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="gen-profile-select">Профиль</label>
+            <select id="gen-profile-select">
+              <option value="">— как в шапке (активный) —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gen-topic">Тема (опционально)</label>
+            <input type="text" id="gen-topic" placeholder="например, лёгкий ужин с рыбой">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="gen-count">Сколько рецептов</label>
+            <input type="number" id="gen-count" min="1" max="5" value="1">
+          </div>
+          <div class="field">
+            <label for="gen-samples">Образцов из моих рецептов</label>
+            <input type="number" id="gen-samples" min="0" max="10" value="2">
+          </div>
+        </div>
+
+        <button class="btn primary" id="gen-run-btn">✨ Сгенерировать</button>
+        <div class="status" id="gen-status"></div>
+      </div>
+
+      <div id="gen-suggestions">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Products -->
+  <section class="panel" id="panel-products">
+    <div class="panel-inner">
+      <div class="products-toolbar">
+        <div class="products-search">
+          <input type="search" id="products-search" placeholder="🔍 Поиск по названию или алиасу…">
+          <select id="products-category-filter" class="products-category-filter">
+            <option value="">Все категории</option>
+          </select>
+        </div>
+        <div class="products-actions">
+          <button class="btn primary" id="products-add">+ Новый продукт</button>
+          <button class="btn" id="products-lookup">📷 Найти по штрих-коду</button>
+          <button class="btn" id="products-unlinked">⚠️ Несвязанные (<span id="unlinked-count">0</span>)</button>
+          <label class="products-show-deleted">
+            <input type="checkbox" id="products-show-deleted">
+            Показать удалённые
+          </label>
+        </div>
+      </div>
+      <div id="products-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Planner -->
+  <section class="panel" id="panel-planner">
+    <div class="planner-wrap">
+      <div class="planner-header">
+        <button class="nav-btn" id="planner-prev">←</button>
+        <div class="planner-title" id="planner-title">…</div>
+        <button class="nav-btn" id="planner-next">→</button>
+        <button class="btn" id="planner-today">Сегодня</button>
+      </div>
+      <div class="planner-scroll">
+        <div class="planner-grid" id="planner-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Shopping -->
+  <section class="panel" id="panel-shopping">
+    <div class="panel-inner">
+      <div class="shopping-toolbar">
+        <div class="shopping-search">
+          <input type="text" id="shopping-new-name" placeholder="Добавить товар…">
+          <input type="text" id="shopping-new-amount" placeholder="Кол-во" style="max-width:90px">
+          <input type="text" id="shopping-new-unit" placeholder="ед." style="max-width:70px">
+          <button class="btn primary" id="shopping-add">+ Добавить</button>
+        </div>
+        <div class="shopping-actions">
+          <button class="btn" id="shopping-lookup-open">📷 По штрих-коду</button>
+          <button class="btn" id="shopping-clear-checked">Очистить купленные</button>
+          <label class="shopping-filter">
+            <input type="checkbox" id="shopping-only-active">
+            Только активные
+          </label>
+        </div>
+      </div>
+      <div class="shopping-stores" id="shopping-stores" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 4px;">
+        <span class="hint" style="margin:0;">Собрать через:</span>
+        <span id="shopping-stores-buttons" style="display:inline-flex;gap:8px;flex-wrap:wrap;"></span>
+      </div>
+      <div class="card" id="shopping-cart-result" style="display:none;margin:12px 0;"></div>
+      <div id="shopping-container">
+        <div class="loading"><span class="spinner"></span> Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Stores -->
+  <section class="panel" id="panel-stores">
+    <div class="panel-inner">
+      <div class="card">
+        <div class="hint">
+          <div style="font-size:14px; font-weight:600;">🏪 Магазины</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Подключите свой аккаунт магазина. OAuth-токены хранятся только на сервере,
+            в зашифрованном виде.
+          </div>
+        </div>
+      </div>
+      <div id="stores-list" class="stores-grid">
+        <div class="loading"><span class="spinner"></span> Загрузка магазинов…</div>
+      </div>
+      <div class="card" id="stores-result" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- ==================================================== Sync -->
+  
+
+  <!-- ==================================================== YouTube -->
+  
+
+  <!-- ==================================================== Import -->
+  
+    <section class="panel" id="panel-finder">
+    <div class="panel-inner">
+      <div class="card">
+        <div class="hint">Введите продукты, которые у вас есть (через запятую). Мы подберем рецепты, где их больше всего.</div>
+        <div class="search-row" style="margin-top:15px;">
+          <input type="text" id="finder-input" placeholder="курица, лук, морковь, чеснок...">
+          <button class="btn primary" id="finder-search-btn">Найти рецепты</button>
+        </div>
+      </div>
+      <div id="finder-results" style="margin-top:20px;">
+        <div class="empty"><div class="icon">🍳</div><p>Введите продукты, чтобы начать поиск.</p></div>
+      </div>
+    </div>
+  </section>
+
+<section class="panel" id="panel-add">
+    <div class="panel-inner">
+      <div class="sub-tabs">
+        <button class="sub-tab active" id="subtab-add-yt" data-subpanel="add-yt">YouTube</button>
+        <button class="sub-tab" data-subpanel="add-scrape">🌐 С сайта</button>
+        <button class="sub-tab" data-subpanel="add-markdown">📝 Markdown</button>
+        <button class="sub-tab" data-subpanel="add-manual">✏️ Вручную</button>
+      </div>
+
+      <div class="subpanel active" id="subpanel-add-yt">
+        <div class="panel-inner">
+          <div class="hint">Вставьте ссылку на YouTube (Shorts, watch или youtu.be) — Apify отдаст транскрипт, а LLM соберёт рецепт. Повторные импорты того же видео берутся из кэша и не тратят кредиты.</div>
+          <div class="card" id="yt-form-card">
+            <div class="field">
+              <label for="yt-url">Ссылка на видео</label>
+              <input type="url" id="yt-url" placeholder="https://www.youtube.com/shorts/...">
+            </div>
+            <div class="row">
+              <button class="btn primary" id="yt-download">1. Получить транскрипт</button>
+              <button class="btn primary" id="yt-generate" disabled>2. Сгенерировать рецепт</button>
+            </div>
+            <div class="status" id="yt-status"></div>
+          </div>
+          <div class="card" id="yt-quota-card" style="display:none">
+            <div class="hint" id="yt-quota-message"></div>
+          </div>
+          <div class="card" id="yt-preview-card" style="display:none">
+            <div class="field">
+              <label>Сгенерированный Markdown</label>
+              <textarea id="yt-md" spellcheck="false"></textarea>
+            </div>
+            <button class="btn primary" id="yt-save">💾 Сохранить в рецепты</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="subpanel-add-scrape">
+        <div class="card">
+          <div class="hint">Вставьте ссылку на страницу рецепта — извлечём название, ингредиенты и шаги.</div>
+          <div class="field">
+            <label for="scrape-url">URL рецепта</label>
+            <input type="url" id="scrape-url" placeholder="https://www.example.com/recipes/borsch">
+          </div>
+          <button class="btn primary" id="scrape-fetch">Загрузить</button>
+          <div class="status" id="scrape-status"></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="subpanel-add-markdown">
+        <div class="card">
+          <div class="field">
+            <label for="md-url">Ссылка на .md файл</label>
+            <input type="url" id="md-url" placeholder="https://raw.githubusercontent.com/...">
+          </div>
+          <button class="btn primary" id="md-fetch">Загрузить и сохранить</button>
+          <div class="status" id="md-url-status"></div>
+        </div>
+        <div class="card">
+          <div class="field">
+            <label>Загрузить .md файл с устройства</label>
+            <label class="file-drop" for="md-file">
+              📎 Выбрать файл .md
+              <input type="file" id="md-file" accept=".md,text/markdown,text/plain">
+            </label>
+            <div id="md-file-name" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+          </div>
+          <button class="btn primary" id="md-file-save" disabled>Сохранить файл</button>
+          <div class="status" id="md-file-status"></div>
+        </div>
+        <div class="card">
+          <div class="field">
+            <label for="md-paste">Или вставьте Markdown вручную</label>
+            <textarea id="md-paste" spellcheck="false" placeholder="---&#10;title: Борщ&#10;tags: [суп, украинская]&#10;servings: 4&#10;---&#10;&#10;## Ингредиенты&#10;- Свёкла — 2 шт&#10;&#10;## Шаги&#10;1. Сварить бульон."></textarea>
+          </div>
+          <button class="btn primary" id="md-paste-save">Сохранить рецепт</button>
+          <div class="status" id="md-paste-status"></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="subpanel-add-manual">
+        <div class="card">
+          <div class="hint">Редактор открывается сразу при выборе «Вручную». Если вы его закрыли — откройте снова.</div>
+          <button class="btn primary" id="manual-open-editor">✏️ Открыть редактор</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="panel" id="panel-cabinet">
+    <div class="panel-inner">
+      
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom: 10px;">
+        <button class="btn" id="btn-cabinet-help">❓ Помощь</button>
+        <button class="btn" id="btn-cabinet-tour">▶️ Тур по приложению</button>
+      </div>
+
+      <div class="card" id="cabinet-weights" style="display:none">
+        <div class="hint" style="margin-bottom:10px;">
+          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
+          </div>
+        </div>
+        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+          <button class="btn primary" id="weights-save">Сохранить</button>
+          <button class="btn" id="weights-skip">Пропустить</button>
+        </div>
+      </div>
+
+      <div class="card" id="cabinet-user">
+        <div class="loading"><span class="spinner"></span> Загрузка профиля…</div>
+      </div>
+
+      <div class="card" id="cabinet-settings">
+        <div id="admin-system-settings" style="display:none; border-top:1px solid var(--border); margin-top:15px; padding-top:15px;">
+          <div style="font-size:14px; font-weight:600; margin-bottom:10px;">Системные настройки (Admin)</div>
+
+          <div class="row">
+            <div class="field">
+              <label>Таймаут ожидания Gemini (сек)</label>
+              <input type="number" id="setting-poll-duration" min="60" max="3600">
+            </div>
+            <div class="field">
+              <label>Max Tokens (Генерация)</label>
+              <input type="number" id="setting-gen-tokens" min="1000" max="32000">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Max Tokens (Аэрогриль)</label>
+              <input type="number" id="setting-adapt-tokens" min="1000" max="32000">
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+              <button class="btn primary" id="btn-save-sys-settings" style="width:100%;">Сохранить системные</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+              <label style="display:inline-flex; align-items:center; gap:6px;">
+                <input type="checkbox" id="setting-tts-enabled"> Озвучивание шагов (Gemini TTS)
+              </label>
+            </div>
+            <div class="field">
+              <label>Дневной лимит TTS (запросов)</label>
+              <input type="number" id="setting-tts-limit" min="1" max="100">
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border); margin-top:20px; padding-top:20px;">
+            <div style="font-size:14px; font-weight:600; margin-bottom:10px;">Telegram-уведомления</div>
+
+            <div class="row">
+              <div class="field">
+                <label>Bot Token</label>
+                <input type="password" id="setting-tg-token" placeholder="123456:ABC-DEF...">
+              </div>
+              <div class="field">
+                <label>Chat ID (ваш ID)</label>
+                <input type="text" id="setting-tg-chat" placeholder="123456789">
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:15px; margin-top: 10px;">
+              <button class="btn primary" id="btn-save-tg">Сохранить и подключить</button>
+              <span id="tg-status" style="font-size:14px; font-weight:600;"></span>
+            </div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:10px;">
+              💡 Сохраните токен, напишите боту любое сообщение. ID привяжется автоматически и появится в поле выше.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="cabinet-llm-form" style="display:none">
+        <div class="hint" style="margin-bottom:15px;">
+          <div style="font-size:14px; font-weight:600;">🤖 LLM-провайдеры</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Используется первый доступный. Без своих ключей — 5 запросов/день на резервных (admin) ключах.
+          </div>
+        </div>
+
+        <!-- 1. Custom AI -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">1</span>
+            <span class="llm-provider-name">🔧 Custom AI (OpenAI-совместимый)</span>
+            <span class="llm-provider-hint">свой endpoint</span>
+            <span class="llm-provider-status" id="custom-status">⚪ не задан</span>
+          </div>
+          <div class="field">
+            <label>URL</label>
+            <input type="text" id="user-ext-url" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="field">
+            <label>API Key</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-ext-key" placeholder="sk-..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-ext" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="user-ext-model" placeholder="gpt-4o-mini" style="flex:1;">
+              <select id="user-ext-model-select" style="flex:1; display:none;"></select>
+              <button type="button" class="btn" id="btn-load-models" title="Загрузить список моделей с сервера" style="white-space:nowrap;">🔄 Загрузить</button>
+            </div>
+            <div id="custom-models-status" style="font-size:12px; margin-top:5px;"></div>
+          </div>
+          <div id="custom-badge" style="font-size:12px; margin-top:5px;"></div>
+        </div>
+
+        <!-- 2. OrcaRouter -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">2</span>
+            <span class="llm-provider-name">⚡ OrcaRouter</span>
+            <span class="llm-provider-hint">~4 сек</span>
+            <span class="llm-provider-status" id="orca-status">⚪ не задан</span>
+          </div>
+          <div class="field">
+            <label>API Key <a href="https://orcarouter.ai" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-orca-key" placeholder="sk-orca-..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-orca" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+            <div id="orca-badge" style="font-size:12px; margin-top:5px;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Gemini -->
+        <div class="llm-provider-block">
+          <div class="llm-provider-header">
+            <span class="llm-provider-priority">3</span>
+            <span class="llm-provider-name">✨ Gemini</span>
+            <span class="llm-provider-hint">~20–40 сек</span>
+            <span class="llm-provider-status" id="gemini-status">⚪ не задан (5 RPD)</span>
+          </div>
+          <div class="field">
+            <label>API Key <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="password" id="user-gemini-key" placeholder="AIzaSy..." style="flex:1;">
+              <button type="button" class="btn" id="btn-clear-gemini" style="display:none; padding:6px 10px; color:var(--danger);" title="Удалить ключ">🗑️</button>
+            </div>
+            <div id="gemini-badge" style="font-size:12px; margin-top:5px;"></div>
+          </div>
+        </div>
+
+
+        <!-- Сейчас используется -->
+        <div class="hint" style="margin-top:12px; padding:10px 12px; background:var(--surface); border-radius:8px; font-size:13px;">
+          <b>Сейчас используется:</b> <span id="llm-active">—</span>
+        </div>
+
+        <!-- Admin резервные (только для админа) -->
+        <div id="llm-admin-block" style="display:none; margin-top:12px; padding:10px 12px; background:var(--surface); border-radius:8px; border:1px dashed var(--border);">
+          <div style="font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:6px;">
+            Резервные (admin, 5 RPD/день)
+          </div>
+          <div id="llm-admin-list" style="font-size:12px;"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center; margin-top:15px;">
+          <button class="btn primary" id="btn-save-llm">💾 Сохранить ключи</button>
+          <span id="llm-save-status" style="font-size:13px;"></span>
+        </div>
+      </div>
+
+
+    <div class="card" id="cabinet-apify" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;">
+        <div style="font-size:14px;font-weight:600;">📊 Статус Apify</div>
+        <button class="btn" id="apify-refresh">Обновить</button>
+      </div>
+      <div class="hint" id="apify-summary">Загрузка…</div>
+      <div style="height:10px;background:var(--border);border-radius:6px;overflow:hidden;margin-top:10px;">
+        <div id="apify-bar" style="height:100%;width:0%;background:#16a34a;transition:width .3s;"></div>
+      </div>
+      <div class="hint" id="apify-details" style="margin-top:8px;font-size:12px;"></div>
+    </div>
+
+    <div class="card" id="cabinet-admin" style="display:none">
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <a href="api/admin/backup.zip" class="btn primary" download style="text-decoration:none;">📦 Скачать ZIP-бэкап</a>
+          <button class="btn" id="btn-admin-weights">⚖️ Веса продуктов</button>
+        </div>
+        <div class="hint" style="font-size:14px; font-weight:600; margin-bottom:10px">Управление доступом (Админ)</div>
+        <div id="admin-users-list" style="margin-bottom:15px; font-size:14px;"></div>
+        <div style="margin-bottom:15px;">
+          <a href="api/admin/backup.zip" class="btn primary" download style="text-decoration:none;">📦 Скачать ZIP-бэкап</a>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <input type="email" id="admin-new-email" placeholder="email друга" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+          <button class="btn" id="admin-add-btn">Добавить</button>
+        </div>
+      </div>
+
+            <div class="card" id="cabinet-profiles">
+        <div class="hint" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:14px; font-weight:600; margin-bottom:4px">Профили генерации</div>
+            <div style="font-size:13px; color:var(--text-secondary)">Ограничения, предпочтения и калории</div>
+          </div>
+          <button class="btn" id="profile-manage-btn" title="Управление профилями">⚙️ Управление</button>
+        </div>
+      </div>
+
+
+      <div class="card" id="cabinet-remote" style="display:none">
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px;">🛰 Сервер Recipe Manager</div>
+        <div class="hint" id="remote-status">Проверка…</div>
+        <div class="field" style="margin-top:10px;">
+          <label for="remote-server-url">Адрес сервера</label>
+          <input type="url" id="remote-server-url" placeholder="https://recipe.example.com">
+        </div>
+        <div class="row">
+          <button class="btn primary" id="remote-connect">Подключить</button>
+          <button class="btn" id="remote-sync">Обновить кэш</button>
+          <button class="btn" id="remote-disconnect">Отключить</button>
+        </div>
+        <div id="remote-pair-box" style="display:none;margin-top:10px;">
+          <div class="hint">Код: <b id="remote-user-code"></b></div>
+          <div class="hint">Откройте <a id="remote-verify-link" href="#" target="_blank" rel="noopener">страницу подтверждения</a> и введите код.</div>
+        </div>
+      </div>
+
+      <div class="card" id="cabinet-sync">
+        <div class="hint">
+          Синхронизация рецептов и базы продуктов с репозиторием GitHub.
+          Настройки задаются в Configuration аддона.
+        </div>
+        <div class="sync-status" id="sync-status">
+          <div class="loading"><span class="spinner"></span> Проверка соединения…</div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="sync-pull">⬇️ Забрать из GitHub</button>
+          <button class="btn primary" id="sync-push">⬆️ Отправить в GitHub</button>
+        </div>
+        <div class="status" id="sync-msg"></div>
+      </div>
+
+      <div class="card" id="cabinet-about">
+        <div class="hint">
+          <b>Recipe Manager</b><br>
+          Версия: <span id="cabinet-version">...</span><br>
+          <a href="https://github.com/ebloved/Recipe-Manager" target="_blank">Репозиторий на GitHub</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- ==================================================== Detail overlay -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-panel" id="detail-panel"></div>
+</div>
+
+<!-- ==================================================== Plan picker modal -->
+<div class="plan-picker-overlay" id="plan-picker">
+  <div class="plan-picker-panel">
+    <div class="plan-picker-header">
+      <h3 id="plan-picker-title">Добавить в план</h3>
+      <button class="plan-picker-close" id="plan-picker-close">×</button>
+    </div>
+    <div class="plan-picker-week">
+      <button class="nav-btn" id="plan-picker-prev">←</button>
+      <div class="planner-title" id="plan-picker-week-title">…</div>
+      <button class="nav-btn" id="plan-picker-next">→</button>
+    </div>
+    <div class="plan-picker-servings">
+      <span>Порций:</span>
+      <input type="number" id="plan-picker-servings" min="1" value="1">
+    </div>
+    <div class="planner-scroll">
+      <div class="planner-grid plan-picker-grid" id="plan-picker-grid"></div>
+    </div>
+    <div class="plan-picker-hint">Кликните по ячейке, чтобы добавить рецепт на этот приём пищи.</div>
+  </div>
+</div>
+
+<!-- ==================================================== Recipe picker (from planner) -->
+<div class="plan-picker-overlay" id="recipe-picker-overlay">
+  <div class="plan-picker-panel recipe-picker-panel">
+    <div class="plan-picker-header">
+      <div>
+        <h3 id="recipe-picker-title">Добавить в план</h3>
+        <div class="recipe-picker-subtitle" id="recipe-picker-subtitle"></div>
+      </div>
+      <button class="plan-picker-close" id="recipe-picker-close">×</button>
+    </div>
+    <div class="plan-picker-servings">
+      <span>Порций:</span>
+      <input type="number" id="recipe-picker-servings" min="1" value="1">
+    </div>
+    <div class="picker-search-wrap">
+      <input type="text" id="recipe-picker-search" class="picker-search" placeholder="🔍 Поиск рецепта…">
+    </div>
+    <div class="picker-list" id="recipe-picker-list"></div>
+    <div class="plan-picker-hint">Кликните по рецепту, чтобы добавить его в этот приём пищи.</div>
+  </div>
+</div>
+
+<!-- ==================================================== Garnish picker (cooking now) -->
+<div class="plan-picker-overlay" id="garnish-picker">
+  <div class="plan-picker-panel recipe-picker-panel">
+    <div class="plan-picker-header">
+      <div>
+        <h3 id="garnish-picker-title">Добавить гарнир?</h3>
+        <div class="recipe-picker-subtitle" id="garnish-picker-subtitle"></div>
+      </div>
+      <button class="plan-picker-close" id="garnish-picker-close">×</button>
+    </div>
+    <div class="picker-search-wrap">
+      <input type="text" id="garnish-picker-search" class="picker-search" placeholder="🔍 Поиск гарнира…">
+    </div>
+    <div class="picker-list" id="garnish-picker-list"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn" id="garnish-picker-skip" style="flex:1;">Без гарнира</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Barcode lookup (shopping) -->
+<div class="barcode-overlay" id="barcode-overlay">
+  <div class="barcode-panel">
+    <div class="barcode-header">
+      <h3>Поиск по штрих-коду</h3>
+      <button class="plan-picker-close" id="barcode-close">×</button>
+    </div>
+    <div class="barcode-body">
+      <div class="field">
+        <label for="barcode-input">Штрих-код (GTIN)</label>
+        <div class="barcode-row">
+          <input type="text" id="barcode-input" inputmode="numeric" placeholder="например, 4600000000000">
+          <button class="btn" id="barcode-scan" title="Сканировать камерой">📷</button>
+          <button class="btn primary" id="barcode-search">Найти</button>
+        </div>
+        <div class="barcode-scanner" id="barcode-scanner" style="display:none">
+          <video id="barcode-video" autoplay playsinline muted></video>
+          <div class="barcode-scanner-overlay">
+            <div class="barcode-scan-hint" id="barcode-scan-hint">Наведите камеру на штрих-код</div>
+            <div class="barcode-scan-frame"></div>
+            <div class="barcode-scan-status" id="barcode-scan-status"></div>
+            <button class="btn" id="barcode-scan-stop">Остановить</button>
+          </div>
+        </div>
+        <div class="status" id="barcode-status"></div>
+        <div id="barcode-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Product editor modal -->
+<div class="product-editor-overlay" id="unlinked-overlay">
+  <div class="product-editor-panel" style="max-width: 700px;">
+    <div class="product-editor-header">
+      <h3>Несвязанные ингредиенты</h3>
+      <button class="product-editor-close" id="unlinked-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom: 12px;">
+        Эти ингредиенты встречаются в ваших рецептах, но не привязаны к базе продуктов.
+        Откройте рецепт, чтобы связать их.
+      </div>
+      <div id="unlinked-list" class="unlinked-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="product-editor-overlay" id="product-editor-overlay">
+  <div class="product-editor-panel">
+    <div class="product-editor-header">
+      <h3 id="product-editor-title">Новый продукт</h3>
+      <div class="product-editor-header-actions">
+        <button class="editor-btn" id="product-editor-scan" title="Сканировать штрих-код">📷 Сканировать</button>
+        <button class="product-editor-close" id="product-editor-close">×</button>
+      </div>
+    </div>
+    <div class="status" id="product-editor-status"></div>
+
+    <div class="product-editor-scanner" id="product-editor-scanner" style="display:none">
+      <video id="product-editor-video" autoplay playsinline muted></video>
+      <div class="barcode-scanner-overlay">
+        <div class="barcode-scan-hint" id="product-editor-scan-hint">Наведите камеру на штрих-код</div>
+        <div class="barcode-scan-frame"></div>
+        <div class="barcode-scan-status" id="product-editor-scan-status"></div>
+        <button class="btn" id="product-editor-scan-stop">Остановить</button>
+      </div>
+    </div>
+
+    <div class="product-editor-body">
+      <div class="field">
+        <label for="product-editor-name">Название *</label>
+        <input type="text" id="product-editor-name" placeholder="Греческий йогурт 2%">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="product-editor-barcode">Штрих-код</label>
+          <div class="barcode-row">
+            <input type="text" id="product-editor-barcode" inputmode="numeric" placeholder="4600…">
+            <button class="btn" id="product-editor-lookup" title="Найти в Open Food Facts">🔍</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="product-editor-brand">Бренд</label>
+          <input type="text" id="product-editor-brand" placeholder="Parmalat">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="product-editor-category">Категория</label>
+          <input type="text" id="product-editor-category" placeholder="Молочное">
+        </div>
+        <div class="field">
+          <label for="product-editor-unit">Единица по умолчанию</label>
+          <select id="product-editor-unit">
+            <option value="г">г</option>
+            <option value="мл">мл</option>
+            <option value="шт">шт</option>
+            <option value="уп">уп</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="editor-section-title">КБЖУ на 100 г</div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-cal">Калории</label><input type="number" step="0.1" min="0" id="product-editor-cal"></div>
+        <div class="field"><label for="product-editor-prot">Белки</label><input type="number" step="0.1" min="0" id="product-editor-prot"></div>
+        <div class="field"><label for="product-editor-fat">Жиры</label><input type="number" step="0.1" min="0" id="product-editor-fat"></div>
+      </div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-carb">Углеводы</label><input type="number" step="0.1" min="0" id="product-editor-carb"></div>
+        <div class="field"><label for="product-editor-fiber">Клетчатка</label><input type="number" step="0.1" min="0" id="product-editor-fiber"></div>
+        <div class="field"><label for="product-editor-sugar">Сахара</label><input type="number" step="0.1" min="0" id="product-editor-sugar"></div>
+      </div>
+      <div class="editor-three">
+        <div class="field"><label for="product-editor-sodium">Натрий (мг)</label><input type="number" step="0.1" min="0" id="product-editor-sodium"></div>
+        <div class="field"><label for="product-editor-satfat">Насыщ. жиры</label><input type="number" step="0.1" min="0" id="product-editor-satfat"></div>
+        <div class="field"></div>
+      </div>
+
+      <div class="field">
+        <label for="product-editor-image">Ссылка на фото</label>
+        <input type="url" id="product-editor-image" placeholder="https://…">
+      </div>
+
+      <div class="editor-section-title">Алиасы (синонимы для поиска)</div>
+      <div class="field">
+        <div class="aliases-editor" id="product-editor-aliases-list"></div>
+        <div class="aliases-add-row">
+          <input type="text" id="product-editor-alias-input" placeholder="Например, греч. йогурт 2%">
+          <button class="btn" id="product-editor-alias-add">Добавить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-editor-footer">
+      <div>
+        <button class="btn danger" id="product-editor-delete" style="display:none">🗑️ Удалить</button>
+      </div>
+      <div class="editor-footer-right">
+        <button class="btn" id="product-editor-cancel">Отмена</button>
+        <button class="btn primary" id="product-editor-save">💾 Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Product picker modal -->
+<div class="product-picker-overlay" id="product-picker-overlay">
+  <div class="product-picker-panel">
+    <div class="product-picker-header">
+      <div>
+        <h3 id="pp-title">Связать с продуктом</h3>
+        <div class="pp-subtitle" id="pp-subtitle"></div>
+      </div>
+      <button class="product-editor-close" id="pp-close">×</button>
+    </div>
+
+    <div class="status" id="pp-status"></div>
+
+    <!-- Текущая связка -->
+    <div class="pp-current" id="pp-current" style="display:none">
+      <div class="pp-current-info" id="pp-current-info"></div>
+      <button class="btn danger" id="pp-current-unlink">Отвязать</button>
+    </div>
+
+    <!-- Табы -->
+    <div class="pp-tabs" id="pp-tabs">
+      <button class="pp-tab active" data-pp-tab="search">🔍 Поиск</button>
+      <button class="pp-tab" data-pp-tab="barcode">📷 Штрих-код</button>
+      <button class="pp-tab" data-pp-tab="create">✏️ Новый</button>
+    </div>
+
+    <!-- Панель: поиск -->
+    <div class="pp-pane" id="pp-pane-search" style="display:block">
+      <div class="pp-search-wrap">
+        <input type="text" id="pp-search-input" class="pp-search-input"
+               placeholder="Поиск по названию, бренду или barcode…">
+      </div>
+      <div class="pp-search-results" id="pp-search-results"></div>
+    </div>
+
+    <!-- Панель: штрих-код -->
+    <div class="pp-pane" id="pp-pane-barcode" style="display:none">
+    <div class="pp-barcode-row">
+        <input type="text" id="pp-barcode-input" inputmode="numeric"
+            placeholder="4600…" class="pp-barcode-input">
+        <button class="btn" id="pp-barcode-scan" title="Сканировать камерой">📷</button>
+        <button class="btn primary" id="pp-barcode-search">Найти</button>
+    </div>
+    <div class="barcode-scanner" id="pp-barcode-scanner" style="display:none">
+        <video id="pp-barcode-video" autoplay playsinline muted></video>
+        <div class="barcode-scanner-overlay">
+        <div class="barcode-scan-hint" id="pp-barcode-scan-hint">Наведите камеру на штрих-код</div>
+        <div class="barcode-scan-frame"></div>
+        <div class="barcode-scan-status" id="pp-barcode-scan-status"></div>
+        <button class="btn" id="pp-barcode-scan-stop">Остановить</button>
+        </div>
+    </div>
+    <div class="pp-barcode-result" id="pp-barcode-result"></div>
+    </div>
+
+    <!-- Панель: новый продукт -->
+    <div class="pp-pane" id="pp-pane-create" style="display:none">
+      <div class="field">
+        <label for="pp-new-name">Название *</label>
+        <input type="text" id="pp-new-name">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="pp-new-brand">Бренд</label>
+          <input type="text" id="pp-new-brand">
+        </div>
+        <div class="field">
+          <label for="pp-new-barcode">Штрих-код</label>
+          <input type="text" id="pp-new-barcode" inputmode="numeric">
+        </div>
+      </div>
+      <div class="field">
+        <label for="pp-new-category">Категория</label>
+        <input type="text" id="pp-new-category">
+      </div>
+      <div class="field">
+        <label for="pp-new-aliases">Алиасы (через запятую)</label>
+        <input type="text" id="pp-new-aliases">
+      </div>
+      <button class="btn primary pp-create-btn" id="pp-new-create">💾 Создать и связать</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Gen profiles manager modal -->
+<div class="profiles-overlay" id="profiles-overlay">
+  <div class="profiles-panel">
+    <div class="profiles-header">
+      <h3 id="profiles-title">Профили генерации</h3>
+      <div class="profiles-header-actions">
+        <button class="editor-btn" id="profiles-add">+ Новый</button>
+        <button class="product-editor-close" id="profiles-close">×</button>
+      </div>
+    </div>
+
+    <div class="profiles-body">
+      <div class="profiles-list" id="profiles-list"></div>
+
+      <div class="profiles-editor" id="profiles-editor" style="display:none">
+        <div class="profiles-editor-header">
+          <h4 id="profiles-editor-title">Новый профиль</h4>
+        </div>
+
+        <div class="field">
+          <label for="profile-name">Название *</label>
+          <input type="text" id="profile-name" placeholder="Например, Здоровое и быстрое">
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="profile-icon">Иконка (эмодзи)</label>
+            <input type="text" id="profile-icon" maxlength="4" placeholder="🥗">
+          </div>
+          <div class="field">
+            <label for="profile-description">Описание</label>
+            <input type="text" id="profile-description" placeholder="Краткое пояснение">
+          </div>
+        </div>
+
+        <div class="editor-section-title">Ограничения</div>
+
+        <div class="editor-three">
+          <div class="field">
+            <label for="profile-max-kcal">Макс. ккал/порция</label>
+            <input type="number" min="0" id="profile-max-kcal" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-active">Макс. активное, мин</label>
+            <input type="number" min="0" id="profile-max-active" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-total">Макс. всего, мин</label>
+            <input type="number" min="0" id="profile-max-total" placeholder="Пусто = нет">
+          </div>
+        </div>
+
+        <div class="editor-three">
+          <div class="field">
+            <label for="profile-min-protein">Мин. белок, г/порция</label>
+            <input type="number" min="0" id="profile-min-protein" placeholder="Пусто = нет">
+          </div>
+          <div class="field">
+            <label for="profile-max-sugar">Макс. сахар, г/порция</label>
+            <input type="number" min="0" id="profile-max-sugar" placeholder="Пусто = нет">
+          </div>
+          <div class="field"></div>
+        </div>
+
+        <div class="field">
+          <label for="profile-avoid-methods">Избегать способов готовки (через запятую)</label>
+          <input type="text" id="profile-avoid-methods" placeholder="жарка, фритюр">
+        </div>
+
+        <div class="field">
+          <label for="profile-prefer-methods">Предпочитать способы готовки</label>
+          <input type="text" id="profile-prefer-methods" placeholder="варка, пар, запекание">
+        </div>
+
+        <div class="field">
+          <label for="profile-avoid-ingredients">Избегать ингредиентов</label>
+          <input type="text" id="profile-avoid-ingredients" placeholder="майонез, сливки">
+        </div>
+
+        <div class="field">
+          <label for="profile-prefer-ingredients">Предпочитать ингредиенты</label>
+          <input type="text" id="profile-prefer-ingredients" placeholder="овощи, зелень">
+        </div>
+
+        <div class="status" id="profile-editor-status"></div>
+
+        <div class="profiles-editor-footer">
+          <div>
+            <button class="btn danger" id="profile-delete" style="display:none">🗑️ Удалить</button>
+          </div>
+          <div class="editor-footer-right">
+            <button class="btn" id="profile-cancel">Отмена</button>
+            <button class="btn primary" id="profile-save">💾 Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Add-from-recipe modal (shopping) -->
+<div class="recipe-shop-overlay" id="recipe-shop-overlay">
+  <div class="recipe-shop-panel">
+    <div class="barcode-header">
+      <h3 id="recipe-shop-title">Добавить ингредиенты</h3>
+      <button class="plan-picker-close" id="recipe-shop-close">×</button>
+    </div>
+    <div class="recipe-shop-body" id="recipe-shop-body"></div>
+    <div class="recipe-shop-footer">
+      <div>
+        <button class="btn" id="recipe-shop-all">Выбрать все</button>
+        <button class="btn" id="recipe-shop-none">Снять все</button>
+      </div>
+      <div class="editor-footer-right">
+        <button class="btn" id="recipe-shop-cancel">Отмена</button>
+        <button class="btn primary" id="recipe-shop-add">Добавить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== Editor overlay (recipe) -->
+<!-- ==================================================== Generator preview -->
+<div class="gen-preview-overlay" id="gen-preview-overlay">
+  <div class="gen-preview-panel">
+    <div class="gen-preview-header">
+      <h3 id="gen-preview-title">—</h3>
+      <div class="gen-preview-header-actions">
+        <div class="gen-preview-tabs">
+          <button class="gen-preview-tab active" data-view="rendered">📖 Рецепт</button>
+          <button class="gen-preview-tab" data-view="raw">📄 RAW</button>
+        </div>
+        <button class="gen-preview-close" id="gen-preview-close" aria-label="Закрыть">×</button>
+      </div>
+    </div>
+    <div class="gen-preview-body">
+      <div id="gen-preview-rendered"></div>
+      <pre id="gen-preview-raw" class="gen-preview-raw" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+
+
+<div class="product-editor-overlay" id="weights-admin-modal">
+  <div class="product-editor-panel" style="max-width:600px;">
+    <div class="product-editor-header">
+      <h3>⚖️ Дефолтные веса</h3>
+      <button class="product-editor-close" id="weights-admin-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom:15px;">
+        Эти веса используются, если у пользователя нет своего значения.
+        Хардкод можно переопределить здесь.
+      </div>
+      <div id="weights-admin-list"></div>
+      <div style="display:flex; gap:10px; margin-top:15px;">
+        <input type="text" id="weights-admin-new-name" placeholder="Название продукта" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+        <input type="number" id="weights-admin-new-weight" placeholder="Вес, г" style="width:100px; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+        <button class="btn primary" id="weights-admin-add">Добавить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="help-overlay" id="help-overlay">
+  <div class="help-panel">
+    <div class="help-header">
+      <div>
+        <h3>❓ Помощь по Recipe Manager</h3>
+        <div class="help-subtitle">Основные функции, иконки и типовые сценарии</div>
+      </div>
+      <button class="plan-picker-close" id="help-close">×</button>
+    </div>
+    <div class="help-body">
+
+      <details class="help-section" open>
+        <summary>🚀 Быстрый старт</summary>
+        <ol>
+          <li><b>Добавьте рецепт</b>: вкладка «➕ Добавить» → YouTube / сайт / Markdown / вручную.</li>
+          <li><b>Проверьте ингредиенты</b>: в карточке рецепта свяжите продукты — иконки <b>✅ / 🔗</b>.</li>
+          <li><b>Запланируйте</b>: «📅 В план» на карточке или в деталях рецепта.</li>
+          <li><b>Соберите покупки</b>: «🛒 В покупки», затем «🛒 Покупки» → «Собрать через …» (кнопки подключённых магазинов).</li>
+          <li><b>Готовьте</b>: «🍳 На кухню» → выберите гарнир → отмечайте ингредиенты и шаги.</li>
+        </ol>
+      </details>
+
+      <details class="help-section">
+        <summary>➕ Как добавить рецепт</summary>
+        <ul>
+          <li><b>YouTube</b> — вставьте ссылку на видео/Shorts. Транскрипт получает Apify, рецепт собирает LLM. Повторный импорт того же видео берётся из кэша и не тратит кредиты. При исчерпании лимита Apify кнопки скрываются. Обложка из видео не подставляется — фото добавляется вручную в редакторе. Полностью отключить: опция <code>youtube_import_enabled</code>.</li>
+          <li><b>С сайта</b> — вставьте URL. Парсер ищет JSON-LD / microdata.</li>
+          <li><b>Markdown</b> — файл с YAML front matter. Шаблон: <code>app/recipe_template.md</code>.</li>
+          <li><b>Вручную</b> — откройте редактор и заполните название, ингредиенты, шаги, порции и время.</li>
+        </ul>
+        <p>После сохранения рецепт появляется во вкладке «Рецепты». Его можно редактировать, скрывать, связывать продукты, добавлять в план и покупки.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>🍽 Рецепты, фильтры и иконки</summary>
+        <p>Фильтры: <b>Все</b>, <b>Основные</b>, <b>Гарниры</b>, <b>Салаты</b>, <b>🍳 Готовлю сейчас</b>.</p>
+        <table class="help-table">
+          <thead><tr><th>Иконка</th><th>Где</th><th>Значение</th></tr></thead>
+          <tbody>
+            <tr><td>🍳</td><td>карточка / детали</td><td>Начать готовку («На кухню»)</td></tr>
+            <tr><td>📅</td><td>карточка / детали</td><td>Добавить рецепт в план</td></tr>
+            <tr><td>🛒</td><td>ингредиент / детали</td><td>Добавить в покупки</td></tr>
+            <tr><td>✅</td><td>ингредиент</td><td>Продукт связан с базой; клик — изменить/отвязать</td></tr>
+            <tr><td>❓</td><td>ингредиент</td><td>Связка есть, но продукт не найден/удалён</td></tr>
+            <tr><td>🔗</td><td>ингредиент</td><td>Продукт не связан; клик — связать</td></tr>
+            <tr><td>🔗 N/M</td><td>карточка</td><td>Сколько ингредиентов связано с продуктами</td></tr>
+            <tr><td>✅ норма / ⚠️ N</td><td>карточка</td><td>Статус нормализации рецепта</td></tr>
+            <tr><td>⏱</td><td>шаг</td><td>Таймер, если в шаге есть время</td></tr>
+            <tr><td>👥</td><td>карточка</td><td>Количество порций</td></tr>
+            <tr><td>🎯</td><td>карточка</td><td>Активное время (сколько вы заняты готовкой)</td></tr>
+            <tr><td>🛒</td><td>Покупки</td><td>Собрать корзину через подключённый магазин</td></tr>
+            <tr><td>🏪</td><td>вкладка</td><td>Магазины и OAuth</td></tr>
+            <tr><td>⚖️</td><td>Кабинет</td><td>Веса продуктов («Проверь себя»)</td></tr>
+            <tr><td>🗑️</td><td>Кабинет</td><td>Удалить сохранённый LLM-ключ</td></tr>
+          </tbody>
+        </table>
+        <p>В деталях рецепта можно масштабировать порции, переключать духовку/аэрогриль, оценить активное время и скрыть его. Кнопка «Поделиться» — внизу: она создаёт отдельную публичную страницу и показывает QR-код со ссылкой.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>🍳 Готовлю сейчас</summary>
+        <ul>
+          <li>Нажмите <b>🍳 На кухню</b> на основном блюде. Можно сразу выбрать гарнир или нажать «Без гарнира».</li>
+          <li>Ингредиенты основного блюда и гарнира объединяются; дубликаты склеиваются.</li>
+          <li>Чек-лист синхронизируется с сервером — можно открыть на другом устройстве.</li>
+          <li>Шаги идут отдельными блоками: основное → разделитель → гарнир. Они не перемешиваются.</li>
+          <li>Кнопки <b>⏱</b> запускают таймер по времени из шага.</li>
+          <li><b>📅 Отправить в Сегодня</b> добавляет блюдо в план, <b>🛒 Отправить в покупки</b> — неотмеченные ингредиенты в список.</li>
+          <li><b>✅ Завершить готовку</b> удаляет сессию и сбрасывает чек-лист.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>🛒 Покупки и магазины</summary>
+        <ul>
+          <li>«Покупки» — общий список; можно добавлять вручную, по штрихкоду, из рецепта и из готовки.</li>
+          <li>«Только активные» скрывает купленное; «Очистить купленные» удаляет отмеченные.</li>
+          <li>«🏪 Магазины» — подключение своего аккаунта ВкусВилла через OAuth. Токены хранятся на сервере в зашифрованном виде.</li>
+          <li>Кнопка «Собрать корзину» в магазине собирает корзину из активного списка: известные SKU идут fast path, новые — через MCP + LLM.</li>
+          <li>Предупреждения показывают, что не удалось найти или взвесить. Если товара нет в магазине — выберите замену вручную.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>📅 Планировщик</summary>
+        <ul>
+          <li>Сетка на неделю: завтрак, обед, перекус, ужин.</li>
+          <li>Клик по ячейке → выбор рецепта; можно указать порции.</li>
+          <li>«Готовлю сейчас → Отправить в Сегодня» добавляет основное и гарнир в план на текущий день.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>✨ Генератор и профили</summary>
+        <ul>
+          <li>Выберите профиль (ограничения по калориям, времени, ингредиентам), тему и количество рецептов.</li>
+          <li>Используется LLM-каскад: Custom → Orca → Gemini → admin Gemini → Hermes.</li>
+          <li>Без своих ключей доступно 5 генераций в день на admin-ключах.</li>
+          <li>Профили создаются в Кабинете / разделе профилей.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>🧺 Продукты и связки</summary>
+        <ul>
+          <li>«Продукты» — база продуктов: названия, бренды, штрихкоды, алиасы, КБЖУ.</li>
+          <li>Связка ингредиента с продуктом улучшает подбор в покупках и магазинах.</li>
+          <li>В карточке рецепта: ✅ — связано, 🔗 — не связано, ❓ — продукт удалён.</li>
+          <li>Если у штучного продукта неизвестен вес, Кабинет → «⚖️ Веса продуктов» поможет.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>👤 Кабинет и LLM-ключи</summary>
+        <ul>
+          <li>Свои ключи: Custom AI (OpenAI-совместимый), OrcaRouter, Gemini.</li>
+          <li>Порядок: Custom → Orca → Gemini → admin Gemini → Hermes.</li>
+          <li>Ключи шифруются и хранятся в SQLite; кнопка 🗑️ удаляет ключ.</li>
+          <li>Админу доступны системные настройки, Telegram-уведомления, бэкап и синхронизация GitHub.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>🧹 Нормализация рецептов</summary>
+        <ul>
+          <li>В фоне рецепты приводятся к стандарту: единицы, дубли, количества внутри имени, optional.</li>
+          <li>Ингредиенты связываются с продуктами локальным матчером.</li>
+          <li>На карточке: <b>✅ норма</b> или <b>⚠️ N</b> — N проблем. Наведите курсор, чтобы увидеть причины.</li>
+          <li><b>info</b> — подсказка (нет КБЖУ, продукт не найден в базе), <b>warning</b> — стоит поправить, <b>error</b> — рецепт структурно неполный.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>❓ Частые вопросы</summary>
+        <ul>
+          <li><b>Почему не собралась корзина?</b> Проверьте «🏪 Магазины» → «Проверить». Если магазин не подключён — подключите OAuth.</li>
+          <li><b>Почему товар не найден?</b> Его может не быть в ассортименте ВкусВилла. Посмотрите warnings и выберите замену.</li>
+          <li><b>Почему ⚠️ на рецепте?</b> Откройте карточку — там список проблем. Часть исправляется автоматически, часть требует ручной правки.</li>
+          <li><b>Где хранятся данные?</b> В <code>/data</code>: рецепты и JSON-бэкапы, SQLite <code>rm.sqlite3</code>, бэкапы миграций.</li>
+          <li><b>Как сбросить готовку?</b> «✅ Завершить готовку» на экране «Готовлю сейчас».</li>
+        </ul>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+<div class="share-modal-overlay" id="share-modal">
+  <div class="share-modal-panel">
+    <div class="share-modal-head">
+      <h3>Поделиться рецептом</h3>
+      <button class="detail-close" id="share-modal-close">×</button>
+    </div>
+    <div class="share-qr" id="share-qr"></div>
+    <div class="share-link-row">
+      <input id="share-link-input" readonly>
+      <button class="btn primary" id="share-copy">Скопировать</button>
+    </div>
+    <div class="hint" id="share-modal-hint">Ссылка открывается как отдельная страница и не требует входа.</div>
+  </div>
+</div>
+
+<div class="editor-overlay" id="editor-overlay"></div>
+
+<script src="static/vendor/qrcode.js?v=108"></script>
+<script src="static/js/utils.js?v=108"></script>
+<script src="static/js/api.js?v=108"></script>
+<script src="static/js/state.js?v=108"></script>
+<script src="static/js/tabs.js?v=108"></script>
+<script src="static/js/youtube.js?v=108"></script>
+<script src="static/js/imports.js?v=108"></script>
+<script src="static/js/recipes.js?v=108"></script>
+<script src="static/js/cooking.js?v=108"></script>
+<script src="static/js/detail.js?v=108"></script>
+<script src="static/js/editor.js?v=108"></script>
+<script src="static/js/plan-picker.js?v=108"></script>
+<script src="static/js/planner.js?v=108"></script>
+<script src="static/js/recipe-picker.js?v=108"></script>
+<script src="static/js/shopping.js?v=108"></script>
+<script src="static/js/stores.js?v=108"></script>
+<script src="static/js/products.js?v=108"></script>
+<script src="static/js/product-picker.js?v=108"></script>
+<script src="static/js/generator.js?v=108"></script>
+<script src="static/js/profiles.js?v=108"></script>
+<script src="static/js/cabinet.js?v=108"></script>
+<script src="static/js/help.js?v=108"></script>
+<script src="static/js/remote.js?v=108"></script>
+<script src="static/js/sync.js?v=108"></script>
+<script src="static/js/live-sync.js?v=108"></script>
+<script src="static/js/walkthrough.js?v=108"></script>
+<script src="static/js/jobs.js?v=108"></script>
+<script src="static/js/finder.js?v=108"></script>
+<script src="static/js/app.js?v=108"></script>
+</body>
+</html>

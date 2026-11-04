@@ -1,0 +1,180 @@
+name: "Recipe Manager"
+version: "3.20.0"
+slug: "recipe_manager"
+description: "Recipe manager with import from YouTube Shorts, Markdown files, and URLs"
+url: "https://github.com/ebloved/Recipe-Manager"
+arch:
+  - aarch64
+  - amd64
+
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:chef-hat"
+panel_title: "Recipes"
+panel_admin: false
+
+startup: "application"
+boot: "auto"
+init: false
+host_network: false
+
+options:
+  runtime_mode: "standard"
+
+  gemini_api_key: ""
+  gemini_models: "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash"
+  gemini_proxy: ""
+
+  # --- ВкусВилл OAuth 2.0 + PKCE (глобальные креды приложения) ---
+  vkusvill_client_id: ""
+  vkusvill_client_secret: ""
+  vkusvill_redirect_uri: ""
+  vkusvill_scopes: "catalog.search purchase_history.read discounts.view offline_access"
+
+  # --- Фоновая нормализация рецептов ---
+  recipe_normalizer_enabled: true
+  recipe_enricher_enabled: true
+  recipe_normalizer_interval: 300
+
+  apify_token: ""
+  apify_actor_id: "automationnation/youtube-transcript-scraper"
+  apify_stop_ratio: 0.9
+  youtube_import_enabled: true
+
+  # Тонкий клиент BFF: подключение к внешнему серверу
+  remote_mode: false
+  remote_server_url: ""
+  # Разрешить LAN/private адрес сервера (только для BFF-pairing).
+  remote_allow_private_urls: false
+
+  # Встроенное семантическое обогащение (админский Gemini-ключ)
+  semantic_enricher_enabled: true
+  semantic_enricher_idle_minutes: 10
+
+  off_enabled: true
+  off_subdomain: "world"
+  off_user_agent: "HomeAssistant-RecipeManager/1.0 (add-on)"
+  off_cache_ttl_days: 7
+  off_contribute_enabled: false
+  off_user_id: ""
+  off_password: ""
+
+  # --- Матчинг ингредиентов ---
+  matcher_provider: "auto"
+  matcher_confirm_mode: "single"
+  matcher_auto_threshold: 0.95
+  matcher_suggest_threshold: 0.80
+  matcher_daily_limit: 200
+
+  matcher_external_enabled: false
+  matcher_external_url: ""
+  matcher_external_key: ""
+  matcher_external_model: "hermes-agent"
+  matcher_external_embedding_model: ""
+  matcher_external_timeout: 15
+
+  embedding_model: "gemini-embedding-001"
+  embedding_dim: 768
+
+  # --- Локальный эмбеддер (sentence-transformers, CPU) ---
+  local_embedder_enabled: false
+  local_embedder_model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  local_embedder_onnx: true
+  local_embedder_max_concurrent: 1
+
+  # --- GitHub sync ---
+  github_repo: ""
+  github_username: ""
+  github_token: ""
+  github_branch: "main"
+  github_path: "recipes.json"
+  github_ingredients_enabled: true
+  github_ingredients_path: "ingredients.json"
+
+  # --- Generator ---
+  generator_max_count: 5
+  generator_default_count: 1
+  generator_samples_max: 10
+  generator_default_samples: 2
+  generator_max_tokens: 15000
+  generator_auto_active_time: false
+
+  log_level: "info"
+
+schema:
+  runtime_mode: "list(minimal|standard|full)"
+
+  gemini_api_key: "password"
+  gemini_models: "str"
+  gemini_proxy: "str?"
+
+  vkusvill_client_id: "str?"
+  vkusvill_client_secret: "password?"
+  vkusvill_redirect_uri: "str?"
+  vkusvill_scopes: "str?"
+
+  recipe_normalizer_enabled: "bool"
+  recipe_enricher_enabled: "bool"
+  recipe_normalizer_interval: "int(30,86400)"
+
+  apify_token: "password?"
+  apify_actor_id: "str?"
+  apify_stop_ratio: "float(0.5,1.0)"
+  youtube_import_enabled: "bool"
+  remote_mode: "bool"
+  remote_server_url: "str?"
+  remote_allow_private_urls: "bool"
+  semantic_enricher_enabled: "bool"
+  semantic_enricher_idle_minutes: "int(1,120)"
+
+  off_enabled: "bool"
+  off_subdomain: "list(world|ru|us|fr|de|es|it|uk)"
+  off_user_agent: "str"
+  off_cache_ttl_days: "int(1,365)"
+  off_contribute_enabled: "bool"
+  off_user_id: "str?"
+  off_password: "password?"
+
+  matcher_provider: "list(auto|gemini|external|local|none)"
+  matcher_confirm_mode: "list(single|batch|auto)"
+  matcher_auto_threshold: "float(0.5,1.0)"
+  matcher_suggest_threshold: "float(0.5,1.0)"
+  matcher_daily_limit: "int(0,5000)"
+
+  matcher_external_enabled: "bool"
+  matcher_external_url: "str?"
+  matcher_external_key: "password?"
+  matcher_external_model: "str?"
+  matcher_external_embedding_model: "str?"
+  matcher_external_timeout: "float(1.0,120.0)"
+
+  embedding_model: "str"
+  embedding_dim: "int(64,4096)"
+
+  local_embedder_enabled: "bool"
+  local_embedder_model: "str"
+  local_embedder_onnx: "bool"
+  local_embedder_max_concurrent: "int(1,8)"
+
+  github_repo: "str?"
+  github_username: "str?"
+  github_token: "password?"
+  github_branch: "str?"
+  github_path: "str?"
+  github_ingredients_enabled: "bool"
+  github_ingredients_path: "str?"
+
+  generator_max_count: "int(1,20)"
+  generator_default_count: "int(1,10)"
+  generator_samples_max: "int(0,50)"
+  generator_default_samples: "int(0,20)"
+  generator_max_tokens: "int(1000,32000)"
+  generator_auto_active_time: "bool"
+
+  log_level: "list(trace|debug|info|notice|warning|error|fatal)"
+
+map:
+  - type: share
+    read_only: false
+  - type: ssl
+    read_only: false

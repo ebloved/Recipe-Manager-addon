@@ -1,0 +1,53 @@
+data/backups/
+md/*
+# Iteration-C backups (см. build/backups/)
+*.bak.iterC
+*.bak
+*.orig
+
+# Local scripts / workspace (не коммитим, но держим на диске)
+build/
+
+# Python venv
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Standalone
+.env
+
+
+# === Auto-added ===
+standalone/.env
+standalone/hf_cache/
+standalone/data/
+data/
+build/backups/
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+scripts/
+/deploy_dev.sh
+/update_prod.sh
+/healthcheck.py
+*.log
+logs/
+standalone/.env.prod
+standalone/data-prod/
+
+# secrets / editor backups
+standalone/.env.prod.bak.*
+*.swp
+
+# Secrets: любые вложенные env-файлы, кроме примеров
+**/.env
+**/.env.*
+!**/.env.example
+**/.git-credentials
+**/*.pem
+**/*.key
+**/*.p12
