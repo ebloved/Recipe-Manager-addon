@@ -161,7 +161,40 @@ class BackupManager:
             await self._cleanup_old()
             return
 
-        await self._make_snapshot(target_dir)
+        try:
+            meta = await self._make_snapshot(target_dir)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                from services import audit
+
+                await audit.log_event(
+                    action="automation.backup",
+                    label="Авто-бэкап",
+                    status="error",
+                    error=f"{type(exc).__name__}: {exc}",
+                    target_type="backup",
+                    target_id=target_dir.name,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            raise
+        try:
+            from services import audit
+
+            await audit.log_event(
+                action="automation.backup",
+                label="Авто-бэкап",
+                status="ok",
+                target_type="backup",
+                target_id=target_dir.name,
+                target_name=target_dir.name,
+                details={
+                    "files": len(meta.get("files") or {}),
+                    "bytes": meta.get("total_bytes"),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
         await self._cleanup_old()
 
     # ------------------------------------------------------------------

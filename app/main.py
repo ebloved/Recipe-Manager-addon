@@ -133,20 +133,43 @@ async def lifespan(app: FastAPI):
     from services.step_audio_worker import step_audio_worker
     tts_task = asyncio.create_task(step_audio_worker())
 
+    from services.audit import audit_cleanup_worker
+    audit_task = asyncio.create_task(audit_cleanup_worker())
+
     from services.backup import backup_manager
     await backup_manager.start()
 
     remote_task = None
     if REMOTE_MODE:
         async def _remote_sync_loop():
-            from services import remote_cache, remote_client
+            from services import audit, remote_cache, remote_client
 
+            failing = False
             while True:
                 try:
                     if remote_client.get_token() and remote_client.get_server_url():
                         await remote_cache.sync_all()
+                    if failing:
+                        failing = False
+                        await audit.log_event(
+                            action="automation.remote_sync",
+                            label="Синхронизация с сервером",
+                            status="ok",
+                            details={"recovered": True},
+                        )
                 except Exception as exc:  # noqa: BLE001
                     print(f"[remote] sync failed: {exc}")
+                    if not failing:
+                        failing = True
+                        try:
+                            await audit.log_event(
+                                action="automation.remote_sync",
+                                label="Синхронизация с сервером",
+                                status="error",
+                                error=f"{type(exc).__name__}: {exc}",
+                            )
+                        except Exception:  # noqa: BLE001
+                            pass
                 await asyncio.sleep(60)
 
         remote_task = asyncio.create_task(_remote_sync_loop())
@@ -164,6 +187,7 @@ async def lifespan(app: FastAPI):
     normalizer_task.cancel()
     enricher_task.cancel()
     tts_task.cancel()
+    audit_task.cancel()
     if remote_task:
         remote_task.cancel()
     try:
@@ -231,6 +255,53 @@ def _auth_rate_ok(request: Request) -> bool:
         return False
     bucket.append(now)
     return True
+
+
+@app.middleware("http")
+async def audit_log_middleware(request: Request, call_next):
+    """Пишет в журнал изменения API: кто, что, статус и ошибку."""
+    from services import audit
+
+    event_id = await audit.start_request_event(request)
+    if not event_id:
+        return await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # noqa: BLE001
+        await audit.finish_event(
+            event_id,
+            status="error",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        raise
+
+    if response.status_code >= 400:
+        # BaseHTTPMiddleware отдаёт streaming-response, поэтому тело ошибки
+        # нужно прочитать и вернуть клиенту заново.
+        chunks: list[bytes] = []
+        async for chunk in response.body_iterator:
+            chunks.append(chunk.encode() if isinstance(chunk, str) else chunk)
+        body = b"".join(chunks)
+        await audit.finish_event(
+            event_id,
+            status=audit.response_status(response),
+            http_status=response.status_code,
+            error=audit.error_from_body(body),
+        )
+        headers = {
+            key: value
+            for key, value in response.headers.items()
+            if key.lower() not in ("content-length", "content-encoding")
+        }
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=headers,
+            media_type=response.media_type,
+        )
+
+    await audit.finish_from_response(event_id, response)
+    return response
 
 
 @app.middleware("http")

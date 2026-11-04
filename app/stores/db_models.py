@@ -292,3 +292,43 @@ class RecipeStepAudio(Base):
     voice: Mapped[str | None] = mapped_column(String(50), nullable=True)
     duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class AuditEvent(Base):
+    """Событие журнала действий: пользователь, админ или автоматизация."""
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    actor_kind: Mapped[str] = mapped_column(String(16), default="user", index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    actor_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    actor_email: Mapped[str | None] = mapped_column(String(320), nullable=True, index=True)
+    actor_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    action_label: Mapped[str] = mapped_column(String(300))
+    target_type: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    target_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    target_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    method: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    # Lowercased строка для поиска, включая кириллицу (SQLite lower() её не умеет).
+    search_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

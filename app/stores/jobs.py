@@ -74,9 +74,49 @@ class JobsStore:
             job = self._jobs.get(job_id)
             if not job:
                 return None
+            previous_status = job.get("status")
             job.update(patch)
+            snapshot = dict(job)
         await self.save()
-        return dict(job)
+
+        new_status = snapshot.get("status")
+        if patch.get("status") in ("done", "error") and new_status != previous_status:
+            try:
+                from services import audit
+
+                params = snapshot.get("params") or {}
+                kind = str(params.get("kind") or "generation")
+                labels = {
+                    "adapt_airfryer": "Пересчёт под аэрогриль",
+                    "generation": "Генерация рецептов",
+                    "estimate_active_time": "Оценка активного времени",
+                }
+                actor = audit.resolve_actor(snapshot.get("user_id"))
+                await audit.log_event(
+                    action=f"job.{kind}",
+                    label=labels.get(kind, "Фоновая задача"),
+                    actor_kind=actor["kind"],
+                    actor_id=actor["id"],
+                    actor_name=actor["name"],
+                    actor_email=actor["email"],
+                    actor_role=actor["role"],
+                    target_type="job",
+                    target_id=job_id,
+                    target_name=params.get("topic") or params.get("recipe_id"),
+                    status="ok" if new_status == "done" else "error",
+                    error=snapshot.get("error"),
+                    details={
+                        "job_id": job_id,
+                        "kind": kind,
+                        "created": snapshot.get("created"),
+                        "params": params,
+                    },
+                    correlation_id=job_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"[audit] job log failed: {type(exc).__name__}: {exc}")
+
+        return snapshot
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         job = self._jobs.get(job_id)

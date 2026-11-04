@@ -5,6 +5,7 @@ from . import (
     backup,
     sharing,
     admin,
+    audit,
     embeddings,
     auth,
     imports,
@@ -47,6 +48,7 @@ api_router.include_router(misc.router)
 api_router.include_router(me.router)
 api_router.include_router(auth.router)
 api_router.include_router(admin.router)
+api_router.include_router(audit.router)
 api_router.include_router(backup.router)
 api_router.include_router(embeddings.router)
 api_router.include_router(settings.router)

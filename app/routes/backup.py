@@ -45,6 +45,23 @@ async def download_backup(request: Request):
                     pass
 
     zip_buffer.seek(0)
+    try:
+        from services import audit
+
+        actor = audit.actor_from_request(request)
+        await audit.log_event(
+            action="admin.backup_download",
+            label="Скачивание ZIP-бэкапа",
+            actor_kind=actor["kind"],
+            actor_id=actor["id"],
+            actor_name=actor["name"],
+            actor_email=actor["email"],
+            actor_role=actor["role"],
+            status="ok",
+            details={"bytes": len(zip_buffer.getvalue())},
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[audit] backup log failed: {exc}")
     return StreamingResponse(
         iter([zip_buffer.getvalue()]),
         media_type="application/zip",

@@ -21,6 +21,7 @@ async def get_settings(request: Request):
         "adapter_max_tokens": settings_store.get("adapter_max_tokens", 4000),
         "tts_enabled": settings_store.get("tts_enabled", False),
         "tts_daily_limit": settings_store.get("tts_daily_limit", 10),
+        "audit_retention_days": settings_store.get("audit_retention_days", 90),
         "telegram_bot_token": settings_store.get("telegram_bot_token", ""),
         "telegram_chat_id": settings_store.get("telegram_chat_id", "")
     }
@@ -40,6 +41,11 @@ async def update_settings(request: Request, payload: dict = Body(...)):
         await settings_store.set("tts_enabled", bool(payload["tts_enabled"]))
     if "tts_daily_limit" in payload:
         await settings_store.set("tts_daily_limit", max(1, min(100, int(payload["tts_daily_limit"]))))
+    if "audit_retention_days" in payload:
+        await settings_store.set(
+            "audit_retention_days",
+            max(7, min(3650, int(payload["audit_retention_days"]))),
+        )
 
     if "telegram_bot_token" in payload or "telegram_chat_id" in payload:
         token = payload.get("telegram_bot_token", settings_store.get("telegram_bot_token", ""))

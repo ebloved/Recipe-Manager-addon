@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from stores import recipe_store
+from services import audit
 from services.active_time import estimate_active_time
 from services.activity import is_active
 from services.background_gate import background_task
@@ -36,11 +37,46 @@ async def active_time_worker():
                 
             r = missing[0]
             logger.info(f"[bg] estimating '{r.get('name')}' ({len(missing)} left)")
-            
-            async with background_task("active_time"):
-                patch = await estimate_active_time(r, force=False, is_bg=True)
-                if patch:
-                    await recipe_store.update(r["id"], patch)
+
+            try:
+                async with background_task("active_time"):
+                    patch = await estimate_active_time(r, force=False, is_bg=True)
+                    if patch:
+                        await recipe_store.update(r["id"], patch)
+                if isinstance(patch, dict) and patch.get("active_time_error"):
+                    await audit.log_event(
+                        action="automation.active_time",
+                        label="Оценка активного времени",
+                        target_type="recipe",
+                        target_id=str(r.get("id") or ""),
+                        target_name=r.get("name"),
+                        status="error",
+                        error=patch.get("active_time_error"),
+                    )
+                elif patch:
+                    await audit.log_event(
+                        action="automation.active_time",
+                        label="Оценка активного времени",
+                        target_type="recipe",
+                        target_id=str(r.get("id") or ""),
+                        target_name=r.get("name"),
+                        status="ok",
+                        details={
+                            "active_time": patch.get("active_time"),
+                            "estimated": patch.get("active_time_estimated"),
+                        },
+                    )
+            except Exception as exc:  # noqa: BLE001
+                await audit.log_event(
+                    action="automation.active_time",
+                    label="Оценка активного времени",
+                    target_type="recipe",
+                    target_id=str(r.get("id") or ""),
+                    target_name=r.get("name"),
+                    status="error",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+                raise
             await asyncio.sleep(7200)
             
         except asyncio.CancelledError:

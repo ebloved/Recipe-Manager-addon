@@ -8,7 +8,7 @@ from config import (
     SEMANTIC_ENRICHER_IDLE_SECONDS,
     SEMANTIC_ENRICHER_INTERVAL_SECONDS,
 )
-from services import semantic_enricher
+from services import audit, semantic_enricher
 from services.activity import is_active
 from services.background_gate import background_task, busy
 from stores import jobs_store, recipe_store
@@ -49,12 +49,56 @@ async def semantic_enricher_worker() -> None:
                 continue
 
             recipe = candidates[0]
-            async with background_task("semantic_enricher"):
-                # Повторная проверка после получения блокировки.
-                if is_active(SEMANTIC_ENRICHER_IDLE_SECONDS) or jobs_store.list_pending():
-                    await asyncio.sleep(1)
-                    continue
-                result = await semantic_enricher.enrich_one(recipe)
+            try:
+                async with background_task("semantic_enricher"):
+                    # Повторная проверка после получения блокировки.
+                    if is_active(SEMANTIC_ENRICHER_IDLE_SECONDS) or jobs_store.list_pending():
+                        await asyncio.sleep(1)
+                        continue
+                    result = await semantic_enricher.enrich_one(recipe)
+            except Exception as exc:  # noqa: BLE001
+                await audit.log_event(
+                    action="automation.semantic_enricher",
+                    label="Семантическое обогащение рецепта",
+                    target_type="recipe",
+                    target_id=str(recipe.get("id") or ""),
+                    target_name=recipe.get("name"),
+                    status="error",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+                raise
+
+            if isinstance(result, dict) and result.get("status") == "error":
+                await audit.log_event(
+                    action="automation.semantic_enricher",
+                    label="Семантическое обогащение рецепта",
+                    target_type="recipe",
+                    target_id=str(recipe.get("id") or ""),
+                    target_name=recipe.get("name"),
+                    status="error",
+                    error=result.get("error") or "enricher error",
+                )
+            elif isinstance(result, dict) and result.get("status") not in (
+                "quota_wait", "quota_exhausted",
+            ):
+                await audit.log_event(
+                    action="automation.semantic_enricher",
+                    label="Семантическое обогащение рецепта",
+                    target_type="recipe",
+                    target_id=str(recipe.get("id") or ""),
+                    target_name=recipe.get("name"),
+                    status="ok",
+                    details={
+                        "model": result.get("enrichment_source") or result.get("model"),
+                        "fields": sorted(
+                            key for key in result
+                            if key not in (
+                                "enrichment_hash", "enrichment_source", "enrichment_at",
+                            )
+                        ),
+                    },
+                )
+
             if result and result.get("status") == "quota_wait":
                 await asyncio.sleep(max(60.0, min(3600.0, float(result.get("wait") or 60))))
             else:

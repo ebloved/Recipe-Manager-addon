@@ -15,6 +15,7 @@ from config import (
     RECIPE_NORMALIZER_INTERVAL,
     RECIPE_NORMALIZER_START_DELAY,
 )
+from services import audit
 from services.activity import is_active
 from services.background_gate import background_task
 from services.recipe_enricher import enrich_recipe
@@ -84,21 +85,54 @@ async def recipe_normalizer_worker() -> None:
             recipe = candidates[0]
             recipe_id = recipe.get("id")
             base_hash = source_hash(recipe)
-            async with background_task("recipe_normalizer"):
-                normalized = await _normalize_one(recipe)
-                patch = {k: normalized[k] for k in PATCH_FIELDS if k in normalized}
-                updated = await recipe_store.patch_if_unchanged(
-                    recipe_id, base_hash, patch,
-                )
-                if updated is None:
-                    print(f"[normalizer] skip {str(recipe_id)[:8]} (changed during normalization)")
-                else:
-                    issues = normalized.get("normalization_issues") or []
-                    print(
-                        f"[normalizer] {str(recipe_id)[:8]} "
-                        f"{recipe.get('name')!r} -> {normalized.get('normalization_status')} "
-                        f"{summarize(issues)}"
+            try:
+                async with background_task("recipe_normalizer"):
+                    normalized = await _normalize_one(recipe)
+                    patch = {k: normalized[k] for k in PATCH_FIELDS if k in normalized}
+                    updated = await recipe_store.patch_if_unchanged(
+                        recipe_id, base_hash, patch,
                     )
+                    if updated is None:
+                        print(f"[normalizer] skip {str(recipe_id)[:8]} (changed during normalization)")
+                        await audit.log_event(
+                            action="automation.recipe_normalizer",
+                            label="Нормализация рецепта",
+                            target_type="recipe",
+                            target_id=str(recipe_id),
+                            target_name=recipe.get("name"),
+                            status="ok",
+                            details={"skipped": "changed_during_normalization"},
+                        )
+                    else:
+                        issues = normalized.get("normalization_issues") or []
+                        print(
+                            f"[normalizer] {str(recipe_id)[:8]} "
+                            f"{recipe.get('name')!r} -> {normalized.get('normalization_status')} "
+                            f"{summarize(issues)}"
+                        )
+                        await audit.log_event(
+                            action="automation.recipe_normalizer",
+                            label="Нормализация рецепта",
+                            target_type="recipe",
+                            target_id=str(recipe_id),
+                            target_name=recipe.get("name"),
+                            status="ok",
+                            details={
+                                "normalization_status": normalized.get("normalization_status"),
+                                "issues": summarize(issues),
+                            },
+                        )
+            except Exception as exc:  # noqa: BLE001
+                await audit.log_event(
+                    action="automation.recipe_normalizer",
+                    label="Нормализация рецепта",
+                    target_type="recipe",
+                    target_id=str(recipe_id),
+                    target_name=recipe.get("name"),
+                    status="error",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+                raise
             await asyncio.sleep(5)
         except asyncio.CancelledError:
             break

@@ -4,7 +4,12 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, AUTH_MODE
-from services.auth import create_session_token, users_store, SESSION_COOKIE
+from services.auth import (
+    create_session_token,
+    read_session_token,
+    users_store,
+    SESSION_COOKIE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +60,42 @@ async def auth_callback(request: Request):
         if not user:
             real_ip = request.headers.get("CF-Connecting-IP") or request.client.host
             logger.warning(f"[AUTH] Access denied for {userinfo['email']} from {real_ip}")
+            try:
+                from services import audit
+
+                await audit.log_event(
+                    action="auth.login",
+                    label="Вход в систему",
+                    actor_kind="anonymous",
+                    actor_email=userinfo.get("email"),
+                    actor_name=userinfo.get("name"),
+                    status="denied",
+                    error="access_denied",
+                    details={"email": userinfo.get("email"), "ip": real_ip},
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return RedirectResponse(url="/?error=access_denied")
         
         real_ip = request.headers.get("CF-Connecting-IP") or request.client.host
         logger.info(f"[AUTH] Login success: {user['email']} from {real_ip}")
+        try:
+            from services import audit
+
+            actor = audit.resolve_actor(user.get("id"))
+            await audit.log_event(
+                action="auth.login",
+                label="Вход в систему",
+                actor_kind=actor["kind"],
+                actor_id=actor["id"],
+                actor_name=actor["name"],
+                actor_email=actor["email"],
+                actor_role=actor["role"],
+                status="ok",
+                details={"email": user.get("email"), "ip": real_ip, "provider": "google"},
+            )
+        except Exception:  # noqa: BLE001
+            pass
         # Устанавливаем HttpOnly Cookie
         next_url = request.session.pop("next", "/")
         if not next_url.startswith("/") or next_url.startswith("//"):
@@ -79,7 +116,25 @@ async def auth_callback(request: Request):
         return RedirectResponse(url=f"/?error={str(e)}")
 
 @router.get("/logout")
-async def logout():
+async def logout(request: Request):
+    uid = read_session_token(request.cookies.get(SESSION_COOKIE))
+    if uid:
+        try:
+            from services import audit
+
+            actor = audit.resolve_actor(uid)
+            await audit.log_event(
+                action="auth.logout",
+                label="Выход из системы",
+                actor_kind=actor["kind"],
+                actor_id=actor["id"],
+                actor_name=actor["name"],
+                actor_email=actor["email"],
+                actor_role=actor["role"],
+                status="ok",
+            )
+        except Exception:  # noqa: BLE001
+            pass
     response = RedirectResponse(url="/")
     response.delete_cookie("rm_session")
     return response

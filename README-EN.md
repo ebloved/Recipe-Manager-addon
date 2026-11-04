@@ -261,6 +261,17 @@ This add-on bundles logic from two sources:
 
 ---
 
+## Audit log
+
+Admins get an **Action log** card in the cabinet. It records mutations,
+generations, imports, settings changes, user management and background
+jobs with actor, target, status, duration, error and details. Recipe views,
+meal plans and shopping lists are intentionally not logged. Secrets and
+full recipe text are never stored. Retention is configurable
+(`audit_retention_days`, 90 days by default).
+
+---
+
 ## License
 
 This project is licensed under the **GNU Affero General Public License v3.0**

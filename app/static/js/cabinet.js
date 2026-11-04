@@ -25,6 +25,7 @@
     }
     try { await loadVersion(); } catch (e) { console.error("loadVersion", e); }
     try { await loadPendingWeights(); } catch (e) { console.error("loadPendingWeights", e); }
+    try { await loadAudit(); } catch (e) { console.error("loadAudit", e); }
   }
 
   async function loadApify() {
@@ -133,6 +134,7 @@
         if ($("setting-adapt-tokens")) $("setting-adapt-tokens").value = data.adapter_max_tokens || 4000;
         if ($("setting-tts-enabled")) $("setting-tts-enabled").checked = !!data.tts_enabled;
         if ($("setting-tts-limit")) $("setting-tts-limit").value = data.tts_daily_limit || 10;
+        if ($("setting-audit-days")) $("setting-audit-days").value = data.audit_retention_days || 90;
 
         const btnSys = $("btn-save-sys-settings");
         if (btnSys) {
@@ -144,7 +146,8 @@
                 generator_max_tokens: parseInt($("setting-gen-tokens").value),
                 adapter_max_tokens: parseInt($("setting-adapt-tokens").value),
                 tts_enabled: !!$("setting-tts-enabled")?.checked,
-                tts_daily_limit: parseInt($("setting-tts-limit").value || "10", 10)
+                tts_daily_limit: parseInt($("setting-tts-limit").value || "10", 10),
+                audit_retention_days: parseInt($("setting-audit-days").value || "90", 10)
               });
               alert("Системные настройки сохранены!");
             } catch (e) { alert(e.message); }
@@ -683,6 +686,179 @@
       }
     } finally {
       if (btn) btn.disabled = false;
+    }
+  }
+
+  // --- Журнал действий ------------------------------------------------
+  const AUDIT_PAGE = 100;
+  let auditOffset = 0;
+  let auditBound = false;
+  let auditActionsLoaded = false;
+  let auditTimer = null;
+
+  function auditTime(value) {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("ru-RU");
+  }
+
+  function auditDuration(ms) {
+    if (ms === null || ms === undefined) return "";
+    if (Number(ms) < 1000) return `${ms} мс`;
+    return `${(Number(ms) / 1000).toFixed(1)} с`;
+  }
+
+  function auditStatus(status) {
+    const map = {
+      ok: ["OK", "#16a34a"],
+      error: ["Ошибка", "var(--danger)"],
+      running: ["Выполняется", "#f5a623"],
+      denied: ["Запрещено", "var(--text-muted)"]
+    };
+    const [label, color] = map[status] || [status || "—", "var(--text-muted)"];
+    return `<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:${color};color:#fff;font-size:11px;font-weight:600;white-space:nowrap;">${escHtml(label)}</span>`;
+  }
+
+  function auditActor(e) {
+    const name = e.actor_name || e.actor_email || e.actor_id || "—";
+    const parts = [];
+    if (e.actor_email && e.actor_email !== name) parts.push(e.actor_email);
+    if (e.actor_role) parts.push(e.actor_role);
+    if (e.actor_kind === "automation") parts.push("автоматизация");
+    return `<div>${escHtml(name)}</div>` +
+      (parts.length ? `<div style="font-size:11px;color:var(--text-muted)">${escHtml(parts.join(" · "))}</div>` : "");
+  }
+
+  function auditTarget(e) {
+    const name = e.target_name || e.target_id || "—";
+    const sub = e.target_type
+      ? `${e.target_type}${e.target_id && e.target_name ? " · " + e.target_id : ""}`
+      : "";
+    return `<div>${escHtml(name)}</div>` +
+      (sub ? `<div style="font-size:11px;color:var(--text-muted)">${escHtml(sub)}</div>` : "");
+  }
+
+  function auditRow(e) {
+    const detailPayload = {
+      path: e.path,
+      method: e.method,
+      http_status: e.http_status,
+      ip: e.ip,
+      user_agent: e.user_agent,
+      error: e.error,
+      details: e.details
+    };
+    const details = `<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Детали</summary>
+      <pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:240px;overflow:auto;margin:4px 0 0;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:6px;">${escHtml(JSON.stringify(detailPayload, null, 2))}</pre>
+    </details>`;
+    const dur = auditDuration(e.duration_ms);
+    return `<tr>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top;font-size:11px;">${escHtml(auditTime(e.created_at))}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditActor(e)}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${escHtml(e.action_label || e.action || "—")}<div style="font-size:11px;color:var(--text-muted)">${escHtml(e.action || "")}</div></td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditTarget(e)}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${auditStatus(e.status)}${dur ? `<div style="color:var(--text-muted);margin-top:3px;">${escHtml(dur)}</div>` : ""}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${e.error ? `<div style="color:var(--danger);word-break:break-word;">${escHtml(e.error)}</div>` : ""}${details}</td>
+    </tr>`;
+  }
+
+  function auditTable(items) {
+    if (!items.length) return `<div class="hint">Событий нет.</div>`;
+    return `<div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;min-width:760px;">
+        <thead><tr style="text-align:left;font-size:11px;color:var(--text-muted);">
+          <th style="padding:6px;">Время</th><th style="padding:6px;">Кто</th><th style="padding:6px;">Действие</th><th style="padding:6px;">Объект</th><th style="padding:6px;">Статус</th><th style="padding:6px;">Ошибка / детали</th>
+        </tr></thead>
+        <tbody>${items.map(auditRow).join("")}</tbody>
+      </table>
+    </div>`;
+  }
+
+  async function loadAuditActions() {
+    const sel = $("audit-action");
+    if (!sel) return;
+    try {
+      const data = await getJSON("api/admin/audit/actions");
+      const items = data.items || [];
+      sel.innerHTML = '<option value="">Все</option>' + items.map(
+        (item) => `<option value="${escHtml(item.action)}">${escHtml(item.label || item.action)}</option>`
+      ).join("");
+      auditActionsLoaded = true;
+    } catch (e) {
+      console.error("audit actions", e);
+    }
+  }
+
+  function bindAuditControls() {
+    if (auditBound) return;
+    auditBound = true;
+    const q = $("audit-q");
+    if (q) q.oninput = () => {
+      clearTimeout(auditTimer);
+      auditTimer = setTimeout(() => loadAudit(true), 350);
+    };
+    const status = $("audit-status");
+    if (status) status.onchange = () => loadAudit(true);
+    const action = $("audit-action");
+    if (action) action.onchange = () => loadAudit(true);
+    const refresh = $("audit-refresh");
+    if (refresh) refresh.onclick = () => loadAudit(true);
+    const more = $("audit-more");
+    if (more) more.onclick = () => loadAudit(false);
+  }
+
+  async function loadAudit(reset = true) {
+    const card = $("cabinet-audit");
+    if (!card) return;
+    let me = RM.state.user;
+    if (!me) {
+      try { me = await getJSON("api/me"); RM.state.user = me; } catch (e) { return; }
+    }
+    if (!me || me.role !== "admin") {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+    bindAuditControls();
+    if (!auditActionsLoaded) await loadAuditActions();
+
+    if (reset) auditOffset = 0;
+    const params = new URLSearchParams({
+      limit: String(AUDIT_PAGE),
+      offset: String(auditOffset)
+    });
+    const q = $("audit-q")?.value.trim();
+    const status = $("audit-status")?.value;
+    const action = $("audit-action")?.value;
+    if (q) params.set("q", q);
+    if (status) params.set("status", status);
+    if (action) params.set("action", action);
+
+    const summary = $("audit-summary");
+    const more = $("audit-more");
+    try {
+      const data = await getJSON("api/admin/audit?" + params.toString());
+      const items = data.items || [];
+      const total = Number(data.total || 0);
+      if (reset) {
+        const list = $("audit-list");
+        if (list) list.innerHTML = auditTable(items);
+      } else if (items.length) {
+        const tbody = $("audit-list")?.querySelector("tbody");
+        if (tbody) tbody.insertAdjacentHTML("beforeend", items.map(auditRow).join(""));
+      }
+      auditOffset += items.length;
+      if (summary) {
+        summary.textContent = `Показано ${auditOffset} из ${total} · ${new Date().toLocaleTimeString("ru-RU")}`;
+        summary.style.color = "var(--text-muted)";
+      }
+      if (more) more.style.display = auditOffset < total ? "block" : "none";
+    } catch (e) {
+      if (summary) {
+        summary.textContent = "Ошибка загрузки журнала: " + e.message;
+        summary.style.color = "var(--danger)";
+      }
     }
   }
 

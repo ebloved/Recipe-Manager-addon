@@ -411,6 +411,13 @@
             </div>
           </div>
 
+          <div class="row">
+            <div class="field">
+              <label>Хранить журнал действий (дней)</label>
+              <input type="number" id="setting-audit-days" min="7" max="3650">
+            </div>
+          </div>
+
           <div style="border-top:1px solid var(--border); margin-top:20px; padding-top:20px;">
             <div style="font-size:14px; font-weight:600; margin-bottom:10px;">Telegram-уведомления</div>
 
@@ -558,6 +565,43 @@
           <input type="email" id="admin-new-email" placeholder="email друга" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
           <button class="btn" id="admin-add-btn">Добавить</button>
         </div>
+      </div>
+
+      <div class="card" id="cabinet-audit" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:14px; font-weight:600;">🧾 Журнал действий</div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+              Изменения, генерации и фоновые задачи. Просмотры, meal plan и покупки не записываются.
+            </div>
+          </div>
+          <button class="btn" id="audit-refresh">Обновить</button>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <div class="field">
+            <label for="audit-q">Поиск</label>
+            <input type="text" id="audit-q" placeholder="кто, действие, объект, ошибка">
+          </div>
+          <div class="field">
+            <label for="audit-status">Статус</label>
+            <select id="audit-status">
+              <option value="">Все</option>
+              <option value="ok">OK</option>
+              <option value="error">Ошибка</option>
+              <option value="running">Выполняется</option>
+              <option value="denied">Запрещено</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="audit-action">Действие</label>
+            <select id="audit-action"><option value="">Все</option></select>
+          </div>
+        </div>
+
+        <div class="hint" id="audit-summary" style="margin:10px 0;"></div>
+        <div id="audit-list"></div>
+        <button class="btn" id="audit-more" style="display:none; width:100%; margin-top:10px;">Показать ещё</button>
       </div>
 
             <div class="card" id="cabinet-profiles">
@@ -1267,7 +1311,7 @@
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=108"></script>
 <script src="static/js/profiles.js?v=108"></script>
-<script src="static/js/cabinet.js?v=108"></script>
+<script src="static/js/cabinet.js?v=109"></script>
 <script src="static/js/help.js?v=108"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>
