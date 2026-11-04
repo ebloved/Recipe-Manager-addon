@@ -93,7 +93,7 @@ _RULES: tuple[Rule, ...] = (
     _r("POST", r"^/api/generator/suggestions/([^/]+)/accept$", "suggestion.accept", "Принятие сгенерированного рецепта", "suggestion", 1),
     _r("DELETE", r"^/api/generator/suggestions/([^/]+)$", "suggestion.delete", "Удаление сгенерированного рецепта", "suggestion", 1),
     # --- Админ / настройки ------------------------------------------
-    _r("POST", r"^/api/settings$", "settings.update", "Изменение системных настроек"),
+    _r("POST", r"^/api/settings$", "settings.update", "Изменение системных настроек", "settings"),
     _r("POST", r"^/api/admin/users$", "admin.user_add", "Добавление пользователя", "user"),
     _r("DELETE", r"^/api/admin/users/(.+)$", "admin.user_delete", "Удаление пользователя", "user", 1),
     _r("POST", r"^/api/admin/piece_weights$", "admin.weight_set", "Изменение веса продукта", "product"),
@@ -346,8 +346,8 @@ def classify_request(
             target_id = body.get("email") or target_id
         details = safe_details(body) if body else {}
         if isinstance(details, dict):
-            if action in ("settings.update", "user.llm_update", "user.llm_validate"):
-                details = {"changed": sorted(body.keys()) if isinstance(body, dict) else []}
+            if action in ("settings.update", "user.llm_update", "user.llm_validate") and isinstance(body, dict):
+                details["changed"] = sorted(body.keys())
             if action == "recipe.step_audio":
                 try:
                     details["step_index"] = int(match.group(2))
