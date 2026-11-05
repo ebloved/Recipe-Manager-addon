@@ -335,3 +335,25 @@ class AuditEvent(Base):
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+
+class AuthSession(Base):
+    """Сессия OAuth-пользователя для аудита повторных входов."""
+
+    __tablename__ = "auth_sessions"
+
+    sid: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True)
+    source: Mapped[str] = mapped_column(String(16), default="oauth")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )
+    login_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

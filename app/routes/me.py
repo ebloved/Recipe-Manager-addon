@@ -22,11 +22,23 @@ async def activity_ping(request: Request):
     if not get_current_user(request):
         raise HTTPException(401, "Unauthorized")
     touch()
+    try:
+        from services.auth_sessions import audit_current_session
+
+        await audit_current_session(request)
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True}
 
 
 @router.get("")
 async def get_me(request: Request):
+    try:
+        from services.auth_sessions import audit_current_session
+
+        await audit_current_session(request)
+    except Exception:  # noqa: BLE001
+        pass
     test_user = getattr(request.state, "test_mode_user", None)
     if test_user:
         return {

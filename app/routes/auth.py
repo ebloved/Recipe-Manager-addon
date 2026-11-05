@@ -1,15 +1,18 @@
 """Роуты Google OAuth."""
 import logging
+import uuid
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, AUTH_MODE
 from services.auth import (
     create_session_token,
+    read_session_payload,
     read_session_token,
     users_store,
     SESSION_COOKIE,
 )
+from services import auth_sessions
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,14 @@ async def auth_callback(request: Request):
             return RedirectResponse(url="/?error=access_denied")
         
         real_ip = request.headers.get("CF-Connecting-IP") or request.client.host
+        user_agent = request.headers.get("user-agent") or ""
+        sid = uuid.uuid4().hex
+        try:
+            await auth_sessions.register_login(
+                user["id"], sid, ip=real_ip, user_agent=user_agent[:300] or None
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[AUTH] session register failed: %s", exc)
         logger.info(f"[AUTH] Login success: {user['email']} from {real_ip}")
         try:
             from services import audit
@@ -92,7 +103,16 @@ async def auth_callback(request: Request):
                 actor_email=actor["email"],
                 actor_role=actor["role"],
                 status="ok",
-                details={"email": user.get("email"), "ip": real_ip, "provider": "google"},
+                details={
+                    "email": user.get("email"),
+                    "ip": real_ip,
+                    "provider": "google",
+                    "session_id": sid,
+                    "user_agent": user_agent[:300],
+                },
+                ip=real_ip,
+                user_agent=user_agent[:300] or None,
+                correlation_id=sid,
             )
         except Exception:  # noqa: BLE001
             pass
@@ -105,7 +125,7 @@ async def auth_callback(request: Request):
         secure_cookie = forwarded_proto == "https" or request.url.scheme == "https"
         response.set_cookie(
             key=SESSION_COOKIE,
-            value=create_session_token(user["id"]),
+            value=create_session_token(user["id"], sid),
             httponly=True,
             max_age=86400 * 7, # 7 дней
             samesite="lax",
@@ -117,8 +137,15 @@ async def auth_callback(request: Request):
 
 @router.get("/logout")
 async def logout(request: Request):
-    uid = read_session_token(request.cookies.get(SESSION_COOKIE))
+    token = request.cookies.get(SESSION_COOKIE)
+    payload = read_session_payload(token)
+    uid = payload.get("uid") if payload else read_session_token(token)
     if uid:
+        key = auth_sessions.session_key(payload, token)
+        try:
+            await auth_sessions.revoke_session(key)
+        except Exception:  # noqa: BLE001
+            pass
         try:
             from services import audit
 
@@ -132,6 +159,10 @@ async def logout(request: Request):
                 actor_email=actor["email"],
                 actor_role=actor["role"],
                 status="ok",
+                details={"session_id": key, "reason": "logout"},
+                ip=request.headers.get("CF-Connecting-IP") or (request.client.host if request.client else None),
+                user_agent=(request.headers.get("user-agent") or "")[:300] or None,
+                correlation_id=key,
             )
         except Exception:  # noqa: BLE001
             pass

@@ -737,6 +737,8 @@ async def log_event(
     method: str | None = None,
     path: str | None = None,
     http_status: int | None = None,
+    ip: str | None = None,
+    user_agent: str | None = None,
     correlation_id: str | None = None,
 ) -> str | None:
     """Записывает одно завершённое событие (фон, автоматизация, auth)."""
@@ -787,6 +789,8 @@ async def log_event(
             error_provider=error_provider,
             error_model=error_model,
             details=_limit_details(detail_value) if detail_value else None,
+            ip=ip[:64] if ip else None,
+            user_agent=user_agent[:300] if user_agent else None,
             search_text=_search_blob(
                 event_id, event_id.replace("-", ""),
                 action, label, actor_name, actor_email, actor_id,
@@ -1035,6 +1039,14 @@ async def audit_cleanup_worker() -> None:
             removed = await cleanup(days)
             if removed:
                 print(f"[audit] removed {removed} events older than {days} days")
+            try:
+                from services.auth_sessions import cleanup_old as cleanup_sessions
+
+                sessions = await cleanup_sessions(30)
+                if sessions:
+                    print(f"[auth-session] removed {sessions} old sessions")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[auth-session] cleanup failed: {exc}")
         except asyncio.CancelledError:
             break
         except Exception as exc:  # noqa: BLE001

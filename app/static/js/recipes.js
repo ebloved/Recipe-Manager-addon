@@ -6,6 +6,10 @@
 
   let searchTimer = null;
   state.recipesSort = "name_asc";
+  const nameCollator = new Intl.Collator("ru", {
+    sensitivity: "base",
+    numeric: true,
+  });
   state.recipeKind = "all";
   state.deletedRecipes = [];
   state.trashLoaded = false;
@@ -118,10 +122,13 @@
         else filterAndRender();
       });
       const sortSel = $("sort-select");
-      if (sortSel) sortSel.addEventListener("change", (e) => {
-        state.recipesSort = e.target.value;
-        filterAndRender();
-      });
+      if (sortSel) {
+        state.recipesSort = sortSel.value || "name_asc";
+        sortSel.addEventListener("change", (e) => {
+          state.recipesSort = e.target.value;
+          filterAndRender();
+        });
+      }
       const hiddenCb = $("show-hidden-cb");
       if (hiddenCb) hiddenCb.addEventListener("change", () => load(true));
       const estBtn = $("estimate-all-btn");
@@ -202,11 +209,13 @@
         if (mode === "course_asc") {
           const ca = (a.courses && a.courses[0]) || "я";
           const cb = (b.courses && b.courses[0]) || "я";
-          if (ca !== cb) return ca.localeCompare(cb);
-          return (a.name || "").localeCompare(b.name || "");
+          if (ca !== cb) return nameCollator.compare(ca, cb);
+          return nameCollator.compare(a.name || "", b.name || "");
         }
         
-        if (mode === "name_asc") return (a.name || "").localeCompare(b.name || "");
+        if (mode === "name_asc") {
+          return nameCollator.compare(a.name || "", b.name || "");
+        }
         
         return 0;
       });

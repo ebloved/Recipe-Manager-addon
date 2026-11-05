@@ -30,11 +30,15 @@ SESSION_MAX_AGE = 7 * 24 * 3600
 _session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="rm-session")
 
 
-def create_session_token(user_id: str) -> str:
-    return _session_serializer.dumps({"uid": user_id})
+def create_session_token(user_id: str, sid: str | None = None) -> str:
+    payload = {"uid": user_id}
+    if sid:
+        payload["sid"] = sid
+    return _session_serializer.dumps(payload)
 
 
-def read_session_token(token: str | None) -> str | None:
+def read_session_payload(token: str | None) -> dict[str, str | None] | None:
+    """Возвращает uid и sid из подписанной cookie (или None)."""
     if not token:
         return None
     try:
@@ -44,7 +48,18 @@ def read_session_token(token: str | None) -> str | None:
     if not isinstance(data, dict):
         return None
     uid = data.get("uid")
-    return str(uid) if uid else None
+    if not uid:
+        return None
+    sid = data.get("sid")
+    return {
+        "uid": str(uid),
+        "sid": str(sid) if sid else None,
+    }
+
+
+def read_session_token(token: str | None) -> str | None:
+    payload = read_session_payload(token)
+    return payload["uid"] if payload else None
 
 
 class UserStore:
