@@ -10,7 +10,7 @@
   let voiceRecipeId = null;
   let voiceOutputEnabled = false;
   let voiceAudioEl = null;
-  let stepAudioItems = [];
+  let stepAudioByRecipe = {};
   function kindOf(r) {
     return RM.recipes && RM.recipes.kindOf ? RM.recipes.kindOf(r) : "main";
   }
@@ -98,9 +98,11 @@
         }).join("")
       : '<div class="hint">Ингредиенты не указаны.</div>';
 
-    const stepsHtml = renderSteps(current.main_steps || [], "Основное блюдо");
+    const mainRecipeId = main && main.id;
+    const sideRecipeId = side && side.id;
+    const stepsHtml = renderSteps(current.main_steps || [], "Основное блюдо", mainRecipeId);
     const sideHtml = current.side_steps && current.side_steps.length
-      ? `<div class="cooking-divider">Основное готовится — переходим к гарниру</div>${renderSteps(current.side_steps, side ? side.name : "Гарнир")}`
+      ? `<div class="cooking-divider">Основное готовится — переходим к гарниру</div>${renderSteps(current.side_steps, side ? side.name : "Гарнир", sideRecipeId)}`
       : "";
 
     $("cooking-root").innerHTML = `
@@ -154,7 +156,8 @@
     if (!body) return "";
     const clone = body.cloneNode(true);
     clone.querySelectorAll(".cooking-timers").forEach((node) => node.remove());
-    return clone.innerText.replace(/\n+/g, " ").trim();
+    const text = clone.innerText || clone.textContent || "";
+    return String(text).replace(/\n+/g, " ").trim();
   }
 
   function updateVoiceStepLabel() {
@@ -170,28 +173,40 @@
     el.textContent = `Шаг ${idx + 1}/${steps.length}: ${text.slice(0, 100)}`;
   }
 
-  async function loadStepAudio(recipeId) {
-    stepAudioItems = [];
-    if (!recipeId) return;
-    try {
-      const data = await getJSON(`api/recipes/${encodeURIComponent(recipeId)}/step-audio`);
-      stepAudioItems = data.items || [];
-    } catch (_) {
-      stepAudioItems = [];
-    }
+  async function loadStepAudio() {
+    stepAudioByRecipe = {};
+    const ids = [
+      current && current.main_recipe && current.main_recipe.id,
+      current && current.side_recipe && current.side_recipe.id,
+    ].filter(Boolean);
+    await Promise.all(ids.map(async (recipeId) => {
+      try {
+        const data = await getJSON(
+          `api/recipes/${encodeURIComponent(recipeId)}/step-audio`
+        );
+        stepAudioByRecipe[recipeId] = data.items || [];
+      } catch (_) {
+        stepAudioByRecipe[recipeId] = [];
+      }
+    }));
   }
 
-  async function playStepAudio(index) {
-    if (!voiceOutputEnabled || !current || !current.main_recipe) return;
-    let item = stepAudioItems.find((x) => Number(x.step_index) === Number(index));
+  async function playStepAudio(recipeId, index) {
+    if (!voiceOutputEnabled || !recipeId) return;
+    let items = stepAudioByRecipe[recipeId];
+    if (!Array.isArray(items)) {
+      items = [];
+      stepAudioByRecipe[recipeId] = items;
+    }
+    let item = items.find((x) => Number(x.step_index) === Number(index));
     if (!item) {
       try {
         const data = await postJSON(
-          `api/recipes/${encodeURIComponent(current.main_recipe.id)}/step-audio/${index}`,
+          `api/recipes/${encodeURIComponent(recipeId)}/step-audio/${index}`,
           {}
         );
         item = data.item;
-        stepAudioItems.push(item);
+        items.push(item);
       } catch (e) {
         voiceStatus("Аудио шага: " + e.message);
         return;
@@ -215,17 +230,43 @@
     }
   }
 
-  function voiceGo(delta) {
+  function assistantEnabled() {
+    const cb = $("cooking-assistant-visible");
+    return !!(cb && cb.checked);
+  }
+
+  function voiceSelect(index, options = {}) {
     const steps = voiceSteps();
     if (!steps.length) {
       voiceStatus("В рецепте нет шагов.");
       return;
     }
-    voiceStepIndex = Math.max(0, Math.min(steps.length - 1, voiceStepIndex + delta));
+    voiceStepIndex = Math.max(0, Math.min(steps.length - 1, index));
     steps.forEach((el, i) => el.classList.toggle("voice-current", i === voiceStepIndex));
-    steps[voiceStepIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    if (options.scroll !== false) {
+      steps[voiceStepIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     updateVoiceStepLabel();
-    playStepAudio(voiceStepIndex);
+
+    const stepEl = steps[voiceStepIndex];
+    const recipeId = stepEl.dataset.recipeId
+      || (current && current.main_recipe && current.main_recipe.id);
+    const localIndex = parseInt(stepEl.dataset.stepIndex, 10);
+    playStepAudio(recipeId, Number.isFinite(localIndex) ? localIndex : voiceStepIndex);
+  }
+
+  function voiceGo(delta) {
+    voiceSelect(voiceStepIndex + delta);
+  }
+
+  function setupStepTap() {
+    voiceSteps().forEach((el, index) => {
+      el.onclick = (event) => {
+        if (!assistantEnabled()) return;
+        if (event.target.closest("button, a, input, label")) return;
+        voiceSelect(index);
+      };
+    });
   }
 
   function setupVoice() {
@@ -249,22 +290,33 @@
     const prev = $("cooking-voice-prev");
     if (prev) prev.onclick = () => voiceGo(-1);
 
-    const rid = current && current.main_recipe && current.main_recipe.id;
+    const rid = [
+      current && current.main_recipe && current.main_recipe.id,
+      current && current.side_recipe && current.side_recipe.id,
+    ].filter(Boolean).join("|");
     if (rid !== voiceRecipeId) {
       voiceRecipeId = rid;
       voiceStepIndex = -1;
-      loadStepAudio(rid);
+      loadStepAudio();
     }
+    setupStepTap();
     updateVoiceStepLabel();
   }
 
   function applyAssistantVisibility() {
     const bar = $("cooking-voice-bar");
-    const visible = $("cooking-assistant-visible");
-    if (bar) bar.style.display = visible && visible.checked ? "flex" : "none";
+    const enabled = assistantEnabled();
+    if (bar) bar.style.display = enabled ? "flex" : "none";
+    const steps = voiceSteps();
+    steps.forEach((el) => el.classList.toggle("assistant-clickable", enabled));
+    if (!enabled) {
+      steps.forEach((el) => el.classList.remove("voice-current"));
+      voiceStepIndex = -1;
+      if (voiceAudioEl) voiceAudioEl.pause();
+    }
   }
 
-  function renderSteps(steps, title) {
+  function renderSteps(steps, title, recipeId) {
     if (!steps.length) {
       return `<div class="cooking-steps-block"><div class="cooking-steps-title">${escHtml(title)}</div><div class="hint">Шагов нет.</div></div>`;
     }
@@ -282,7 +334,7 @@
           timers.push(`<button class="cooking-timer-btn" data-timer-seconds="${seconds}" data-timer-label="${escHtml(label)}">⏱ ${escHtml(label)}</button>`);
         }
       }
-      return `<div class="cooking-step">
+      return `<div class="cooking-step" data-recipe-id="${escHtml(recipeId || "")}" data-step-index="${idx}">
         <div class="cooking-step-num">${idx + 1}</div>
         <div class="cooking-step-body">${RM.utils.renderMarkdown(text)}<div class="cooking-timers">${timers.join("")}</div></div>
       </div>`;

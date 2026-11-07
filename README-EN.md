@@ -273,6 +273,14 @@ Normalization and product enrichment run before saving.
 
 ---
 
+## Cooking assistant
+
+With the assistant enabled, tapping a step highlights it, scrolls it into
+view and plays that step's MP3 if voice output is enabled. Side-dish steps
+use the side recipe's own audio.
+
+---
+
 ## Seasonal effects
 
 Admins can enable a visual effect in the system settings (`None` / `Snow`).

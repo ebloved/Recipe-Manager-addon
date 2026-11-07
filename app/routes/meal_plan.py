@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
+from services.auth import get_current_user
 
 from stores import meal_plan_store, recipe_store
 
@@ -30,7 +31,9 @@ async def list_meal_plan(start: str, end: str):
 
 
 @router.post("")
-async def add_meal_plan_entry(payload: dict[str, Any] = Body(...)):
+async def add_meal_plan_entry(request: Request, payload: dict[str, Any] = Body(...)):
+    user = get_current_user(request)
+    owner_id = (user or {}).get("id") or "family"
     recipe_id = payload.get("recipe_id")
     date = payload.get("date")
     meal_type = payload.get("meal_type")
@@ -46,7 +49,7 @@ async def add_meal_plan_entry(payload: dict[str, Any] = Body(...)):
         "meal_type": meal_type,
         "servings": payload.get("servings"),
         "notes": payload.get("notes"),
-    })
+    }, owner_id=owner_id)
     return {"entry": entry}
 
 

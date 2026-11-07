@@ -3527,6 +3527,14 @@ header {
   padding-right: 8px;
   outline: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
+.cooking-step.assistant-clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cooking-step.assistant-clickable:active {
+  background: var(--accent-soft);
+  border-radius: 10px;
+}
 .cooking-assistant-toggle {
   display: inline-flex;
   align-items: center;
