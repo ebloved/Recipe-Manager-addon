@@ -3981,17 +3981,16 @@ header::before {
   word-break: break-word;
 }
 .audit-table th:nth-child(1),
-.audit-table td:nth-child(1) { width: 118px; }
+.audit-table td:nth-child(1) { width: 10%; }
 .audit-table th:nth-child(2),
-.audit-table td:nth-child(2) { width: 165px; }
+.audit-table td:nth-child(2) { width: 14%; }
 .audit-table th:nth-child(3),
-.audit-table td:nth-child(3) { width: 175px; }
+.audit-table td:nth-child(3) { width: 15%; }
 .audit-table th:nth-child(4),
-.audit-table td:nth-child(4) { width: 185px; }
+.audit-table td:nth-child(4) { width: 16%; }
 .audit-table th:nth-child(5),
-.audit-table td:nth-child(5) { width: 105px; }
+.audit-table td:nth-child(5) { width: 9%; }
 .audit-table .audit-time {
-  white-space: nowrap;
   font-size: 11px;
 }
 .audit-table .audit-id {
@@ -4020,7 +4019,7 @@ header::before {
   font-size: 11px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 820px) {
   #panel-audit .panel-inner {
     max-width: 100%;
   }
