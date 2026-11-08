@@ -508,11 +508,16 @@
       </div>
 
       <div class="card" id="cabinet-llm-form" style="display:none">
-        <div class="hint" style="margin-bottom:15px;">
-          <div style="font-size:14px; font-weight:600;">🤖 LLM-провайдеры</div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Используется первый доступный. Без своих ключей — 5 запросов/день на резервных (admin) ключах.
+        <div class="hint" style="margin-bottom:15px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="min-width:220px; flex:1;">
+            <div style="font-size:14px; font-weight:600;">🤖 LLM-провайдеры</div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+              LLM — нейросеть, которая пишет рецепты и разбирает текст.
+              Свой ключ снимает ограничения. Без ключа — 5 бесплатных запросов
+              в день на пользователя на резервных ключах администратора.
+            </div>
           </div>
+          <button class="btn" id="btn-llm-help" style="white-space:nowrap;">📖 Как получить ключ</button>
         </div>
 
         <!-- 1. Custom AI -->
@@ -523,6 +528,7 @@
             <span class="llm-provider-hint">свой endpoint</span>
             <span class="llm-provider-status" id="custom-status">⚪ не задан</span>
           </div>
+          <div class="hint" style="font-size:12px; margin-top:2px;">Для тех, у кого уже есть OpenAI-совместимый ключ или локальная модель.</div>
           <div class="field">
             <label>URL</label>
             <input type="text" id="user-ext-url" placeholder="https://api.example.com/v1">
@@ -554,6 +560,7 @@
             <span class="llm-provider-hint">~4 сек</span>
             <span class="llm-provider-status" id="orca-status">⚪ не задан</span>
           </div>
+          <div class="hint" style="font-size:12px; margin-top:2px;">Быстрый вариант. Регистрация и ключ — на orcarouter.ai.</div>
           <div class="field">
             <label>API Key <a href="https://orcarouter.ai" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -572,6 +579,7 @@
             <span class="llm-provider-hint">~20–40 сек</span>
             <span class="llm-provider-status" id="gemini-status">⚪ не задан (5 RPD)</span>
           </div>
+          <div class="hint" style="font-size:12px; margin-top:2px;">Самый простой бесплатный старт. Ключ создаётся в Google AI Studio.</div>
           <div class="field">
             <label>API Key <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size:11px; color:var(--accent);">(получить)</a></label>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -1211,6 +1219,135 @@
   </div>
 </div>
 
+<div class="product-editor-overlay" id="llm-help-modal" style="z-index: 10050;">
+  <div class="product-editor-panel" style="max-width: 860px;">
+    <div class="product-editor-header">
+      <h3>🔑 Как получить ключ LLM</h3>
+      <button class="product-editor-close" id="llm-help-close">×</button>
+    </div>
+    <div class="product-editor-body" style="max-height: 75vh; overflow: auto; font-size: 13px; line-height: 1.55;">
+
+      <p style="margin-top:0;">
+        <b>LLM</b> — это нейросеть, которая пишет и разбирает текст. Recipe Manager
+        использует её для генерации рецептов, импорта из YouTube и сайтов,
+        пересчёта под аэрогриль, оценки активного времени, разбора голосового
+        текста и подсказок по продуктам.
+      </p>
+
+      <details class="help-section" open>
+        <summary>❓ Зачем мне свой ключ, если всё и так работает?</summary>
+        <p>Без ключа приложение использует резервные ключи администратора:
+        <b>5 бесплатных запросов в день на пользователя</b>. Это нормально,
+        чтобы попробовать, но на активную работу лимита не хватит.</p>
+        <p>Свой ключ даёт:</p>
+        <ul>
+          <li><b>личный дневной лимит</b> — не делите с другими пользователями;</li>
+          <li><b>больше генераций</b> — рецепты, YouTube, аэрогриль, голос, оценка времени;</li>
+          <li><b>скорость</b> — можно выбрать быстрый сервис;</li>
+          <li><b>независимость</b> — ваши запросы не упираются в чужие;</li>
+          <li><b>контроль</b> — ключ шифруется, хранится в SQLite и удаляется одной кнопкой.</li>
+        </ul>
+        <p>Ключ не обязателен. Начните с Gemini: это бесплатно и проще всего.</p>
+      </details>
+
+      <details class="help-section" open>
+        <summary>✨ Gemini — самый простой бесплатный старт</summary>
+        <ol>
+          <li>Откройте <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</li>
+          <li>Войдите в свой Google-аккаунт.</li>
+          <li>Нажмите <b>Create API key</b> или <b>Get API key</b>.</li>
+          <li>Выберите существующий проект или создайте новый.</li>
+          <li>Скопируйте ключ. Он начинается на <code>AIza...</code>.</li>
+          <li>Вернитесь в <b>Кабинет → LLM-провайдеры → Gemini</b>.</li>
+          <li>Вставьте ключ в поле <b>API Key</b> и нажмите <b>Сохранить ключи</b>.</li>
+        </ol>
+        <p>Плюсы: бесплатный лимит и не нужна банковская карта.
+        Минусы: медленнее и лимит может закончиться. Если видите ошибку
+        <b>429</b> — это дневной лимит Gemini, попробуйте позже.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>⚡ OrcaRouter — быстрее</summary>
+        <ol>
+          <li>Откройте <a href="https://orcarouter.ai" target="_blank" rel="noopener">orcarouter.ai</a> и зарегистрируйтесь.</li>
+          <li>В личном кабинете найдите раздел <b>API Keys</b>.</li>
+          <li>Создайте ключ и скопируйте его. Обычно он начинается на <code>sk-orca-...</code>.</li>
+          <li>Вставьте ключ в поле <b>OrcaRouter</b> и нажмите <b>Сохранить ключи</b>.</li>
+        </ol>
+        <p>Подходит, если важна скорость. У OrcaRouter могут быть свои
+        лимиты и платные тарифы — проверьте условия на сайте.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>🔧 Custom AI — свой провайдер или локальная модель</summary>
+        <p>Этот вариант для тех, у кого уже есть <b>OpenAI-совместимый</b>
+        сервис: OpenAI, OpenRouter, Groq, Ollama и подобные.</p>
+        <ol>
+          <li>Возьмите <b>Base URL</b>, который заканчивается на <code>/v1</code>.
+          Примеры: <code>https://api.openai.com/v1</code>,
+          <code>https://openrouter.ai/api/v1</code>,
+          <code>http://localhost:11434/v1</code> для Ollama.</li>
+          <li>Вставьте <b>API Key</b> из личного кабинета провайдера.
+          Для локальной Ollama ключ часто не нужен — можно оставить пустым
+          или указать любой.</li>
+          <li>Укажите модель, например <code>gpt-4o-mini</code> или
+          <code>llama3.1</code>. Кнопка <b>Загрузить</b> попробует получить
+          список моделей с сервера.</li>
+          <li>Нажмите <b>Сохранить ключи</b>.</li>
+        </ol>
+        <p><b>Важно:</b> приложение отправит текст рецепта на указанный адрес.
+        Используйте только сервис, которому доверяете.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>💾 Как сохранить и проверить</summary>
+        <ol>
+          <li>Откройте <b>Кабинет → LLM-провайдеры</b>.</li>
+          <li>Вставьте ключ в нужное поле. Можно заполнить один, два или все три.</li>
+          <li>Нажмите <b>Сохранить ключи</b>. Приложение проверит новые ключи.</li>
+          <li>Зелёная надпись <b>«сохранён»</b> — ключ принят. Красная/жёлтая —
+          проверьте ключ, лимит или интернет.</li>
+        </ol>
+        <p>Порядок выбора: <b>Custom → OrcaRouter → Gemini → резервный Gemini → Hermes</b>.
+        Используется первый рабочий вариант. Если ключ не сработал,
+        приложение попробует следующий, а в крайнем случае — резервный
+        лимит администратора.</p>
+      </details>
+
+      <details class="help-section">
+        <summary>🔒 Безопасность и деньги</summary>
+        <ul>
+          <li>Ключи хранятся в зашифрованном виде в SQLite и не показываются
+          после сохранения — только маска.</li>
+          <li>Ключ используется только для ваших запросов.</li>
+          <li>Никому не передавайте ключ. Если он попал не туда — удалите его
+          в Кабинете и создайте новый у провайдера.</li>
+          <li>Приложение не списывает деньги. Лимиты и оплата — у выбранного
+          провайдера. Бесплатные тарифы могут иметь дневные ограничения.</li>
+          <li>Кнопка 🗑️ рядом с полем удаляет ключ.</li>
+        </ul>
+      </details>
+
+      <details class="help-section">
+        <summary>🆘 Если ключ не работает</summary>
+        <ul>
+          <li>Проверьте, что ключ скопирован полностью, без пробелов и переносов.</li>
+          <li>Проверьте лимит и баланс в личном кабинете провайдера.</li>
+          <li>Для Custom AI проверьте URL (должен заканчиваться на <code>/v1</code>)
+          и точное название модели.</li>
+          <li>Ошибка <b>429</b> — слишком много запросов или закончился дневной лимит.
+          Подождите или используйте другой ключ/провайдер.</li>
+          <li>Если ничего не помогает — удалите ключ и создайте новый.</li>
+        </ul>
+      </details>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+        <button class="btn primary" id="llm-help-ok">Понятно</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="help-overlay" id="help-overlay">
   <div class="help-panel">
     <div class="help-header">
@@ -1307,8 +1444,11 @@
         <summary>✨ Генератор и профили</summary>
         <ul>
           <li>Выберите профиль (ограничения по калориям, времени, ингредиентам), тему и количество рецептов.</li>
-          <li>Используется LLM-каскад: Custom → Orca → Gemini → admin Gemini → Hermes.</li>
-          <li>Без своих ключей доступно 5 генераций в день на admin-ключах.</li>
+          <li>Рецепты пишет <b>LLM</b> — нейросеть. Без своего ключа доступно
+          5 бесплатных запросов в день на пользователя на резервных ключах
+          администратора.</li>
+          <li>Свой ключ даёт личный лимит и скорость. Как получить — в разделе
+          «Кабинет и LLM-ключи» выше.</li>
           <li>Профили создаются в Кабинете / разделе профилей.</li>
         </ul>
       </details>
@@ -1324,13 +1464,31 @@
       </details>
 
       <details class="help-section">
-        <summary>👤 Кабинет и LLM-ключи</summary>
+        <summary>👤 Кабинет и LLM-ключи: зачем и как</summary>
+        <p><b>LLM</b> — это нейросеть, которая пишет и разбирает текст. Recipe Manager
+        использует её для генерации рецептов, импорта из YouTube и сайтов,
+        пересчёта под аэрогриль, оценки активного времени, разбора голосового
+        текста и подсказок по продуктам.</p>
+        <p><b>Без своего ключа</b> приложение работает на резервных ключах
+        администратора: 5 бесплатных запросов в день на пользователя. Этого
+        хватает, чтобы попробовать, но для регулярной работы лучше свой ключ.</p>
+        <p><b>Свой ключ</b> даёт личный дневной лимит, больше генераций,
+        скорость и независимость от чужих запросов. Ключ шифруется, хранится
+        в SQLite и удаляется одной кнопкой.</p>
+        <p><b>Что выбрать:</b></p>
         <ul>
-          <li>Свои ключи: Custom AI (OpenAI-совместимый), OrcaRouter, Gemini.</li>
-          <li>Порядок: Custom → Orca → Gemini → admin Gemini → Hermes.</li>
-          <li>Ключи шифруются и хранятся в SQLite; кнопка 🗑️ удаляет ключ.</li>
-          <li>Админу доступны системные настройки, Telegram-уведомления, бэкап и синхронизация GitHub.</li>
+          <li><b>Gemini</b> — самый простой бесплатный старт. Нужен только Google-аккаунт.</li>
+          <li><b>OrcaRouter</b> — быстрее, но у сервиса свои лимиты и тарифы.</li>
+          <li><b>Custom AI</b> — если у вас уже есть OpenAI-совместимый ключ
+          (OpenAI, OpenRouter, Groq) или локальная модель вроде Ollama.</li>
         </ul>
+        <p>Ключи не обязательны. Начните с Gemini: это бесплатно и проще всего.
+        Подробные шаги со ссылками — в кнопке ниже.</p>
+        <button class="btn primary" id="help-llm-open" style="margin-top:4px;">📖 Открыть пошаговую инструкцию</button>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">
+          Приложение не списывает деньги: лимиты и оплата — у выбранного
+          провайдера. Ключ можно удалить в любой момент.
+        </p>
       </details>
 
       <details class="help-section">
@@ -1396,7 +1554,7 @@
 <script src="static/js/generator.js?v=108"></script>
 <script src="static/js/profiles.js?v=108"></script>
 <script src="static/js/cabinet.js?v=121"></script>
-<script src="static/js/help.js?v=108"></script>
+<script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>
 <script src="static/js/live-sync.js?v=108"></script>

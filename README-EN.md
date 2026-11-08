@@ -294,6 +294,15 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## LLM key help
+
+The Cabinet LLM form has a “How to get a key” button that opens a step-by-step
+guide for Gemini, OrcaRouter and Custom AI, including links, URL/model examples,
+key validation, quota/429 troubleshooting, security and what happens without
+a personal key. The Help section explains LLM keys in plain language.
+
+---
+
 ## Personal recipe versions
 
 A recipe can be cloned for the current user only. The clone is visible only
