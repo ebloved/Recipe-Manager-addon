@@ -294,6 +294,17 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## Personal recipe versions
+
+A recipe can be cloned for the current user only. The clone is visible only
+to its owner and is collapsed into the base recipe card: the card shows a
+`Shared / Mine` switch. The selected version is used for details, cooking,
+meal planning and shopping. A personal version has a `Back to shared` action
+at the bottom. The "Only mine" filter includes recipes you added and your
+personal clones.
+
+---
+
 ## Air-fryer sub-recipes
 
 Air-fryer adaptations are sub-recipes, not separate cards in the main

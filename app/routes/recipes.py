@@ -102,6 +102,11 @@ async def list_recipes(
     user = get_current_user(request)
     uid = user["id"] if user else None
     all_recipes = recipe_store.get_all()
+    # Чужие личные версии не показываем даже админам.
+    all_recipes = [
+        r for r in all_recipes
+        if not r.get("personal_of") or r.get("owner_id") == uid
+    ]
     sub_ids: set[str] = set()
     if not include_adapted:
         for parent in all_recipes:
@@ -145,12 +150,18 @@ async def list_deleted_recipes(request: Request):
     if not user:
         raise HTTPException(401, "Unauthorized")
     items = await recipe_store.list_deleted()
+    items = [
+        r for r in items
+        if not r.get("personal_of") or r.get("owner_id") == user.get("id")
+    ]
     if user.get("role") != "admin":
         items = [r for r in items if r.get("owner_id") == user.get("id")]
     return {"recipes": items, "count": len(items)}
 
 
 def _can_manage_recipe(user: dict, recipe: dict) -> bool:
+    if recipe.get("personal_of"):
+        return bool(user and recipe.get("owner_id") == user.get("id"))
     return bool(
         user
         and (
@@ -159,6 +170,22 @@ def _can_manage_recipe(user: dict, recipe: dict) -> bool:
             or recipe.get("owner_id") == user.get("id")
         )
     )
+
+
+def _guard_view(recipe: dict | None, user: dict | None) -> None:
+    """Личные версии видны только владельцу, включая админов."""
+    if recipe and recipe.get("personal_of"):
+        if not user or recipe.get("owner_id") != user.get("id"):
+            raise HTTPException(404, "Recipe not found")
+
+
+def _personal_clone_for(base_id: str, user_id: str | None) -> dict | None:
+    if not base_id or not user_id:
+        return None
+    for r in recipe_store.get_all():
+        if r.get("personal_of") == base_id and r.get("owner_id") == user_id:
+            return r
+    return None
 
 
 @router.post("/{recipe_id}/restore")
@@ -199,11 +226,13 @@ async def delete_recipe_permanent(recipe_id: str, request: Request):
     return {"deleted": True, "permanent": True}
 
 @router.get("/{recipe_id}")
-async def get_recipe(recipe_id: str):
+async def get_recipe(recipe_id: str, request: Request):
     """Возвращает один рецепт по id."""
+    user = get_current_user(request)
     recipe = recipe_store.get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
+    _guard_view(recipe, user)
     return {"recipe": recipe}
 
 
@@ -278,7 +307,10 @@ async def update_recipe(recipe_id: str, request: Request, patch: dict[str, Any] 
     existing = recipe_store.get(recipe_id)
     if not existing:
         raise HTTPException(404, "Recipe not found")
-    
+    _guard_view(existing, user)
+    patch.pop("personal_of", None)
+    patch.pop("personal_selected", None)
+
     # Проверка прав (если не админ и не владелец)
     if user and user["role"] != "admin" and existing.get("owner_id") and existing.get("owner_id") != user["id"]:
         raise HTTPException(403, "Только автор может редактировать (сделайте копию)")
@@ -318,6 +350,7 @@ async def hide_recipe(recipe_id: str, request: Request):
     if not user: raise HTTPException(401, "Auth required")
     recipe = recipe_store.get(recipe_id)
     if not recipe: raise HTTPException(404, "Not found")
+    _guard_view(recipe, user)
     hidden = recipe.get("hidden_by") or []
     if user["id"] not in hidden:
         hidden.append(user["id"])
@@ -330,6 +363,7 @@ async def unhide_recipe(recipe_id: str, request: Request):
     if not user: raise HTTPException(401, "Auth required")
     recipe = recipe_store.get(recipe_id)
     if not recipe: raise HTTPException(404, "Not found")
+    _guard_view(recipe, user)
     hidden = recipe.get("hidden_by") or []
     if user["id"] in hidden:
         hidden.remove(user["id"])
@@ -342,6 +376,7 @@ async def fork_recipe(recipe_id: str, request: Request):
     if not user: raise HTTPException(401, "Auth required")
     original = recipe_store.get(recipe_id)
     if not original: raise HTTPException(404, "Not found")
+    _guard_view(original, user)
     new_r = {**original}
     new_r["id"] = uuid.uuid4().hex
     new_r["name"] = f"{original.get('name')} (копия)"
@@ -352,13 +387,90 @@ async def fork_recipe(recipe_id: str, request: Request):
     created = await recipe_store.add(new_r)
     return {"recipe": created}
 
+@router.post("/{recipe_id}/clone-personal")
+async def clone_personal(recipe_id: str, request: Request):
+    """Создаёт личную версию рецепта, видимую только владельцу."""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Auth required")
+    source = recipe_store.get(recipe_id)
+    if not source:
+        raise HTTPException(404, "Recipe not found")
+    _guard_view(source, user)
+
+    base_id = str(source.get("personal_of") or recipe_id)
+    existing = _personal_clone_for(base_id, user.get("id"))
+    if existing:
+        return {"recipe": existing, "created": False}
+
+    base = recipe_store.get(base_id) or source
+    strip = {
+        "id", "owner_id", "owner_name", "created_at", "updated_at",
+        "version", "revision", "source", "source_id", "share_token",
+        "visibility", "hidden_by", "parent_id", "adapted_versions",
+        "personal_of", "personal_selected",
+    }
+    clone = {k: v for k, v in base.items() if k not in strip}
+    clone["id"] = uuid.uuid4().hex
+    clone["owner_id"] = user["id"]
+    clone["owner_name"] = user.get("name", "User")
+    clone["personal_of"] = base_id
+    clone["personal_selected"] = True
+    clone["name"] = base.get("name") or clone.get("name") or "Рецепт"
+    created = await recipe_store.add(clone)
+    return {"recipe": created, "created": True}
+
+
+@router.get("/{recipe_id}/personal")
+async def get_personal_version(recipe_id: str, request: Request):
+    """Возвращает личную версию рецепта для текущего пользователя."""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Auth required")
+    recipe = recipe_store.get(recipe_id)
+    if recipe:
+        _guard_view(recipe, user)
+    base_id = str(recipe.get("personal_of") or recipe_id) if recipe else recipe_id
+    return {
+        "personal": _personal_clone_for(base_id, user.get("id")),
+        "base_id": base_id,
+    }
+
+
+@router.post("/{recipe_id}/personal-select")
+async def select_personal_version(
+    recipe_id: str,
+    request: Request,
+    payload: dict[str, Any] = Body(...),
+):
+    """Переключает выбранную версию: общая или личная."""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Auth required")
+    recipe = recipe_store.get(recipe_id)
+    if recipe:
+        _guard_view(recipe, user)
+    base_id = str(recipe.get("personal_of") or recipe_id) if recipe else recipe_id
+    clone = _personal_clone_for(base_id, user.get("id"))
+    if not clone:
+        raise HTTPException(404, "Personal version not found")
+    selected = bool(payload.get("selected", True))
+    updated = await recipe_store.update(
+        clone["id"], {"personal_selected": selected}
+    )
+    if not updated:
+        raise HTTPException(404, "Personal version not found")
+    return {"personal": updated, "selected": selected}
+
+
 @router.delete("/{recipe_id}")
 async def delete_recipe(recipe_id: str, request: Request):
     """Удаляет рецепт и связанные записи плана питания."""
     user = get_current_user(request)
     existing = recipe_store.get(recipe_id)
     if not existing: raise HTTPException(404, "Recipe not found")
-    
+    _guard_view(existing, user)
+
     if user and user["role"] != "admin" and existing.get("owner_id") and existing.get("owner_id") != user["id"]:
         raise HTTPException(403, "Только автор или админ может удалить")
         
@@ -392,16 +504,18 @@ async def delete_recipe(recipe_id: str, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/{recipe_id}/export.md")
-async def export_recipe_md(recipe_id: str):
+async def export_recipe_md(recipe_id: str, request: Request):
     """Отдаёт .md файл с рецептом.
 
     Формат имени: <transliterated-slug>_<8-символов-id>.md
     Содержимое: YAML front matter + тело, включая блоки product.barcode
     для связанных ингредиентов (см. services/md_export.py).
     """
+    user = get_current_user(request)
     recipe = recipe_store.get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
+    _guard_view(recipe, user)
 
     md = recipe_to_md(recipe)
     filename = recipe_filename(recipe)
@@ -787,6 +901,8 @@ async def find_by_ingredients(request: Request, payload: dict = Body(...)):
 
     results = []
     for r in recipe_store.get_all():
+        if r.get("personal_of") and r.get("owner_id") != uid:
+            continue
         # Пропускаем скрытые
         if uid and uid in (r.get("hidden_by") or []):
             continue

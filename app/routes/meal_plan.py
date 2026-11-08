@@ -14,12 +14,16 @@ _ALLOWED_MEALS = {"breakfast", "lunch", "snack", "dinner"}
 
 
 @router.get("")
-async def list_meal_plan(start: str, end: str):
+async def list_meal_plan(request: Request, start: str, end: str):
     """Возвращает записи плана за период + данные рецепта для отображения."""
+    user = get_current_user(request)
+    uid = user.get("id") if user else None
     entries = meal_plan_store.get_range(start, end)
     result = []
     for e in entries:
         recipe = recipe_store.get(e.get("recipe_id") or "")
+        if recipe and recipe.get("personal_of") and recipe.get("owner_id") != uid:
+            continue
         result.append({
             **e,
             "recipe_name": recipe.get("name") if recipe else None,

@@ -57,7 +57,10 @@
     const list = $("recipe-picker-list");
     const q = ($("recipe-picker-search").value || "").trim().toLowerCase();
 
-    let recipes = state.recipes.slice();
+    const groups = (RM.recipes && RM.recipes.versionGroups)
+      ? RM.recipes.versionGroups(state.recipes)
+      : state.recipes.map((r) => ({ display: r }));
+    let recipes = groups.map((g) => g.display);
     if (q) {
       recipes = recipes.filter((r) => {
         if ((r.name || "").toLowerCase().includes(q)) return true;

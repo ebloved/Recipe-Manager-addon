@@ -446,6 +446,14 @@
         </ul>`
       : `<p style="color:var(--text-secondary);font-size:14px;">Ингредиенты не указаны.</p>`;
 
+    const uid = state.user && state.user.id;
+    const isPersonal = !!r.personal_of;
+    const personalForBase = !isPersonal
+      ? (state.recipes || []).find(
+          (x) => x.personal_of === r.id && x.owner_id === uid
+        )
+      : null;
+
     panel.innerHTML = `
       <div class="equipment-switcher" id="equipment-switcher">
         <button class="eq-btn active" data-eq="oven">🍳 Духовка</button>
@@ -458,6 +466,7 @@
 
       <div class="detail-head">
         <h2 class="detail-title">${escHtml(r.name || "")}</h2>
+        ${isPersonal ? `<div class="detail-personal-badge">Моя версия</div>` : ""}
         ${r.description ? `<div class="detail-description">${escHtml(r.description)}</div>` : ""}
 
         <div class="detail-toolbar">
@@ -523,6 +532,14 @@
           <button class="btn" id="btn-share-recipe">🔗 Поделиться</button>
         </div>
 
+        <div class="detail-version-actions" id="detail-version-actions">
+          ${isPersonal
+            ? `<button class="btn" id="btn-personal-reset">↩ Откат на общую</button>`
+            : personalForBase
+              ? `<button class="btn" id="btn-personal-open">Моя версия</button>`
+              : `<button class="btn" id="btn-personal-clone">＋ Клонировать для себя</button>`}
+        </div>
+
       </div>
     `;
 
@@ -535,6 +552,67 @@
     $("tbtn-shop").addEventListener("click", () => {
       RM.shopping.openRecipeShop(r, state.servingMult);
     });
+    const personalCloneBtn = $("btn-personal-clone");
+    if (personalCloneBtn) {
+      personalCloneBtn.onclick = async () => {
+        personalCloneBtn.disabled = true;
+        try {
+          const res = await RM.api.postJSON(
+            `api/recipes/${encodeURIComponent(r.id)}/clone-personal`,
+            {}
+          );
+          state.recipes = [];
+          await RM.recipes.load();
+          RM.detail.open(res.recipe);
+        } catch (e) {
+          alert("Ошибка клонирования: " + e.message);
+          personalCloneBtn.disabled = false;
+        }
+      };
+    }
+
+    const personalOpenBtn = $("btn-personal-open");
+    if (personalOpenBtn && personalForBase) {
+      personalOpenBtn.onclick = async () => {
+        try {
+          await RM.api.postJSON(
+            `api/recipes/${encodeURIComponent(r.id)}/personal-select`,
+            { selected: true }
+          );
+          personalForBase.personal_selected = true;
+          if (RM.recipes) RM.recipes.filterAndRender();
+          const data = await RM.api.getJSON(
+            `api/recipes/${encodeURIComponent(personalForBase.id)}`
+          );
+          RM.detail.open(data.recipe);
+        } catch (e) {
+          alert("Ошибка: " + e.message);
+        }
+      };
+    }
+
+    const personalResetBtn = $("btn-personal-reset");
+    if (personalResetBtn) {
+      personalResetBtn.onclick = async () => {
+        personalResetBtn.disabled = true;
+        try {
+          await RM.api.postJSON(
+            `api/recipes/${encodeURIComponent(r.personal_of)}/personal-select`,
+            { selected: false }
+          );
+          state.recipes = [];
+          await RM.recipes.load();
+          const data = await RM.api.getJSON(
+            `api/recipes/${encodeURIComponent(r.personal_of)}`
+          );
+          RM.detail.open(data.recipe);
+        } catch (e) {
+          alert("Ошибка возврата к общей версии: " + e.message);
+          personalResetBtn.disabled = false;
+        }
+      };
+    }
+
     $("tbtn-edit").addEventListener("click", () => {
       RM.editor.open(r, (updated) => {
         state.currentRecipe = { ...r, ...updated };

@@ -3910,3 +3910,154 @@ header::before {
   position: relative;
   z-index: 1;
 }
+
+/* Личная версия рецепта */
+.recipe-version-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--elevated);
+}
+.recipe-version-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 3px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.recipe-version-switch button.active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.detail-personal-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.detail-version-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Журнал: широкий адаптивный список */
+#panel-audit .panel-inner {
+  max-width: 1600px;
+}
+.audit-table-wrap {
+  width: 100%;
+}
+.audit-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.audit-table th {
+  text-align: left;
+  padding: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.audit-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.audit-table th:nth-child(1),
+.audit-table td:nth-child(1) { width: 118px; }
+.audit-table th:nth-child(2),
+.audit-table td:nth-child(2) { width: 165px; }
+.audit-table th:nth-child(3),
+.audit-table td:nth-child(3) { width: 175px; }
+.audit-table th:nth-child(4),
+.audit-table td:nth-child(4) { width: 185px; }
+.audit-table th:nth-child(5),
+.audit-table td:nth-child(5) { width: 105px; }
+.audit-table .audit-time {
+  white-space: nowrap;
+  font-size: 11px;
+}
+.audit-table .audit-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.audit-table .audit-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.audit-table .audit-error {
+  color: var(--danger);
+  word-break: break-word;
+}
+.audit-table .audit-error-meta {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.audit-table .audit-details-btn {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  #panel-audit .panel-inner {
+    max-width: 100%;
+  }
+  .audit-table,
+  .audit-table tbody,
+  .audit-table tr,
+  .audit-table td {
+    display: block;
+    width: 100% !important;
+  }
+  .audit-table thead {
+    display: none;
+  }
+  .audit-table tr.audit-row {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .audit-table tr.audit-row:last-child {
+    border-bottom: 0;
+  }
+  .audit-table td {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 3px 6px;
+    border: 0;
+  }
+  .audit-table td::before {
+    content: attr(data-label);
+    flex: 0 0 88px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .audit-table td.audit-time {
+    white-space: normal;
+  }
+}

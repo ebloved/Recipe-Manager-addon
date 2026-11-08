@@ -484,8 +484,11 @@
     const list = $("garnish-picker-list");
     if (!list) return;
     const q = ($("garnish-picker-search").value || "").trim().toLowerCase();
-    let recipes = (RM.state.recipes || []).filter((r) => kindOf(r) === "side");
-    if (!recipes.length) recipes = (RM.state.recipes || []).filter((r) => kindOf(r) !== "other");
+    const allRecipes = (RM.recipes && RM.recipes.versionGroups)
+      ? RM.recipes.versionGroups(RM.state.recipes || []).map((g) => g.display)
+      : (RM.state.recipes || []);
+    let recipes = allRecipes.filter((r) => kindOf(r) === "side");
+    if (!recipes.length) recipes = allRecipes.filter((r) => kindOf(r) !== "other");
     if (q) {
       recipes = recipes.filter((r) => (r.name || "").toLowerCase().includes(q));
     }

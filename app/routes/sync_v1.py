@@ -62,6 +62,13 @@ async def sync_snapshot(request: Request):
                 select(Recipe).where(Recipe.deleted_at.is_(None))
             )
         ).scalars().all()
+        recipes = [
+            row for row in recipes
+            if not (
+                (row.payload or {}).get("personal_of")
+                and row.owner_id != owner_id
+            )
+        ]
         items = (
             await session.execute(
                 select(ShoppingItem).where(
@@ -121,6 +128,8 @@ async def sync_changes(
         for change in rows:
             if change.entity_type == "recipe":
                 row = await session.get(Recipe, change.entity_id)
+                if row is not None and (row.payload or {}).get("personal_of") and row.owner_id != owner_id:
+                    continue
                 if row is None or row.deleted_at is not None:
                     changes.append({
                         "revision": change.revision,

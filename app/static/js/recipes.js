@@ -1,7 +1,7 @@
 "use strict";
 (function (RM) {
   const { $, escHtml, formatTime } = RM.utils;
-  const { getJSON } = RM.api;
+  const { getJSON, postJSON } = RM.api;
   const state = RM.state;
 
   let searchTimer = null;
@@ -67,8 +67,9 @@
       return;
     }
     btn.style.display = "";
-    const total = state.recipes.length;
-    const fitting = state.recipes.filter((r) => fitsProfile(r, active)).length;
+    const groups = buildGroups(state.recipes);
+    const total = groups.length;
+    const fitting = groups.filter((g) => fitsProfile(g.display, active)).length;
     btn.textContent = `🎯 Только под профиль (${fitting}/${total})`;
     btn.title = active.name || "Активный профиль";
     if (state.profileFilterActive) btn.classList.add("profile-filter-active");
@@ -221,6 +222,77 @@
       });
     }
 
+function currentUserId() {
+  return RM.state && RM.state.user ? RM.state.user.id : null;
+}
+
+  // Один базовый рецепт + его личная версия = одна карточка.
+  function buildGroups(recipes) {
+    const list = Array.isArray(recipes) ? recipes : [];
+    const uid = currentUserId();
+    const clones = new Map();
+    const adaptedChildren = new Set();
+    for (const r of list) {
+      if (!r) continue;
+      for (const childId of Object.values(r.adapted_versions || {})) {
+        if (childId) adaptedChildren.add(String(childId));
+      }
+      if (!r.personal_of) continue;
+      if (!uid || r.owner_id === uid) clones.set(String(r.personal_of), r);
+    }
+    const bases = list.filter(
+      (r) => r && !r.personal_of && !adaptedChildren.has(String(r.id))
+    );
+    const baseIds = new Set(bases.map((r) => String(r.id)));
+    const groups = bases.map((base) => {
+      const personal = clones.get(String(base.id)) || null;
+      const selected = !!(personal && personal.personal_selected !== false);
+      return { base, personal, selected, display: selected ? personal : base };
+    });
+    for (const [baseId, personal] of clones) {
+      if (!baseIds.has(baseId)) {
+        groups.push({ base: personal, personal: null, selected: true, display: personal });
+      }
+    }
+    return groups;
+  }
+
+  function recipeMatches(r, lower) {
+    if (!r) return false;
+    if ((r.name || "").toLowerCase().includes(lower)) return true;
+    if ((r.description || "").toLowerCase().includes(lower)) return true;
+    for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
+      if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
+    }
+    for (const ing of r.ingredients || []) {
+      const name = typeof ing === "string" ? ing : ing.name;
+      if (name && String(name).toLowerCase().includes(lower)) return true;
+    }
+    return false;
+  }
+
+  function sortGroups(groups) {
+    const ordered = sortRecipes(groups.map((g) => g.display));
+    const order = new Map(ordered.map((r, i) => [String(r.id), i]));
+    return groups.slice().sort(
+      (a, b) => (order.get(String(a.display.id)) ?? 0) - (order.get(String(b.display.id)) ?? 0)
+    );
+  }
+
+  async function selectPersonalVersion(group, selected) {
+    if (!group || !group.personal) return;
+    try {
+      await postJSON(`api/recipes/${encodeURIComponent(group.base.id)}/personal-select`, {
+        selected: !!selected,
+      });
+      const clone = state.recipes.find((r) => r.id === group.personal.id);
+      if (clone) clone.personal_selected = !!selected;
+      filterAndRender();
+    } catch (e) {
+      alert("Ошибка переключения версии: " + e.message);
+    }
+  }
+
 function filterAndRender(q) {
       const query = (q !== undefined ? q : ($("search").value || "")).trim();
       const active = getActiveProfile();
@@ -236,37 +308,26 @@ function filterAndRender(q) {
         return;
       }
 
-      const subIds = new Set();
-      for (const r of state.recipes) {
-        for (const childId of Object.values(r.adapted_versions || {})) {
-          if (childId) subIds.add(String(childId));
-        }
-      }
-      let filtered = state.recipes.filter((r) => !subIds.has(String(r.id)));
+      let groups = buildGroups(state.recipes);
       if (ownerFilter === "my" && RM.state.user) {
-        filtered = filtered.filter(r => r.owner_id === RM.state.user.id);
+        groups = groups.filter(
+          (g) => g.base.owner_id === RM.state.user.id || !!g.personal
+        );
       }
-      if (applyProfile) filtered = filtered.filter((r) => fitsProfile(r, active));
+      if (applyProfile) {
+        groups = groups.filter((g) => fitsProfile(g.display, active));
+      }
       if (state.recipeKind && state.recipeKind !== "all") {
-        filtered = filtered.filter((r) => kindOf(r) === state.recipeKind);
+        groups = groups.filter((g) => kindOf(g.display) === state.recipeKind);
       }
       if (query) {
         const lower = query.toLowerCase();
-        filtered = filtered.filter((r) => {
-          if ((r.name || "").toLowerCase().includes(lower)) return true;
-          if ((r.description || "").toLowerCase().includes(lower)) return true;
-          for (const arr of [r.tags, r.courses, r.categories, r.collections]) {
-            if (Array.isArray(arr) && arr.some((t) => String(t).toLowerCase().includes(lower))) return true;
-          }
-          for (const ing of r.ingredients || []) {
-            const name = typeof ing === "string" ? ing : ing.name;
-            if (name && String(name).toLowerCase().includes(lower)) return true;
-          }
-          return false;
-        });
+        groups = groups.filter(
+          (g) => recipeMatches(g.base, lower) || (g.personal && recipeMatches(g.personal, lower))
+        );
       }
-      filtered = sortRecipes(filtered);
-      render(filtered);
+      groups = sortGroups(groups);
+      renderGroups(groups);
     }
 
   async function loadTrash() {
@@ -342,22 +403,26 @@ function filterAndRender(q) {
     });
   }
 
-  function render(recipes) {
+  function renderGroups(groups) {
     const container = $("recipes-container");
-    if (!recipes.length) {
+    if (!groups.length) {
       container.innerHTML = '<div class="empty"><div class="icon">📖</div><p>Рецептов пока нет.</p></div>';
       return;
     }
     const grid = document.createElement("div");
     grid.className = "recipe-grid";
-    for (const r of recipes) {
-      grid.appendChild(cardFor(r));
+    for (const group of groups) {
+      grid.appendChild(cardFor(group.display, group));
     }
     container.innerHTML = "";
     container.appendChild(grid);
   }
 
-  function cardFor(r) {
+  function render(recipes) {
+    renderGroups(buildGroups(recipes));
+  }
+
+  function cardFor(r, group) {
     const card = document.createElement("div");
     const thumbUrl = r.image_thumb_url || r.image_url;
     card.className = "recipe-card" + (thumbUrl ? "" : " no-thumb");
@@ -459,6 +524,30 @@ function filterAndRender(q) {
     
     for (const tag of (r.tags || []).slice(0, 3)) meta.appendChild(chip(tag, true));
     body.appendChild(meta);
+
+    if (group && group.personal) {
+      const sw = document.createElement("div");
+      sw.className = "recipe-version-switch";
+      sw.innerHTML = `
+        <button type="button" data-version="shared" class="${group.selected ? "" : "active"}">Общая</button>
+        <button type="button" data-version="mine" class="${group.selected ? "active" : ""}">Моя</button>
+      `;
+      sw.addEventListener("click", (e) => e.stopPropagation());
+      const sharedBtn = sw.querySelector('[data-version="shared"]');
+      const mineBtn = sw.querySelector('[data-version="mine"]');
+      if (sharedBtn) sharedBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (!group.selected) return;
+        selectPersonalVersion(group, false);
+      };
+      if (mineBtn) mineBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (group.selected) return;
+        selectPersonalVersion(group, true);
+      };
+      body.appendChild(sw);
+    }
+
     card.appendChild(body);
     return card;
   }
@@ -470,5 +559,8 @@ function filterAndRender(q) {
     return el;
   }
 
-  RM.recipes = { setup, load, filterAndRender, render, fitsProfile, updateFilterButton, kindOf };
+  RM.recipes = {
+    setup, load, filterAndRender, render, fitsProfile, updateFilterButton,
+    kindOf, versionGroups: buildGroups,
+  };
 })(window.RM);

@@ -76,6 +76,8 @@ _RULES: tuple[Rule, ...] = (
     _r("POST", r"^/api/recipes/([^/]+)/hide$", "recipe.hide", "Скрытие рецепта", "recipe", 1),
     _r("POST", r"^/api/recipes/([^/]+)/unhide$", "recipe.unhide", "Возврат рецепта", "recipe", 1),
     _r("POST", r"^/api/recipes/([^/]+)/fork$", "recipe.fork", "Копирование рецепта", "recipe", 1),
+    _r("POST", r"^/api/recipes/([^/]+)/clone-personal$", "recipe.clone_personal", "Клонирование рецепта для себя", "recipe", 1),
+    _r("POST", r"^/api/recipes/([^/]+)/personal-select$", "recipe.personal_select", "Переключение версии рецепта", "recipe", 1),
     _r("PUT", r"^/api/recipes/([^/]+)/import-md$", "recipe.import_md", "Импорт Markdown в рецепт", "recipe", 1),
     _r("POST", r"^/api/recipes/-/from-markdown$", "recipe.from_markdown", "Создание рецепта из Markdown", "recipe"),
     _r("POST", r"^/api/recipes/([^/]+)/estimate-active-time$", "recipe.estimate_active_time", "Оценка активного времени", "recipe", 1),

@@ -763,7 +763,7 @@
   }
 
   function auditRow(e) {
-    const details = `<button class="btn" data-audit-id="${escHtml(e.id)}" style="padding:4px 8px;font-size:11px;white-space:nowrap;">Детали</button>`;
+    const details = `<button class="btn audit-details-btn" data-audit-id="${escHtml(e.id)}">Детали</button>`;
     const dur = auditDuration(e.duration_ms);
     const shortId = (e.id || "").slice(0, 8);
     const triedModels = (e.details && Array.isArray(e.details.models_tried))
@@ -774,13 +774,13 @@
       e.error_provider,
       ...(triedModels.length ? triedModels : [e.error_model])
     ].filter(Boolean).join(" · ");
-    return `<tr>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:top;font-size:11px;">${escHtml(auditTime(e.created_at))}<div title="${escHtml(e.id || "")}" style="font-size:10px;color:var(--text-muted);font-family:ui-monospace,monospace;">${escHtml(shortId)}…</div></td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditActor(e)}</td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${escHtml(e.action_label || e.action || "—")}<div style="font-size:11px;color:var(--text-muted)">${escHtml(e.action || "")}</div></td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px;">${auditTarget(e)}</td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${auditStatus(e.status)}${dur ? `<div style="color:var(--text-muted);margin-top:3px;">${escHtml(dur)}</div>` : ""}</td>
-      <td style="padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top;font-size:11px;">${e.error ? `<div style="color:var(--danger);word-break:break-word;">${escHtml(e.error)}</div>` : ""}${errorMeta ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${escHtml(errorMeta)}</div>` : ""}${details}</td>
+    return `<tr class="audit-row">
+      <td data-label="Время" class="audit-time">${escHtml(auditTime(e.created_at))}<div title="${escHtml(e.id || "")}" class="audit-id">${escHtml(shortId)}…</div></td>
+      <td data-label="Кто" class="audit-actor">${auditActor(e)}</td>
+      <td data-label="Действие" class="audit-action">${escHtml(e.action_label || e.action || "—")}<div class="audit-sub">${escHtml(e.action || "")}</div></td>
+      <td data-label="Объект" class="audit-target">${auditTarget(e)}</td>
+      <td data-label="Статус" class="audit-status-cell">${auditStatus(e.status)}${dur ? `<div class="audit-sub">${escHtml(dur)}</div>` : ""}</td>
+      <td data-label="Ошибка / детали" class="audit-error-cell">${e.error ? `<div class="audit-error">${escHtml(e.error)}</div>` : ""}${errorMeta ? `<div class="audit-error-meta">${escHtml(errorMeta)}</div>` : ""}${details}</td>
     </tr>`;
   }
 
@@ -882,10 +882,10 @@
 
   function auditTable(items) {
     if (!items.length) return `<div class="hint">Событий нет.</div>`;
-    return `<div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;min-width:760px;">
-        <thead><tr style="text-align:left;font-size:11px;color:var(--text-muted);">
-          <th style="padding:6px;">Время</th><th style="padding:6px;">Кто</th><th style="padding:6px;">Действие</th><th style="padding:6px;">Объект</th><th style="padding:6px;">Статус</th><th style="padding:6px;">Ошибка / детали</th>
+    return `<div class="audit-table-wrap">
+      <table class="audit-table">
+        <thead><tr>
+          <th>Время</th><th>Кто</th><th>Действие</th><th>Объект</th><th>Статус</th><th>Ошибка / детали</th>
         </tr></thead>
         <tbody>${items.map(auditRow).join("")}</tbody>
       </table>

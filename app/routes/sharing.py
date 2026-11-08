@@ -53,6 +53,8 @@ def _user_or_401(request: Request) -> dict[str, Any]:
 
 
 def _can_manage(user: dict[str, Any], recipe: dict[str, Any]) -> bool:
+    if recipe.get("personal_of"):
+        return bool(user and recipe.get("owner_id") == user.get("id"))
     if user.get("role") == "admin":
         return True
     owner = recipe.get("owner_id")
