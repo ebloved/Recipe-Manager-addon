@@ -4,13 +4,15 @@
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import date as date_type
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 
 from services.auth import get_current_user
 from stores.progress import progress_store
+from services.food_photo import estimate_food_from_text, extract_menu_text
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
 
@@ -153,6 +155,38 @@ async def get_progress(request: Request):
     }
 
 
+@router.post("/food/photo")
+async def food_photo(request: Request, file: UploadFile = File(...)):
+    user = _user(request)
+    _require_user(user)
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Пустой файл")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Фото больше 10 МБ")
+    try:
+        text = await asyncio.to_thread(extract_menu_text, content)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    if not text.strip():
+        raise HTTPException(422, "На фото не найден текст. Сфотографируйте меню крупнее.")
+    estimate = None
+    estimate_error = None
+    try:
+        estimate = await asyncio.wait_for(
+            estimate_food_from_text(text, user["id"]), timeout=45
+        )
+    except Exception as exc:  # noqa: BLE001
+        estimate_error = str(exc)[:300]
+    return {
+        "text": text,
+        "estimate": estimate,
+        "estimate_error": estimate_error,
+    }
+
+
 @router.post("/food")
 async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)
@@ -168,13 +202,23 @@ async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
     calories = _num(raw_calories) if raw_calories not in (None, "") else None
     if calories is not None and not (0 <= calories <= 10000):
         raise HTTPException(400, "Калории должны быть от 0 до 10000")
-    note = str(payload.get("note") or "").strip()[:500] or None
+    note = str(payload.get("note") or "").strip()[:1000] or None
+    macros = {}
+    for key in ("protein_g", "fat_g", "carbohydrates_g"):
+        raw = payload.get(key)
+        value = _num(raw) if raw not in (None, "") else None
+        if value is not None and not (0 <= value <= 1000):
+            raise HTTPException(400, "БЖУ должно быть от 0 до 1000 г")
+        macros[key] = value
     food = await progress_store.add_food(
         user["id"],
         date=date_value,
         calories=calories,
         note=note,
         outside=bool(payload.get("outside")),
+        protein_g=macros["protein_g"],
+        fat_g=macros["fat_g"],
+        carbohydrates_g=macros["carbohydrates_g"],
     )
     return {"food": food}
 

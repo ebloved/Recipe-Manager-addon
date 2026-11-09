@@ -4695,3 +4695,48 @@ header::before {
 }
 .progress-chart-legend .plan { color: var(--text-muted); }
 .progress-chart-legend .fact { color: var(--accent); }
+
+.progress-macro-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.progress-macro-form .field { flex: 1; min-width: 110px; margin-bottom: 0; }
+.progress-photo-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--elevated);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.progress-photo-label:hover { background: var(--border); }
+.progress-photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--elevated);
+}
+.progress-photo-preview img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.progress-photo-preview span { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+@media (max-width: 620px) {
+  .progress-macro-form .field { min-width: 90px; }
+}

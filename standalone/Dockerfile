@@ -7,6 +7,7 @@ ENV SENTENCE_TRANSFORMERS_HOME=/hf_cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc python3-dev libxml2-dev libxslt1-dev libjpeg-dev zlib1g-dev \
     ffmpeg curl jq ca-certificates \
+    tesseract-ocr tesseract-ocr-rus \
     && rm -rf /var/lib/apt/lists/*
 
 

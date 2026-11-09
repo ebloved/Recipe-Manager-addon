@@ -312,7 +312,8 @@ The profile management modal has a “🧭 Pick a profile” button. A five-step
 builds a personal profile: goal, allergens/exclusions, disliked foods, time and
 equipment. Users can have multiple private profiles; base profiles stay shared.
 Allergen filtering uses ingredient groups and aliases, but it is not a medical
-reference — always check labels and ingredients.
+reference — always check labels and ingredients. The “Maintain weight” goal sets
+reference limits (≤600 kcal per serving, protein ≥15 g, sugar ≤20 g).
 
 ---
 

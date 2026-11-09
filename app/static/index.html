@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=139">
+<link rel="stylesheet" href="static/css/style.css?v=140">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -554,6 +554,26 @@
               <input type="checkbox" id="progress-food-outside"> Вне дома
             </label>
             <button class="btn primary" id="progress-food-add">Добавить</button>
+            <label class="btn progress-photo-label" for="progress-food-photo">📷 Фото меню</label>
+            <input type="file" id="progress-food-photo" accept="image/*" capture="environment" style="display:none;">
+          </div>
+          <div class="progress-macro-form">
+            <div class="field">
+              <label for="progress-food-protein">Белки, г</label>
+              <input type="number" id="progress-food-protein" min="0" max="1000" step="0.1" placeholder="необязательно">
+            </div>
+            <div class="field">
+              <label for="progress-food-fat">Жиры, г</label>
+              <input type="number" id="progress-food-fat" min="0" max="1000" step="0.1" placeholder="необязательно">
+            </div>
+            <div class="field">
+              <label for="progress-food-carbs">Углеводы, г</label>
+              <input type="number" id="progress-food-carbs" min="0" max="1000" step="0.1" placeholder="необязательно">
+            </div>
+          </div>
+          <div class="progress-photo-preview" id="progress-food-photo-preview" style="display:none;">
+            <img id="progress-food-photo-img" alt="">
+            <span>Фото не сохраняется — используется только для распознавания.</span>
           </div>
           <div class="status" id="progress-food-status"></div>
           <div id="progress-food-stats"></div>
@@ -1846,8 +1866,8 @@
 <script src="static/js/generator.js?v=124"></script>
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
-<script src="static/js/quiz.js?v=133"></script>
-<script src="static/js/cabinet.js?v=140"></script>
+<script src="static/js/quiz.js?v=141"></script>
+<script src="static/js/cabinet.js?v=141"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

@@ -88,6 +88,9 @@ class ProgressStore:
         calories: float | None,
         note: str | None,
         outside: bool,
+        protein_g: float | None = None,
+        fat_g: float | None = None,
+        carbohydrates_g: float | None = None,
     ) -> list[dict[str, Any]]:
         record = dict(self.users.get(str(owner_id)) or {})
         food = list(record.get("food") or [])
@@ -95,6 +98,9 @@ class ProgressStore:
             "id": uuid.uuid4().hex,
             "date": date,
             "calories": calories,
+            "protein_g": protein_g,
+            "fat_g": fat_g,
+            "carbohydrates_g": carbohydrates_g,
             "note": note,
             "outside": bool(outside),
             "created_at": _now(),

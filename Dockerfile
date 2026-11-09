@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip python3-dev \
     gcc libxml2-dev libxslt1-dev libjpeg-dev zlib1g-dev \
     ffmpeg jq curl ca-certificates \
+    tesseract-ocr tesseract-ocr-rus \
     && rm -rf /var/lib/apt/lists/*
 
 

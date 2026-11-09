@@ -19,7 +19,7 @@
     { id: "none", label: "Без цели", icon: "🎯", desc: "Только исключения" },
   ];
   const GOAL_MAP = {
-    maintain: { max_calories: null, max_active: null, max_total: null, max_sugar: null, min_protein: null, prefer: [] },
+    maintain: { max_calories: 600, max_active: null, max_total: null, max_sugar: 20, min_protein: 15, prefer: ["овощи", "зелень"] },
     light: { max_calories: 400, max_active: null, max_total: null, max_sugar: 15, min_protein: null, prefer: ["овощи", "зелень"] },
     protein: { max_calories: 500, max_active: null, max_total: null, max_sugar: null, min_protein: 25, prefer: ["курица", "индейка", "рыба", "яйца", "творог"] },
     veggie: { max_calories: 500, max_active: null, max_total: null, max_sugar: 12, min_protein: null, prefer: ["овощи", "зелень", "бобовые"] },
@@ -304,6 +304,10 @@
     const items = [];
     const goal = GOALS.find((g) => g.id === answers.goal);
     if (goal) items.push(`${goal.icon} ${goal.label}`);
+    const gm = GOAL_MAP[answers.goal] || {};
+    if (gm.max_calories) items.push(`≤${gm.max_calories} ккал/порция`);
+    if (gm.min_protein) items.push(`белок ≥${gm.min_protein} г`);
+    if (gm.max_sugar) items.push(`сахар ≤${gm.max_sugar} г`);
     if (RM.allergenLabels) items.push(...RM.allergenLabels(answers.groups).map((x) => `без: ${x}`));
     const custom = (answers.customDislikes || "").split(",").map((x) => x.trim()).filter(Boolean);
     const dislikes = [...answers.dislikes, ...custom];
@@ -327,7 +331,7 @@
         <label for="quiz-name">Название профиля</label>
         <input type="text" id="quiz-name" value="${escHtml(answers.name || defaultName())}" placeholder="Мой профиль">
       </div>
-      ${(answers.goal === "maintain" || answers.goal === "none") ? `<div class="quiz-hint">Числовых ограничений по калориям, белку и времени нет — профиль только исключает выбранные продукты.</div>` : ""}
+      ${answers.goal === "none" ? `<div class="quiz-hint">Числовых ограничений по калориям, белку и времени нет — профиль только исключает выбранные продукты.</div>` : ""}
       <div class="quiz-disclaimer quiz-disclaimer-small">
         Фильтр не гарантирует отсутствие аллергенов и следов. Проверяйте
         состав и маркировку. Это не медицинская рекомендация.
