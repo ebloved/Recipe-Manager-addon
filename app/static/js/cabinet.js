@@ -115,24 +115,43 @@
         </div>
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
           <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
-            <input type="checkbox" id="cabinet-show-side" style="width:18px; height:18px; accent-color:var(--accent);">
+            <input type="checkbox" id="cabinet-show-side-recipes" style="width:18px; height:18px; accent-color:var(--accent);">
             Показывать гарнир
           </label>
           <div style="font-size:11px; line-height:1.4; color:var(--text-muted); margin-top:5px;">
-            Предлагать гарнир при запуске готовки. Для блюд с тегом
-            «самостоятельное» предложение не появляется.
+            Показывать карточки гарниров в списке рецептов.
+          </div>
+
+          <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-top:12px;">
+            <input type="checkbox" id="cabinet-offer-side" style="width:18px; height:18px; accent-color:var(--accent);">
+            Предлагать гарнир
+          </label>
+          <div style="font-size:11px; line-height:1.4; color:var(--text-muted); margin-top:5px;">
+            Предлагать гарнир при добавлении в «На кухню». Для блюд с тегом
+            «самостоятельное» не работает.
           </div>
         </div>`;
 
-      const sidePref = $("cabinet-show-side");
-      if (sidePref) {
-        sidePref.checked = RM.cooking && RM.cooking.getShowSideDish
-          ? RM.cooking.getShowSideDish()
+      const showSideRecipes = $("cabinet-show-side-recipes");
+      if (showSideRecipes) {
+        showSideRecipes.checked = RM.prefs
+          ? RM.prefs.getShowSideRecipes()
           : true;
-        sidePref.onchange = (e) => {
-          if (RM.cooking && RM.cooking.setShowSideDish) {
-            RM.cooking.setShowSideDish(e.target.checked);
+        showSideRecipes.onchange = (e) => {
+          if (RM.prefs) RM.prefs.setShowSideRecipes(e.target.checked);
+          if (RM.recipes && RM.recipes.filterAndRender) {
+            RM.recipes.filterAndRender();
           }
+        };
+      }
+
+      const offerSide = $("cabinet-offer-side");
+      if (offerSide) {
+        offerSide.checked = RM.prefs
+          ? RM.prefs.getOfferSideCooking()
+          : true;
+        offerSide.onchange = (e) => {
+          if (RM.prefs) RM.prefs.setOfferSideCooking(e.target.checked);
         };
       }
     } catch (err) {

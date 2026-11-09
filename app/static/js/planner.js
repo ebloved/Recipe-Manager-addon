@@ -3,8 +3,27 @@
   const {
     $, escHtml, toISO, getMonday, addDays, weekTitle, isToday, WEEKDAYS_SHORT,
   } = RM.utils;
-  const { getJSON, del } = RM.api;
+  const { getJSON, patchJSON, del } = RM.api;
   const state = RM.state;
+  const DRAG_HINT = "Перетащите блюдо в другой день или приём пищи";
+  let movingEntryId = null;
+
+  function setMoveHint(moving) {
+    const hint = document.querySelector(".planner-dnd-hint");
+    if (hint) {
+      hint.textContent = moving
+        ? "Выберите день и приём пищи. Esc — отмена"
+        : DRAG_HINT;
+    }
+  }
+
+  function cancelMove() {
+    movingEntryId = null;
+    document.querySelectorAll(".plan-entry.move-source").forEach((el) => {
+      el.classList.remove("move-source");
+    });
+    setMoveHint(false);
+  }
 
   function setup() {
     if (!state.plannerWeekStart) state.plannerWeekStart = getMonday(new Date());
@@ -20,6 +39,9 @@
     $("planner-today").addEventListener("click", () => {
       state.plannerWeekStart = getMonday(new Date());
       load();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && movingEntryId) cancelMove();
     });
   }
 
@@ -112,7 +134,25 @@
     return html;
   }
 
+  async function moveEntry(entryId, targetDate, targetMeal) {
+    const entry = state.plannerEntries.find((x) => x.id === entryId);
+    cancelMove();
+    if (!entry || !targetDate || !targetMeal) return;
+    if (entry.date === targetDate && entry.meal_type === targetMeal) return;
+    try {
+      await patchJSON(`api/meal-plan/${entryId}`, {
+        date: targetDate,
+        meal_type: targetMeal,
+      });
+      await load();
+    } catch (err) {
+      alert("Ошибка перемещения: " + err.message);
+      await load();
+    }
+  }
+
   function render() {
+    cancelMove();
     const monday = state.plannerWeekStart;
     const entries = state.plannerEntries;
     const container = $("planner-grid");
@@ -140,8 +180,11 @@
 
         html += `<div class="${cellCls}" data-date="${iso}" data-meal="${meal}">`;
         for (const e of cellEntries) {
-          html += `<div class="plan-entry" data-entry-id="${escHtml(e.id)}" data-recipe-id="${escHtml(e.recipe_id)}">
+          html += `<div class="plan-entry" draggable="true"
+            data-entry-id="${escHtml(e.id)}" data-recipe-id="${escHtml(e.recipe_id)}"
+            title="Перетащите в другой день или приём пищи">
             <span class="pe-name">${escHtml(e.recipe_name || "(без названия)")}</span>
+            <button class="pe-move" data-move-id="${escHtml(e.id)}" title="Переместить">↕</button>
             <button class="pe-remove" data-remove-id="${escHtml(e.id)}" title="Убрать">×</button>
           </div>`;
         }
@@ -155,10 +198,87 @@
 
     container.innerHTML = html;
 
+    // Перетаскивание блюд между днями и приёмами пищи.
+    let dragEntryId = null;
+    let dragFrom = null;
+    container.querySelectorAll(".plan-entry").forEach((el) => {
+      el.addEventListener("dragstart", (ev) => {
+        dragEntryId = el.dataset.entryId || null;
+        dragFrom = el.closest(".planner-cell");
+        if (!dragEntryId) return;
+        ev.dataTransfer.effectAllowed = "move";
+        try { ev.dataTransfer.setData("text/plain", dragEntryId); } catch (_) {}
+        el.classList.add("dragging");
+      });
+      el.addEventListener("dragend", () => {
+        dragEntryId = null;
+        dragFrom = null;
+        el.classList.remove("dragging");
+        container.querySelectorAll(".planner-cell.drag-over").forEach((cell) => {
+          cell.classList.remove("drag-over");
+        });
+      });
+    });
+
+    container.querySelectorAll(".planner-cell").forEach((cell) => {
+      cell.addEventListener("dragover", (ev) => {
+        if (!dragEntryId) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+        if (dragFrom !== cell) cell.classList.add("drag-over");
+      });
+      cell.addEventListener("dragleave", (ev) => {
+        if (!ev.relatedTarget || !cell.contains(ev.relatedTarget)) {
+          cell.classList.remove("drag-over");
+        }
+      });
+      cell.addEventListener("drop", async (ev) => {
+        if (!dragEntryId) return;
+        ev.preventDefault();
+        cell.classList.remove("drag-over");
+        const targetDate = cell.dataset.date;
+        const targetMeal = cell.dataset.meal;
+        const entryId = ev.dataTransfer.getData("text/plain") || dragEntryId;
+        dragEntryId = null;
+        dragFrom = null;
+        await moveEntry(entryId, targetDate, targetMeal);
+      });
+      cell.addEventListener("click", (ev) => {
+        if (!movingEntryId) return;
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        moveEntry(movingEntryId, cell.dataset.date, cell.dataset.meal);
+      });
+    });
+
+    // Кнопка «↕» — перенос без drag, удобно на телефоне/планшете.
+    container.querySelectorAll(".pe-move").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const entryId = btn.dataset.moveId;
+        if (movingEntryId === entryId) {
+          cancelMove();
+          return;
+        }
+        cancelMove();
+        movingEntryId = entryId;
+        const entryEl = btn.closest(".plan-entry");
+        if (entryEl) entryEl.classList.add("move-source");
+        setMoveHint(true);
+      });
+    });
+
     // Клик по записи — открыть рецепт
     container.querySelectorAll(".plan-entry").forEach((el) => {
       el.addEventListener("click", (ev) => {
         if (ev.target.classList.contains("pe-remove")) return;
+        if (ev.target.classList.contains("pe-move")) return;
+        if (movingEntryId) {
+          ev.stopPropagation();
+          const cell = el.closest(".planner-cell");
+          if (cell) moveEntry(movingEntryId, cell.dataset.date, cell.dataset.meal);
+          return;
+        }
         const recipeId = el.dataset.recipeId;
         const recipe = state.recipes.find((r) => r.id === recipeId);
         if (recipe) {

@@ -15,7 +15,6 @@
     return RM.recipes && RM.recipes.kindOf ? RM.recipes.kindOf(r) : "main";
   }
 
-  const SHOW_SIDE_KEY = "rm_show_side_dish";
   const SELF_CONTAINED_TAG = "самостоятельное";
   const NEEDS_SIDE_TAG = "нужен гарнир";
   const SIDE_HINTS = [
@@ -29,19 +28,12 @@
     return String(value || "").trim().toLowerCase().replace(/ё/g, "е");
   }
 
-  function getShowSideDish() {
-    try {
-      const value = localStorage.getItem(SHOW_SIDE_KEY);
-      return value === null ? true : value === "1";
-    } catch (_) {
-      return true;
-    }
+  function getOfferSideCooking() {
+    return RM.prefs ? RM.prefs.getOfferSideCooking() : true;
   }
 
-  function setShowSideDish(value) {
-    try {
-      localStorage.setItem(SHOW_SIDE_KEY, value ? "1" : "0");
-    } catch (_) { /* localStorage может быть отключён */ }
+  function setOfferSideCooking(value) {
+    if (RM.prefs) RM.prefs.setOfferSideCooking(value);
   }
 
   function needsSide(recipe) {
@@ -487,7 +479,7 @@
         kind === "main"
         && !current.side_recipe
         && needsSide(recipe)
-        && getShowSideDish()
+        && getOfferSideCooking()
       ) {
         openGarnishPicker(recipe);
       }
@@ -609,6 +601,9 @@
 
   RM.cooking = {
     setup, load, start, refreshBadge, needsSide,
-    getShowSideDish, setShowSideDish,
+    getOfferSideCooking, setOfferSideCooking,
+    // Совместимость со старыми вкладками Кабинета.
+    getShowSideDish: getOfferSideCooking,
+    setShowSideDish: setOfferSideCooking,
   };
 })(window.RM);

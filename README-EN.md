@@ -309,9 +309,14 @@ added as a second entry in the same slot, and shopping/nutrition include it.
 On save you can optionally add ingredients to the shopping list with serving
 multipliers. Drafts survive page reloads and add-on restarts.
 
-In the Cabinet user card there is a “Show side dish” checkbox: it disables the
-side-dish prompt when starting cooking. Dishes tagged `самостоятельное` never
-ask for a side. The preference is stored in the browser.
+In the Cabinet user card there are two personal preferences:
+
+- “Show side dish” — show side-dish cards in the recipe list;
+- “Offer side dish” — offer a side when adding a dish to “Cooking now”.
+  Dishes tagged `самостоятельное` never ask for a side.
+
+Preferences are stored in the browser. In Meal Plan, dishes can be dragged
+between days and meal types.
 
 ---
 

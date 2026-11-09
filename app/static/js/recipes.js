@@ -91,6 +91,23 @@
     return "main";
   }
 
+  function showSideRecipes() {
+    return !RM.prefs || RM.prefs.getShowSideRecipes();
+  }
+
+  function applySideVisibility() {
+    const show = showSideRecipes();
+    const sideTab = document.querySelector('.recipe-kind-tab[data-kind="side"]');
+    if (sideTab) sideTab.style.display = show ? "" : "none";
+    if (!show && state.recipeKind === "side") {
+      state.recipeKind = "all";
+      document.querySelectorAll(".recipe-kind-tab").forEach((x) => {
+        x.classList.toggle("active", x.dataset.kind === "all");
+      });
+    }
+    return show;
+  }
+
   function setupKindTabs() {
     document.querySelectorAll(".recipe-kind-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -294,6 +311,7 @@ function currentUserId() {
   }
 
 function filterAndRender(q) {
+      const showSides = applySideVisibility();
       const query = (q !== undefined ? q : ($("search").value || "")).trim();
       const active = getActiveProfile();
       const applyProfile = state.profileFilterActive && active;
@@ -309,6 +327,11 @@ function filterAndRender(q) {
       }
 
       let groups = buildGroups(state.recipes);
+      if (!showSides) {
+        groups = groups.filter(
+          (g) => kindOf(g.base) !== "side" && kindOf(g.display) !== "side"
+        );
+      }
       if (ownerFilter === "my" && RM.state.user) {
         groups = groups.filter(
           (g) => g.base.owner_id === RM.state.user.id || !!g.personal
@@ -419,7 +442,11 @@ function filterAndRender(q) {
   }
 
   function render(recipes) {
-    renderGroups(buildGroups(recipes));
+    const showSides = !RM.prefs || RM.prefs.getShowSideRecipes();
+    const list = showSides
+      ? recipes
+      : (recipes || []).filter((r) => kindOf(r) !== "side");
+    renderGroups(buildGroups(list));
   }
 
   function cardFor(r, group) {
