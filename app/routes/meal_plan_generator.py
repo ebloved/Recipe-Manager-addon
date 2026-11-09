@@ -47,12 +47,24 @@ def _require_user(request: Request) -> dict[str, Any]:
     return user
 
 
-def _profile(profile_id: str | None) -> dict[str, Any] | None:
+async def _profile(
+    profile_id: str | None,
+    user_id: str | None,
+) -> dict[str, Any] | None:
     if profile_id:
         profile = gen_profiles_store.get(profile_id)
         if not profile or profile.get("deleted"):
             raise HTTPException(404, "Profile not found")
         return profile
+    if user_id:
+        from stores.user_active_profiles import user_active_profiles
+
+        exists, per_user_id = await user_active_profiles.get_with_presence(user_id)
+        if exists:
+            if not per_user_id:
+                return None
+            profile = gen_profiles_store.get(per_user_id)
+            return profile if profile and not profile.get("deleted") else None
     return gen_profiles_store.get_active()
 
 
@@ -260,7 +272,10 @@ async def generate_meal_plan(request: Request, payload: dict[str, Any] = Body(..
             max_new = MAX_NEW_DEFAULT
     max_new = max(0, min(MAX_NEW_DEFAULT, max_new))
 
-    profile = _profile(str(payload.get("profile_id") or "") or None)
+    profile = await _profile(
+        str(payload.get("profile_id") or "") or None,
+        user["id"],
+    )
     draft = await meal_plan_drafts_store.add({
         "owner_id": user["id"],
         "week_start": week_start,
