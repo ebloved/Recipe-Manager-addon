@@ -296,9 +296,10 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ## My progress
 
-The Cabinet has an optional “My progress” card with height, weight, optional
-target weight, BMI and a healthy weight range. It is admin-only for now and can
-be hidden with a checkbox. BMI is a reference, not a diagnosis or medical advice.
+The main “Progress” tab has an optional card with height, weight, optional target
+weight, BMI a healthy weight range, a weight journal and a chart. It is
+admin-only for now and can be hidden with a checkbox in the Cabinet. BMI is a
+reference, not a diagnosis or medical advice.
 
 ---
 

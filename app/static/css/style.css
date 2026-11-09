@@ -4484,3 +4484,72 @@ header::before {
   font-weight: 600;
 }
 .bmi-table tr.active td:first-child { color: var(--accent); }
+
+/* Мой прогресс: журнал веса */
+.progress-log {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.progress-log-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.progress-log-title { font-size: 14px; font-weight: 700; }
+.progress-log-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.progress-stat {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--elevated);
+}
+.progress-stat span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.progress-stat b { display: block; font-size: 14px; margin-top: 3px; }
+.progress-chart-wrap {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  min-height: 180px;
+}
+#progress-chart {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+.progress-weight-list { margin-top: 10px; }
+.progress-weight-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.progress-weight-row span { flex: 1; color: var(--text-muted); }
+.progress-weight-row b { font-weight: 600; }
+.progress-weight-del {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 3px;
+}
+.progress-weight-del:hover { color: var(--danger); }

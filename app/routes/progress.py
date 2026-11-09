@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from datetime import date as date_type
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -101,16 +102,50 @@ async def get_progress(request: Request):
     user = _user(request)
     _require_admin(user)
     data = progress_store.get(user["id"]) or {}
+    weights = sorted(
+        [dict(item) for item in (data.get("weights") or [])],
+        key=lambda item: str(item.get("date") or ""),
+    )
     return {
         "enabled": data.get("enabled", True),
         "progress": data or None,
         "metrics": _metrics(data),
+        "weights": weights,
         "disclaimer": (
             "BMI и диапазон веса — ориентир, а не диагноз и не медицинская "
             "рекомендация. Учитывайте состав тела, возраст, беременность, "
             "отёки и индивидуальные особенности. При сомнениях обратитесь к врачу."
         ),
     }
+
+
+@router.post("/weights")
+async def add_weight(request: Request, payload: dict[str, Any] = Body(...)):
+    user = _user(request)
+    _require_admin(user)
+    date_value = str(payload.get("date") or "").strip()
+    try:
+        date_type.fromisoformat(date_value)
+    except ValueError as exc:
+        raise HTTPException(400, "Некорректная дата") from exc
+    weight = _num(payload.get("weight_kg"))
+    if weight is None or not (30 <= weight <= 300):
+        raise HTTPException(400, "Вес должен быть от 30 до 300 кг")
+    note = str(payload.get("note") or "").strip()[:200] or None
+    weights = await progress_store.add_weight(
+        user["id"], date=date_value, weight_kg=weight, note=note
+    )
+    return {"weights": weights}
+
+
+@router.delete("/weights/{entry_id}")
+async def delete_weight(entry_id: str, request: Request):
+    user = _user(request)
+    _require_admin(user)
+    weights = await progress_store.delete_weight(user["id"], entry_id)
+    if weights is None:
+        raise HTTPException(404, "Запись не найдена")
+    return {"weights": weights}
 
 
 @router.delete("")

@@ -3,6 +3,10 @@
   const { $, escHtml } = RM.utils;
   const { getJSON, postJSON, del } = RM.api;
 
+  let progressWeights = [];
+  let progressMetrics = null;
+  let progressResizeBound = false;
+
   function setup() {
     const btnTour = $("btn-start-tour");
     if (btnTour && RM.walkthrough) btnTour.onclick = () => RM.walkthrough.start("main");
@@ -243,6 +247,275 @@
       </table>`;
   }
 
+  function todayISO() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  function fmtProgressDate(value) {
+    const d = new Date(String(value) + "T00:00:00");
+    if (isNaN(d.getTime())) return String(value || "—");
+    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function weightStatus(text, type) {
+    const el = $("progress-weight-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "status" + (text ? " show " + (type || "info") : "");
+  }
+
+  function bindProgressWeightControls() {
+    const add = $("progress-weight-add");
+    if (add && !add.dataset.bound) {
+      add.dataset.bound = "1";
+      add.onclick = async () => {
+        const date = $("progress-weight-date")?.value || todayISO();
+        const weight = parseFloat($("progress-weight-entry")?.value || "");
+        if (!Number.isFinite(weight)) {
+          weightStatus("Укажите вес.", "error");
+          return;
+        }
+        add.disabled = true;
+        weightStatus("Сохранение…", "info");
+        try {
+          const data = await postJSON("api/progress/weights", {
+            date,
+            weight_kg: weight,
+          });
+          progressWeights = data.weights || [];
+          if ($("progress-weight-entry")) $("progress-weight-entry").value = "";
+          renderWeightLog();
+          weightStatus("Запись добавлена.", "success");
+        } catch (err) {
+          weightStatus("Ошибка: " + err.message, "error");
+        } finally {
+          add.disabled = false;
+        }
+      };
+    }
+
+    const list = $("progress-weight-list");
+    if (list && !list.dataset.bound) {
+      list.dataset.bound = "1";
+      list.onclick = async (e) => {
+        const btn = e.target.closest("[data-progress-weight-id]");
+        if (!btn) return;
+        if (!confirm("Удалить эту запись веса?")) return;
+        try {
+          const data = await del(`api/progress/weights/${btn.dataset.progressWeightId}`);
+          progressWeights = data.weights || [];
+          renderWeightLog();
+          weightStatus("Запись удалена.", "success");
+        } catch (err) {
+          weightStatus("Ошибка: " + err.message, "error");
+        }
+      };
+    }
+  }
+
+  function renderWeightLog() {
+    const stats = $("progress-weight-stats");
+    const list = $("progress-weight-list");
+    const weights = (progressWeights || []).slice().sort(
+      (a, b) => String(a.date).localeCompare(String(b.date))
+    );
+    if (!weights.length) {
+      if (stats) stats.innerHTML = '<div class="hint" style="font-size:11px; margin-top:12px;">Пока нет записей веса. Добавьте первую — график появится здесь.</div>';
+      if (list) list.innerHTML = "";
+      drawProgressChart();
+      return;
+    }
+
+    const first = weights[0];
+    const last = weights[weights.length - 1];
+    const lastWeight = Number(last.weight_kg) || 0;
+    const firstWeight = Number(first.weight_kg) || 0;
+    const delta = weights.length > 1 ? lastWeight - firstWeight : null;
+    const lastDate = new Date(String(last.date) + "T00:00:00");
+    const days = isNaN(lastDate.getTime())
+      ? null
+      : Math.floor((Date.now() - lastDate.getTime()) / 86400000);
+    const target = progressMetrics && progressMetrics.target_weight_kg;
+    const toTarget = target ? lastWeight - Number(target) : null;
+
+    let statsHtml = `
+      <div class="progress-stats">
+        <div class="progress-stat">
+          <span>Последняя запись</span>
+          <b>${escHtml(fmtProgressDate(last.date))} · ${escHtml(String(lastWeight))} кг</b>
+        </div>
+        ${delta === null ? "" : `<div class="progress-stat">
+          <span>Изменение</span>
+          <b>${delta > 0 ? "+" : ""}${escHtml(delta.toFixed(1))} кг</b>
+        </div>`}
+        ${toTarget === null ? "" : `<div class="progress-stat">
+          <span>До цели</span>
+          <b>${toTarget > 0 ? "−" : "+"}${escHtml(Math.abs(toTarget).toFixed(1))} кг</b>
+        </div>`}
+      </div>`;
+    if (days !== null && days >= 7) {
+      statsHtml += `<div class="progress-warning" style="font-size:11px;">Последняя запись ${days} дн. назад — пора сделать недельный чек-ин.</div>`;
+    }
+    if (stats) stats.innerHTML = statsHtml;
+    if (list) {
+      const recent = weights.slice(-8).reverse();
+      list.innerHTML = `<div class="progress-weight-list">${recent.map((item) => `
+        <div class="progress-weight-row">
+          <span>${escHtml(fmtProgressDate(item.date))}</span>
+          <b>${escHtml(String(item.weight_kg))} кг</b>
+          <button class="progress-weight-del" data-progress-weight-id="${escHtml(item.id)}" title="Удалить">×</button>
+        </div>`).join("")}</div>`;
+    }
+    drawProgressChart();
+  }
+
+  function drawProgressChart() {
+    const canvas = $("progress-chart");
+    if (!canvas) return;
+    const ctx = canvas.getContext && canvas.getContext("2d");
+    if (!ctx) return;
+    const width = Math.max(280, canvas.clientWidth || 600);
+    const height = Math.max(170, canvas.clientHeight || 220);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const weights = (progressWeights || []).slice().sort(
+      (a, b) => String(a.date).localeCompare(String(b.date))
+    );
+    const css = getComputedStyle(document.documentElement);
+    const accent = (css.getPropertyValue("--accent") || "#ff6b35").trim();
+    const muted = (css.getPropertyValue("--text-muted") || "#888").trim();
+    const border = (css.getPropertyValue("--border") || "#ddd").trim();
+    ctx.font = "10px sans-serif";
+    if (!weights.length) {
+      ctx.fillStyle = muted;
+      ctx.textAlign = "center";
+      ctx.fillText("Пока нет записей веса", width / 2, height / 2);
+      return;
+    }
+
+    const left = 44;
+    const right = 14;
+    const top = 16;
+    const bottom = 30;
+    const plotW = width - left - right;
+    const plotH = height - top - bottom;
+
+    const values = weights.map((item) => Number(item.weight_kg)).filter(Number.isFinite);
+    if (progressMetrics) {
+      if (progressMetrics.target_weight_kg) values.push(Number(progressMetrics.target_weight_kg));
+      if (progressMetrics.healthy_range_kg) {
+        values.push(Number(progressMetrics.healthy_range_kg.min));
+        values.push(Number(progressMetrics.healthy_range_kg.max));
+      }
+    }
+    let minY = Math.min(...values);
+    let maxY = Math.max(...values);
+    if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return;
+    if (maxY - minY < 2) {
+      minY -= 1;
+      maxY += 1;
+    }
+    const padY = (maxY - minY) * 0.12;
+    minY -= padY;
+    maxY += padY;
+
+    const times = weights.map((item) => {
+      const t = new Date(String(item.date) + "T00:00:00").getTime();
+      return Number.isFinite(t) ? t : 0;
+    });
+    let minT = Math.min(...times);
+    let maxT = Math.max(...times);
+    if (maxT === minT) {
+      minT -= 86400000;
+      maxT += 86400000;
+    }
+    const x = (t) => left + ((t - minT) / (maxT - minT)) * plotW;
+    const y = (v) => top + (1 - (v - minY) / (maxY - minY)) * plotH;
+
+    // Здоровый диапазон веса.
+    if (progressMetrics && progressMetrics.healthy_range_kg) {
+      const hMin = Number(progressMetrics.healthy_range_kg.min);
+      const hMax = Number(progressMetrics.healthy_range_kg.max);
+      if (Number.isFinite(hMin) && Number.isFinite(hMax)) {
+        ctx.fillStyle = "rgba(46,160,67,0.10)";
+        ctx.fillRect(left, y(hMax), plotW, y(hMin) - y(hMax));
+      }
+    }
+
+    // Сетка.
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.textAlign = "right";
+    ctx.fillStyle = muted;
+    for (let i = 0; i <= 4; i++) {
+      const v = minY + ((maxY - minY) * i) / 4;
+      const yy = y(v);
+      ctx.beginPath();
+      ctx.moveTo(left, yy);
+      ctx.lineTo(width - right, yy);
+      ctx.stroke();
+      ctx.fillText(v.toFixed(1), left - 6, yy + 3);
+    }
+
+    // Цель.
+    if (progressMetrics && progressMetrics.target_weight_kg) {
+      const ty = y(Number(progressMetrics.target_weight_kg));
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = muted;
+      ctx.beginPath();
+      ctx.moveTo(left, ty);
+      ctx.lineTo(width - right, ty);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = muted;
+      ctx.textAlign = "left";
+      ctx.fillText("цель", left + 4, ty - 4);
+    }
+
+    // Линия фактического веса.
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    weights.forEach((item, index) => {
+      const px = x(times[index]);
+      const py = y(Number(item.weight_kg));
+      if (index === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    weights.forEach((item, index) => {
+      const px = x(times[index]);
+      const py = y(Number(item.weight_kg));
+      ctx.beginPath();
+      ctx.fillStyle = accent;
+      ctx.arc(px, py, index === weights.length - 1 ? 4 : 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Подписи дат.
+    ctx.fillStyle = muted;
+    ctx.textAlign = "center";
+    const labelIndexes = weights.length <= 3
+      ? weights.map((_, i) => i)
+      : [0, Math.floor((weights.length - 1) / 2), weights.length - 1];
+    for (const index of [...new Set(labelIndexes)]) {
+      const item = weights[index];
+      const d = new Date(String(item.date) + "T00:00:00");
+      const label = isNaN(d.getTime())
+        ? String(item.date)
+        : d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+      ctx.fillText(label, x(times[index]), height - 8);
+    }
+  }
+
   async function loadProgress() {
     const card = $("cabinet-progress");
     if (!card) return;
@@ -291,8 +564,19 @@
     if ($("progress-height")) $("progress-height").value = progress.height_cm ?? "";
     if ($("progress-weight")) $("progress-weight").value = progress.weight_kg ?? "";
     if ($("progress-target")) $("progress-target").value = progress.target_weight_kg ?? "";
-    renderProgress(data.metrics || null);
+    if ($("progress-weight-date") && !$("progress-weight-date").value) {
+      $("progress-weight-date").value = todayISO();
+    }
+    progressMetrics = data.metrics || null;
+    progressWeights = Array.isArray(data.weights) ? data.weights : [];
+    renderProgress(progressMetrics);
+    renderWeightLog();
     progressStatus("");
+    bindProgressWeightControls();
+    if (!progressResizeBound) {
+      progressResizeBound = true;
+      window.addEventListener("resize", () => drawProgressChart());
+    }
 
     const reset = $("progress-reset");
     if (reset && !reset.dataset.bound) {
@@ -329,7 +613,9 @@
             weight_kg: weight,
             target_weight_kg: target,
           });
-          renderProgress(result.metrics || null);
+          progressMetrics = result.metrics || null;
+          renderProgress(progressMetrics);
+          renderWeightLog();
           progressStatus("Сохранено.", "success");
           if ($("cabinet-progress")) $("cabinet-progress").style.display = "";
         } catch (err) {

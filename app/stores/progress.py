@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,48 @@ class ProgressStore:
     def get(self, owner_id: str) -> dict[str, Any] | None:
         item = self.users.get(str(owner_id))
         return dict(item) if item else None
+
+    async def add_weight(
+        self,
+        owner_id: str,
+        *,
+        date: str,
+        weight_kg: float,
+        note: str | None = None,
+    ) -> list[dict[str, Any]]:
+        record = dict(self.users.get(str(owner_id)) or {})
+        weights = list(record.get("weights") or [])
+        entry = {
+            "id": uuid.uuid4().hex,
+            "date": date,
+            "weight_kg": weight_kg,
+            "note": note,
+            "created_at": _now(),
+        }
+        weights = [item for item in weights if item.get("date") != date]
+        weights.append(entry)
+        weights.sort(key=lambda item: str(item.get("date") or ""))
+        record["weights"] = weights
+        record["updated_at"] = _now()
+        record.setdefault("created_at", record["updated_at"])
+        self.users[str(owner_id)] = record
+        await self.save()
+        return [dict(item) for item in weights]
+
+    async def delete_weight(self, owner_id: str, entry_id: str) -> list[dict[str, Any]] | None:
+        record = self.users.get(str(owner_id))
+        if not record:
+            return None
+        weights = list(record.get("weights") or [])
+        remaining = [item for item in weights if item.get("id") != entry_id]
+        if len(remaining) == len(weights):
+            return None
+        record = dict(record)
+        record["weights"] = remaining
+        record["updated_at"] = _now()
+        self.users[str(owner_id)] = record
+        await self.save()
+        return [dict(item) for item in remaining]
 
     async def delete(self, owner_id: str) -> bool:
         if str(owner_id) not in self.users:
