@@ -4553,3 +4553,106 @@ header::before {
   padding: 0 3px;
 }
 .progress-weight-del:hover { color: var(--danger); }
+
+/* Мой прогресс: новая раскладка */
+.progress-page-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.progress-page-title { font-size: 16px; font-weight: 700; }
+.progress-page-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.progress-empty {
+  text-align: center;
+  padding: 24px 16px 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.progress-empty-icon { font-size: 28px; margin-bottom: 6px; }
+.progress-empty .btn { margin-top: 10px; }
+.progress-data-summary {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 10px 0;
+}
+.progress-data-item span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.progress-data-item b { font-size: 15px; }
+.progress-data-hint { font-size: 11px; color: var(--text-muted); }
+.progress-weight-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.progress-weight-form .field { margin-bottom: 0; min-width: 140px; flex: 1; }
+.progress-weight-form .btn { height: 40px; }
+.progress-food-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.progress-food-form .field { margin-bottom: 0; min-width: 130px; flex: 1; }
+.progress-food-form .progress-food-note { min-width: 220px; flex: 2; }
+.progress-food-form .btn { height: 40px; }
+.progress-outside-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-bottom: 10px;
+  white-space: nowrap;
+}
+.progress-outside-label input { width: 16px; height: 16px; accent-color: var(--accent); }
+.progress-chart-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 10px 6px;
+}
+.progress-chart-legend .fact { color: var(--accent); }
+.progress-forecast-note {
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.progress-disclaimer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+@media (max-width: 620px) {
+  .progress-data-summary { gap: 12px; }
+  .progress-food-form .btn,
+  .progress-weight-form .btn { width: 100%; }
+}
+
+.progress-food-list { margin-top: 10px; }
+.progress-food-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.progress-food-row > span:first-child { flex: 0 0 88px; color: var(--text-muted); }
+.progress-food-row > b { flex: 0 0 auto; }
+.progress-food-note-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}

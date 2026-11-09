@@ -297,9 +297,10 @@ is `visual_effect`; clients read it through `/api/me`.
 ## My progress
 
 The main “Progress” tab has an optional card with height, weight, optional target
-weight, BMI a healthy weight range, a weight journal and a chart. It is
-admin-only for now and can be hidden with a checkbox in the Cabinet. BMI is a
-reference, not a diagnosis or medical advice.
+weight, BMI, a healthy weight range, a weight journal, a food diary and a weight
+forecast based on calories. Initial data is hidden after saving and can be
+edited or reset in the Cabinet. It is admin-only for now. BMI and forecasts are
+references, not a diagnosis or medical advice.
 
 ---
 

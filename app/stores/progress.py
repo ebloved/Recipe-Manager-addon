@@ -80,6 +80,50 @@ class ProgressStore:
         await self.save()
         return [dict(item) for item in weights]
 
+    async def add_food(
+        self,
+        owner_id: str,
+        *,
+        date: str,
+        calories: float | None,
+        note: str | None,
+        outside: bool,
+    ) -> list[dict[str, Any]]:
+        record = dict(self.users.get(str(owner_id)) or {})
+        food = list(record.get("food") or [])
+        entry = {
+            "id": uuid.uuid4().hex,
+            "date": date,
+            "calories": calories,
+            "note": note,
+            "outside": bool(outside),
+            "created_at": _now(),
+        }
+        food = [item for item in food if item.get("date") != date]
+        food.append(entry)
+        food.sort(key=lambda item: str(item.get("date") or ""))
+        record["food"] = food
+        record["updated_at"] = _now()
+        record.setdefault("created_at", record["updated_at"])
+        self.users[str(owner_id)] = record
+        await self.save()
+        return [dict(item) for item in food]
+
+    async def delete_food(self, owner_id: str, entry_id: str) -> list[dict[str, Any]] | None:
+        record = self.users.get(str(owner_id))
+        if not record:
+            return None
+        food = list(record.get("food") or [])
+        remaining = [item for item in food if item.get("id") != entry_id]
+        if len(remaining) == len(food):
+            return None
+        record = dict(record)
+        record["food"] = remaining
+        record["updated_at"] = _now()
+        self.users[str(owner_id)] = record
+        await self.save()
+        return [dict(item) for item in remaining]
+
     async def delete_weight(self, owner_id: str, entry_id: str) -> list[dict[str, Any]] | None:
         record = self.users.get(str(owner_id))
         if not record:

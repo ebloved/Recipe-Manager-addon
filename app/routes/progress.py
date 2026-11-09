@@ -56,7 +56,19 @@ def _metrics(data: dict[str, Any] | None) -> dict[str, Any] | None:
     bmi = weight / (meters * meters)
     target = _num(data.get("target_weight_kg"))
     target_bmi = target / (meters * meters) if target else None
+    age = _num(data.get("age"))
+    sex = str(data.get("sex") or "")
+    activity = str(data.get("activity") or "")
+    tdee = None
+    if age and sex in ("male", "female") and activity in ("low", "medium", "high"):
+        bmr = 10 * weight + 6.25 * height - 5 * age + (5 if sex == "male" else -161)
+        factor = {"low": 1.2, "medium": 1.375, "high": 1.55}[activity]
+        tdee = round(bmr * factor)
     return {
+        "age": age,
+        "sex": sex or None,
+        "activity": activity or None,
+        "tdee": tdee,
         "height_cm": round(height, 1),
         "weight_kg": round(weight, 1),
         "target_weight_kg": round(target, 1) if target else None,
@@ -92,6 +104,25 @@ def _validate(payload: dict[str, Any]) -> dict[str, Any]:
             if target is None or not (30 <= target <= 300):
                 raise HTTPException(400, "Целевой вес должен быть от 30 до 300 кг")
             patch["target_weight_kg"] = target
+    if "age" in payload:
+        raw = payload.get("age")
+        if raw is None or raw == "":
+            patch["age"] = None
+        else:
+            age = _num(raw)
+            if age is None or not (10 <= age <= 120):
+                raise HTTPException(400, "Возраст должен быть от 10 до 120 лет")
+            patch["age"] = int(age)
+    if "sex" in payload:
+        value = str(payload.get("sex") or "").strip().lower()
+        if value not in ("", "male", "female"):
+            raise HTTPException(400, "Некорректный пол")
+        patch["sex"] = value or None
+    if "activity" in payload:
+        value = str(payload.get("activity") or "").strip().lower()
+        if value not in ("", "low", "medium", "high"):
+            raise HTTPException(400, "Некорректная активность")
+        patch["activity"] = value or None
     if "enabled" in payload:
         patch["enabled"] = bool(payload.get("enabled"))
     return patch
@@ -106,17 +137,58 @@ async def get_progress(request: Request):
         [dict(item) for item in (data.get("weights") or [])],
         key=lambda item: str(item.get("date") or ""),
     )
+    food = sorted(
+        [dict(item) for item in (data.get("food") or [])],
+        key=lambda item: str(item.get("date") or ""),
+    )
     return {
         "enabled": data.get("enabled", True),
         "progress": data or None,
         "metrics": _metrics(data),
         "weights": weights,
+        "food": food,
         "disclaimer": (
             "BMI и диапазон веса — ориентир, а не диагноз и не медицинская "
             "рекомендация. Учитывайте состав тела, возраст, беременность, "
             "отёки и индивидуальные особенности. При сомнениях обратитесь к врачу."
         ),
     }
+
+
+@router.post("/food")
+async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
+    user = _user(request)
+    _require_admin(user)
+    date_value = str(payload.get("date") or "").strip()
+    try:
+        date_type.fromisoformat(date_value)
+    except ValueError as exc:
+        raise HTTPException(400, "Некорректная дата") from exc
+    if date_value > date_type.today().isoformat():
+        raise HTTPException(400, "Дата не может быть в будущем")
+    raw_calories = payload.get("calories")
+    calories = _num(raw_calories) if raw_calories not in (None, "") else None
+    if calories is not None and not (0 <= calories <= 10000):
+        raise HTTPException(400, "Калории должны быть от 0 до 10000")
+    note = str(payload.get("note") or "").strip()[:500] or None
+    food = await progress_store.add_food(
+        user["id"],
+        date=date_value,
+        calories=calories,
+        note=note,
+        outside=bool(payload.get("outside")),
+    )
+    return {"food": food}
+
+
+@router.delete("/food/{entry_id}")
+async def delete_food(entry_id: str, request: Request):
+    user = _user(request)
+    _require_admin(user)
+    food = await progress_store.delete_food(user["id"], entry_id)
+    if food is None:
+        raise HTTPException(404, "Запись не найдена")
+    return {"food": food}
 
 
 @router.post("/weights")
@@ -128,6 +200,8 @@ async def add_weight(request: Request, payload: dict[str, Any] = Body(...)):
         date_type.fromisoformat(date_value)
     except ValueError as exc:
         raise HTTPException(400, "Некорректная дата") from exc
+    if date_value > date_type.today().isoformat():
+        raise HTTPException(400, "Дата не может быть в будущем")
     weight = _num(payload.get("weight_kg"))
     if weight is None or not (30 <= weight <= 300):
         raise HTTPException(400, "Вес должен быть от 30 до 300 кг")
