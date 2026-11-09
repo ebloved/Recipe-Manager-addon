@@ -98,6 +98,13 @@ _RULES: tuple[Rule, ...] = (
     _r("POST", r"^/api/generator/run$", "recipe.generate", "Генерация рецептов"),
     _r("POST", r"^/api/generator/suggestions/([^/]+)/accept$", "suggestion.accept", "Принятие сгенерированного рецепта", "suggestion", 1),
     _r("DELETE", r"^/api/generator/suggestions/([^/]+)$", "suggestion.delete", "Удаление сгенерированного рецепта", "suggestion", 1),
+    # --- Меню на неделю ---------------------------------------------
+    _r("POST", r"^/api/meal-plan/generate$", "meal_plan.generate", "Генерация меню на неделю", "meal_plan"),
+    _r("POST", r"^/api/meal-plan/drafts/([^/]+)/approve$", "meal_plan.approve", "Одобрение рецепта в меню", "meal_plan", 1),
+    _r("POST", r"^/api/meal-plan/drafts/([^/]+)/reject$", "meal_plan.reject", "Отклонение рецепта в меню", "meal_plan", 1),
+    _r("POST", r"^/api/meal-plan/drafts/([^/]+)/replace$", "meal_plan.replace", "Генерация замены в меню", "meal_plan", 1),
+    _r("POST", r"^/api/meal-plan/drafts/([^/]+)/save$", "meal_plan.save", "Сохранение меню на неделю", "meal_plan", 1),
+    _r("DELETE", r"^/api/meal-plan/drafts/([^/]+)$", "meal_plan.discard", "Отмена меню на неделю", "meal_plan", 1),
     # --- Админ / настройки ------------------------------------------
     _r("POST", r"^/api/settings$", "settings.update", "Изменение системных настроек", "settings"),
     _r("POST", r"^/api/admin/users$", "admin.user_add", "Добавление пользователя", "user"),
@@ -513,6 +520,9 @@ def should_audit(request) -> bool:
         return False
     if path in _EXCLUDE_EXACT:
         return False
+    # Генерация меню — важное действие, хотя обычный meal plan не логируем.
+    if path.startswith("/api/meal-plan/generate") or path.startswith("/api/meal-plan/drafts"):
+        return True
     for prefix in _EXCLUDE_PREFIXES:
         if path.startswith(prefix):
             return False

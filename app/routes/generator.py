@@ -45,11 +45,12 @@ async def run_generation(request: Request, payload: dict[str, Any] = Body(...)):
     user_id = _u.get("id") if _u else "family"
 
     params = {
+        "kind": "generation",
         "profile_id": profile_id, "topic": topic,
         "count": count, "samples_count": samples_count,
         "user_id": user_id,
     }
-    job = await jobs_store.create(params)
+    job = await jobs_store.create(params, user_id=user_id)
     asyncio.create_task(_run_job(job["id"], **params))
     return {"job_id": job["id"], "status": "pending", "created_at": job["created_at"]}
 
@@ -87,24 +88,59 @@ async def _run_job(job_id: str, *, profile_id, topic, count, samples_count, user
         logger.exception("[generator] job %s crashed", job_id)
 
 
+def _current_user(request: Request) -> dict | None:
+    from services.auth import get_current_user
+
+    return get_current_user(request)
+
+
+def _job_visible(job: dict, user: dict | None) -> bool:
+    if not user:
+        return False
+    if user.get("role") == "admin":
+        return True
+    return job.get("user_id") in (user.get("id"), None, "system", "family")
+
+
 @router.get("/jobs")
-async def list_jobs(status: str | None = Query(None)):
+async def list_jobs(
+    request: Request,
+    status: str | None = Query(None),
+    kind: str | None = Query(None),
+):
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(401, "Unauthorized")
+    uid = None if user.get("role") == "admin" else user.get("id")
     if status == "pending":
-        return {"jobs": jobs_store.list_pending()}
-    return {"jobs": jobs_store.list_all()}
+        return {"jobs": jobs_store.list_pending(kind=kind, user_id=uid)}
+    return {"jobs": jobs_store.list_all(kind=kind, user_id=uid)}
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str):
+async def get_job(job_id: str, request: Request):
     job = jobs_store.get(job_id)
     if not job:
+        raise HTTPException(404, "Job not found")
+    if not _job_visible(job, _current_user(request)):
         raise HTTPException(404, "Job not found")
     return job
 
 
 @router.get("/suggestions")
-async def list_suggestions(status: str | None = Query("pending")):
-    items = suggestions_store.get_all(status=status)
+async def list_suggestions(
+    request: Request,
+    status: str | None = Query("pending"),
+    origin: str | None = Query("recipe"),
+):
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(401, "Unauthorized")
+    items = suggestions_store.get_all(
+        status=status,
+        origin=origin,
+        owner_id=None if user.get("role") == "admin" else user.get("id"),
+    )
     return {"suggestions": items, "count": len(items)}
 
 

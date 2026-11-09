@@ -71,6 +71,7 @@ GEN_PROFILES_FILE = DATA_DIR / "gen_profiles.json"
 OFF_CACHE_FILE = DATA_DIR / "off_cache.json"
 EMBEDDINGS_CACHE_FILE = DATA_DIR / "embeddings_cache.json"
 SUGGESTIONS_FILE = DATA_DIR / "suggestions.json"
+MEAL_PLAN_DRAFTS_FILE = DATA_DIR / "meal_plan_drafts.json"
 
 # --- Бэкапы -----------------------------------------------------------------
 BACKUP_ENABLED = os.environ.get("BACKUP_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")

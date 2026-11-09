@@ -31,9 +31,17 @@ class JobsStore:
             # Обрабатываем зависшие задачи при старте
             stale_count = 0
             for job in self._jobs.values():
-                if job.get("status") == "pending" and not job.get("interaction_id"):
+                if job.get("status") != "pending":
+                    continue
+                params = job.get("params") or {}
+                is_meal_plan = str(params.get("kind") or "") == "meal_plan"
+                if not job.get("interaction_id") or is_meal_plan:
                     job["status"] = "error"
-                    job["error"] = "Прервано перезапуском сервера (нет interaction_id)"
+                    job["error"] = (
+                        "Генерация меню прервана перезапуском сервера"
+                        if is_meal_plan
+                        else "Прервано перезапуском сервера (нет interaction_id)"
+                    )
                     job["finished_at"] = _now()
                     stale_count += 1
                     
@@ -90,6 +98,7 @@ class JobsStore:
                     "adapt_airfryer": "Пересчёт под аэрогриль",
                     "generation": "Генерация рецептов",
                     "estimate_active_time": "Оценка активного времени",
+                    "meal_plan": "Генерация меню на неделю",
                 }
                 actor = audit.resolve_actor(snapshot.get("user_id"))
                 await audit.log_event(
@@ -122,11 +131,45 @@ class JobsStore:
         job = self._jobs.get(job_id)
         return dict(job) if job else None
 
-    def list_pending(self) -> list[dict[str, Any]]:
-        return [dict(j) for j in self._jobs.values() if j["status"] == "pending"]
+    @staticmethod
+    def kind_of(job: dict[str, Any]) -> str:
+        return str((job.get("params") or {}).get("kind") or "generation")
 
-    def list_all(self, max_items: int = 50) -> list[dict[str, Any]]:
+    @classmethod
+    def _matches_kind(cls, job: dict[str, Any], kind: str | None) -> bool:
+        if not kind:
+            return True
+        actual = cls.kind_of(job)
+        if kind == "recipe":
+            return actual != "meal_plan"
+        return actual == kind
+
+    def list_pending(
+        self,
+        *,
+        kind: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            dict(j) for j in self._jobs.values()
+            if j["status"] == "pending"
+            and self._matches_kind(j, kind)
+            and (user_id is None or j.get("user_id") == user_id)
+        ]
+
+    def list_all(
+        self,
+        max_items: int = 50,
+        *,
+        kind: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         jobs = sorted(self._jobs.values(), key=lambda j: j["created_at"], reverse=True)
+        jobs = [
+            j for j in jobs
+            if self._matches_kind(j, kind)
+            and (user_id is None or j.get("user_id") == user_id)
+        ]
         return [dict(j) for j in jobs[:max_items]]
 
     async def cleanup(self, max_age_seconds: int = 3600) -> int:

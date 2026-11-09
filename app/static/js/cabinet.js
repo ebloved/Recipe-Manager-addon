@@ -150,6 +150,9 @@
         if ($("setting-tts-limit")) $("setting-tts-limit").value = data.tts_daily_limit || 10;
         if ($("setting-audit-days")) $("setting-audit-days").value = data.audit_retention_days || 90;
         if ($("setting-visual-effect")) $("setting-visual-effect").value = data.visual_effect || "none";
+        if ($("setting-meal-plan-gen")) {
+          $("setting-meal-plan-gen").checked = data.meal_plan_gen_access === "admin" || data.meal_plan_gen_access === "all";
+        }
 
         const btnSys = $("btn-save-sys-settings");
         if (btnSys) {
@@ -163,10 +166,14 @@
                 tts_enabled: !!$("setting-tts-enabled")?.checked,
                 tts_daily_limit: parseInt($("setting-tts-limit").value || "10", 10),
                 audit_retention_days: parseInt($("setting-audit-days").value || "90", 10),
-                visual_effect: $("setting-visual-effect")?.value || "none"
+                visual_effect: $("setting-visual-effect")?.value || "none",
+                meal_plan_gen_access: $("setting-meal-plan-gen")?.checked ? "admin" : "off"
               });
               if (RM.snow) {
                 RM.snow.setEffect($("setting-visual-effect")?.value || "none");
+              }
+              if (RM.mealPlanGen && RM.mealPlanGen.refresh) {
+                RM.mealPlanGen.refresh();
               }
               alert("Системные настройки сохранены!");
             } catch (e) { alert(e.message); }

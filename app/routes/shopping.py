@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from services.auth import get_current_user
 
 from services.product_lookup import lookup_barcode
-from stores import ingredients_store, recipe_store, shopping_store
+from stores import recipe_store, shopping_store
 
 router = APIRouter(prefix="/api/shopping", tags=["shopping"])
 
@@ -102,6 +102,8 @@ async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...))
             Если не указан — берём все не-заголовки.
         multiplier: float = 1
     """
+    from services.shopping_from_recipe import add_recipe_ingredients_to_shopping
+
     recipe_id = payload.get("recipe_id")
     if not recipe_id:
         raise HTTPException(400, "'recipe_id' is required")
@@ -110,86 +112,12 @@ async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...))
     if not recipe:
         raise HTTPException(404, "Recipe not found")
 
-    multiplier = float(payload.get("multiplier") or 1)
-    indices = payload.get("ingredient_indices")
-
-    raw = recipe.get("ingredients") or []
-    normalized = [
-        ({"name": i, "amount": None, "unit": None, "notes": None}
-         if isinstance(i, str) else i)
-        for i in raw
-    ]
-
-    if indices is None:
-        selected = [
-            (idx, ing) for idx, ing in enumerate(normalized)
-            if not ing.get("is_heading") and not (ing.get("name") or "").startswith("#")
-        ]
-    else:
-        wanted = set(int(i) for i in indices)
-        selected = [(idx, normalized[idx]) for idx in wanted if 0 <= idx < len(normalized)]
-
-    # B2: resolve product names for ingredients with product_id
-    _products_by_id: dict[str, dict[str, Any]] = {}
-    try:
-        _raw_products = getattr(ingredients_store, "products", None) or {}
-        _products = _raw_products.values() if isinstance(_raw_products, dict) else _raw_products
-        for _p in _products:
-            if isinstance(_p, dict):
-                _pid = _p.get("id")
-                if _pid:
-                    _products_by_id[_pid] = _p
-    except Exception:  # noqa: BLE001
-        _products_by_id = {}
-
-    added = 0
-    merged = 0
-    for _, ing in selected:
-        name = (ing.get("name") or "").strip()
-        if not name:
-            continue
-        amount = ing.get("amount")
-        if amount and multiplier != 1:
-            amount = _scale_amount(amount, multiplier)
-        product = _products_by_id.get(ing.get("product_id")) if ing.get("product_id") else None
-        resolved_name = (product.get("name") or "").strip() if product else ""
-        item_data: dict[str, Any] = {
-            "name": resolved_name or name,
-            "amount": amount,
-            "unit": ing.get("unit"),
-            "note": ing.get("notes"),
-            "recipe_id": recipe_id,
-            "recipe_name": recipe.get("name"),
-            "source": "recipe",
-            "product_id": ing.get("product_id") or None,
-        }
-        if product:
-            item_data["brand"] = product.get("brand")
-            item_data["barcode"] = product.get("barcode")
-            item_data["image_url"] = product.get("image_url")
-            item_data["category"] = product.get("category")
-        _, was_merged = await shopping_store.add_or_merge(item_data, owner_id=get_current_user(request)['id'])
-        if was_merged:
-            merged += 1
-        else:
-            added += 1
-
-    return {
-        "added": added,
-        "merged": merged,
-        "total": added + merged,
-    }
-
-
-def _scale_amount(amount: Any, mult: float) -> Any:
-    try:
-        num = float(str(amount).replace(",", "."))
-    except (TypeError, ValueError):
-        return amount
-    result = num * mult
-    if result.is_integer():
-        return int(result)
-    return round(result, 2)
+    return await add_recipe_ingredients_to_shopping(
+        recipe,
+        owner_id=get_current_user(request)["id"],
+        multiplier=float(payload.get("multiplier") or 1),
+        ingredient_indices=payload.get("ingredient_indices"),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -45,7 +45,7 @@
       state.generatorSuggestions = data.suggestions || [];
       renderSuggestions();
       try {
-        const pending = await getJSON("api/generator/jobs?status=pending");
+        const pending = await getJSON("api/generator/jobs?status=pending&kind=recipe");
         if (pending.jobs && pending.jobs.length) {
           pollJob(pending.jobs[0].id);
         }
@@ -221,16 +221,21 @@
     }
   }
 
-  function preview(id) {
-    const s = state.generatorSuggestions.find((x) => x.id === id);
+  function previewSuggestion(s) {
     if (!s) {
-      console.error("[preview] suggestion not found:", id);
+      console.error("[preview] suggestion not found");
       alert("Предложение не найдено. Обновите страницу.");
       return;
     }
     const r = s.recipe_data || {};
     $("gen-preview-title").textContent = r.name || "(не распознано)";
     $("gen-preview-raw").textContent = s.markdown || "(нет markdown)";
+
+    const planActions = $("gen-preview-plan-actions");
+    if (planActions) {
+      planActions.style.display = "none";
+      planActions.innerHTML = "";
+    }
 
     const rendered = $("gen-preview-rendered");
     if (s.error) {
@@ -245,6 +250,11 @@
     setPreviewTab("rendered");
     $("gen-preview-overlay").classList.add("show");
     $("gen-preview-close").focus();
+  }
+
+  function preview(id) {
+    const s = state.generatorSuggestions.find((x) => x.id === id);
+    previewSuggestion(s);
   }
 
   function setPreviewTab(view) {
@@ -318,5 +328,5 @@
     return `<div class="gen-preview-recipe">${parts.join("")}</div>`;
   }
 
-  RM.generator = { setup, loadSuggestions };
+  RM.generator = { setup, loadSuggestions, previewSuggestion, closePreview };
 })(window.RM);

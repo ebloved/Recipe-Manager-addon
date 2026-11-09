@@ -33,6 +33,7 @@ from stores import (
     gen_profiles_store,
     ingredients_store,
     meal_plan_store,
+    meal_plan_drafts_store,
     recipe_store,
     shopping_store,
     suggestions_store,
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
     # --- Store'ы -----------------------------------------------------
     await recipe_store.load()
     await meal_plan_store.load()
+    await meal_plan_drafts_store.load()
     await shopping_store.load()
     await suggestions_store.load()
     from stores.jobs import jobs_store

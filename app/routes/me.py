@@ -31,6 +31,15 @@ async def activity_ping(request: Request):
     return {"ok": True}
 
 
+def _meal_plan_access(user: dict | None) -> dict:
+    from services.meal_plan_access import can_use, get_access
+
+    return {
+        "meal_plan_gen_access": get_access(),
+        "can_generate_meal_plan": can_use(user),
+    }
+
+
 @router.get("")
 async def get_me(request: Request):
     try:
@@ -45,6 +54,7 @@ async def get_me(request: Request):
             "authenticated": True,
             **test_user,
             "visual_effect": settings_store.get("visual_effect", "none"),
+            **_meal_plan_access(test_user),
         }
     if AUTH_MODE == "oauth":
         user = get_current_user(request)
@@ -52,6 +62,7 @@ async def get_me(request: Request):
             return {
                 "authenticated": False,
                 "visual_effect": settings_store.get("visual_effect", "none"),
+                **_meal_plan_access(None),
             }
 
         return {
@@ -63,6 +74,7 @@ async def get_me(request: Request):
             "role": user.get("role"),
             "source": "oauth",
             "visual_effect": settings_store.get("visual_effect", "none"),
+            **_meal_plan_access(user),
         }
         
     name = request.headers.get("X-Remote-User-Display-Name") or request.headers.get("X-Remote-User-Name")
@@ -77,6 +89,7 @@ async def get_me(request: Request):
             "role": "admin",
             "source": "ha",
             "visual_effect": settings_store.get("visual_effect", "none"),
+            **_meal_plan_access({"id": uid, "role": "admin"}),
         }
 
     return {
@@ -86,6 +99,7 @@ async def get_me(request: Request):
         "role": "admin",
         "source": "direct",
         "visual_effect": settings_store.get("visual_effect", "none"),
+        **_meal_plan_access({"id": "local", "role": "admin"}),
     }
 
 @router.get("/llm")

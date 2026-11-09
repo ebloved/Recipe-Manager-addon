@@ -23,6 +23,7 @@ async def get_settings(request: Request):
         "tts_daily_limit": settings_store.get("tts_daily_limit", 10),
         "audit_retention_days": settings_store.get("audit_retention_days", 90),
         "visual_effect": settings_store.get("visual_effect", "none"),
+        "meal_plan_gen_access": settings_store.get("meal_plan_gen_access", "off"),
         "telegram_bot_token": settings_store.get("telegram_bot_token", ""),
         "telegram_chat_id": settings_store.get("telegram_chat_id", "")
     }
@@ -52,6 +53,12 @@ async def update_settings(request: Request, payload: dict = Body(...)):
         if value not in ("none", "snow"):
             value = "none"
         await settings_store.set("visual_effect", value)
+
+    if "meal_plan_gen_access" in payload:
+        value = str(payload["meal_plan_gen_access"]).strip().lower()
+        if value not in ("off", "admin", "all"):
+            raise HTTPException(400, "Invalid meal_plan_gen_access")
+        await settings_store.set("meal_plan_gen_access", value)
 
     if "telegram_bot_token" in payload or "telegram_chat_id" in payload:
         token = payload.get("telegram_bot_token", settings_store.get("telegram_bot_token", ""))

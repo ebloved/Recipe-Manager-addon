@@ -294,6 +294,20 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## Weekly meal plan generator
+
+Admins can enable “Weekly meal plan generator” in the Cabinet. The Generator
+tab then shows a week picker, profile, meal checkboxes, servings and optional
+wishes. The backend fills empty slots from visible recipes, classifies dishes by
+meal type, and generates missing recipes with the LLM in small batches (at most
+10 new recipes per run). Generated recipes stay in a server-side draft until
+approved; rejected slots remain empty and can be regenerated separately.
+Existing meal-plan entries are never overwritten. On save you can optionally add
+ingredients to the shopping list with serving multipliers. Drafts survive page
+reloads and add-on restarts.
+
+---
+
 ## LLM key help
 
 The Cabinet LLM form has a “How to get a key” button that opens a step-by-step

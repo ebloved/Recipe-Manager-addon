@@ -46,6 +46,7 @@
 
     // Генератор
     if (RM.generator) RM.generator.setup();
+    if (RM.mealPlanGen) RM.mealPlanGen.setup();
 
     // Продукты
     if (RM.products) RM.products.setup();

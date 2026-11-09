@@ -47,10 +47,34 @@ class SuggestionsStore:
     async def save(self) -> None:
         await self._save()
 
-    def get_all(self, status: str | None = "pending") -> list[dict[str, Any]]:
-        if status in (None, "all"):
-            return list(self.suggestions)
-        return [s for s in self.suggestions if s.get("status") == status]
+    @staticmethod
+    def origin_of(suggestion: dict[str, Any]) -> str:
+        return str(suggestion.get("origin") or "recipe")
+
+    def get_all(
+        self,
+        status: str | None = "pending",
+        *,
+        origin: str | None = None,
+        owner_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        items = list(self.suggestions)
+        if origin:
+            items = [s for s in items if self.origin_of(s) == origin]
+        if owner_id is not None:
+            items = [
+                s for s in items
+                if not s.get("owner_id") or s.get("owner_id") == owner_id
+            ]
+        if status not in (None, "all"):
+            items = [s for s in items if s.get("status") == status]
+        return items
+
+    def get_for_draft(self, draft_id: str) -> list[dict[str, Any]]:
+        return [
+            s for s in self.suggestions
+            if s.get("origin") == "meal_plan" and s.get("draft_id") == draft_id
+        ]
 
     def get(self, sid: str) -> dict[str, Any] | None:
         return next((s for s in self.suggestions if s.get("id") == sid), None)
