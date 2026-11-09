@@ -589,10 +589,21 @@ async def save_draft(
     if payload.get("add_to_shopping"):
         for slot in added_slots:
             try:
+                recipe = recipe_store.get(str(slot["recipe_id"])) or {}
+                try:
+                    recipe_yield = float(recipe.get("servings") or 1)
+                except (TypeError, ValueError):
+                    recipe_yield = 1.0
+                if recipe_yield <= 0:
+                    recipe_yield = 1.0
+                desired = float(slot.get("servings") or 1)
+                # Ингредиенты в рецепте — на его выход (recipe.servings).
+                # Нужно масштабировать к запланированному числу порций.
+                multiplier = desired / recipe_yield
                 result = await add_recipe_id_to_shopping(
                     str(slot["recipe_id"]),
                     owner_id=user["id"],
-                    multiplier=float(slot.get("servings") or 1),
+                    multiplier=multiplier,
                 )
                 for key in ("added", "merged", "total"):
                     shopping[key] += int(result.get(key, 0))
