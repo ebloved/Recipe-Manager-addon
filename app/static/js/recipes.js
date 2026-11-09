@@ -84,7 +84,7 @@
       r.category || "",
     ].map((x) => String(x).toLowerCase());
     if (values.some((x) => x.includes("салат"))) return "salad";
-    if (values.some((x) => x.includes("гарнир"))) return "side";
+    if (values.some((x) => x.includes("гарнир") && !x.includes("нужен гарнир"))) return "side";
     if (values.some((x) => x.includes("десерт") || x.includes("выпечка") || x.includes("завтрак"))) {
       return "other";
     }

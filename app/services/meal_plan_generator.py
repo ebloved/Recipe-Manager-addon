@@ -105,10 +105,13 @@ def course_kind(recipe: dict[str, Any]) -> str:
                 course_values.append(text)
     course_text = " ".join(course_values)
     name_text = _norm(recipe.get("name"))
+    needs_side_tag = any(
+        NEEDS_SIDE_TAG in value for value in course_values
+    )
 
     if "завтрак" in course_text:
         return "breakfast"
-    if any(word in course_text for word in _SIDE):
+    if not needs_side_tag and any(word in course_text for word in _SIDE):
         return "side"
     if any(word in course_text for word in _SALAD):
         return "salad"
