@@ -3953,8 +3953,9 @@ header::before {
   margin-top: 4px;
 }
 
-/* Журнал: широкий адаптивный список */
-#panel-audit .panel-inner {
+/* Журнал и рецепты: широкая рабочая область */
+#panel-audit .panel-inner,
+#panel-recipes .panel-inner {
   max-width: 1600px;
 }
 .audit-table-wrap {
@@ -4020,7 +4021,8 @@ header::before {
 }
 
 @media (max-width: 820px) {
-  #panel-audit .panel-inner {
+  #panel-audit .panel-inner,
+  #panel-recipes .panel-inner {
     max-width: 100%;
   }
   .audit-table,
