@@ -70,13 +70,22 @@ _BREAKFAST = (
 _SALAD = ("салат",)
 _SIDE = ("гарнир",)
 _DESSERT = ("десерт", "выпеч", "сладк")
-_SOUP = ("суп", "борщ", "щи", "похлеб", "бульон", "рассольник", "солянк")
+_SOUP = ("суп", "борщ", "похлеб", "бульон", "рассольник", "солянк")
 _DRINK = ("напиток", "смузи", "компот", "морс")
 _MAIN_KEYWORDS = (
     "мясо", "рыб", "котлет", "куриц", "индейк", "запекан", "плов", "паста",
     "стейк", "гуляш", "рагу", "лазань", "пельмен", "тефтел",
 )
 _MAIN_COURSE = ("основное", "горячее", "второе")
+SELF_CONTAINED_TAG = "самостоятельное"
+NEEDS_SIDE_TAG = "нужен гарнир"
+_SELF_CONTAINED_KEYWORDS = (
+    "картоф", "рис", "греч", "паста", "макарон", "спагет", "лапш", "пюре",
+    "овощ", "брокколи", "капуст", "фасол", "горош", "кукуруз", "булгур",
+    "кус-кус", "киноа", "плов", "пельмен", "вареник", "лазань", "пицц",
+    "бургер", "шаурм", "запекан", "рагу", "суп",
+)
+MAX_SIDE_USES = 2
 
 
 def course_kind(recipe: dict[str, Any]) -> str:
@@ -245,6 +254,66 @@ def _ingredient_names(recipe: dict[str, Any]) -> list[str]:
     return [name for name in names if name]
 
 
+def _self_contained_text(recipe: dict[str, Any]) -> str:
+    parts = [_norm(recipe.get("name"))]
+    parts.extend(_ingredient_names(recipe))
+    return " ".join(part for part in parts if part)
+
+
+def is_self_contained(recipe: dict[str, Any]) -> bool:
+    """Есть ли у блюда уже гарнир/овощи в составе.
+
+    Явные теги важнее эвристики. Без тегов смотрим название и ингредиенты.
+    """
+    tags = {_norm(tag) for tag in (recipe.get("tags") or [])}
+    if SELF_CONTAINED_TAG in tags:
+        return True
+    if NEEDS_SIDE_TAG in tags:
+        return False
+    text = _self_contained_text(recipe)
+    return any(word in text for word in _SELF_CONTAINED_KEYWORDS)
+
+
+def _side_candidates(
+    recipes: list[dict[str, Any]],
+    profile: dict[str, Any] | None,
+) -> list[tuple[float, dict[str, Any]]]:
+    pool: list[tuple[float, dict[str, Any]]] = []
+    for recipe in recipes:
+        if course_kind(recipe) not in ("side", "salad"):
+            continue
+        ok, score = profile_fit(recipe, profile)
+        if not ok:
+            continue
+        pool.append((score, recipe))
+    random.shuffle(pool)
+    pool.sort(key=lambda item: item[0], reverse=True)
+    return pool
+
+
+def _pick_side(
+    pool: list[tuple[float, dict[str, Any]]],
+    usage: dict[str, int],
+    main_id: str | None,
+) -> dict[str, Any] | None:
+    best: tuple[int, float, dict[str, Any]] | None = None
+    for score, recipe in pool:
+        rid = str(recipe.get("id"))
+        if rid == main_id:
+            continue
+        used = usage.get(rid, 0)
+        if used >= MAX_SIDE_USES:
+            continue
+        candidate = (used, -score, recipe)
+        if best is None or candidate[:2] < best[:2]:
+            best = candidate
+    if best is None:
+        return None
+    recipe = best[2]
+    usage[str(recipe.get("id"))] = usage.get(str(recipe.get("id")), 0) + 1
+    return recipe
+
+
 def _total_time(recipe: dict[str, Any]) -> float | None:
     value = _num(recipe.get("total_time"))
     if value is None:
@@ -391,6 +460,8 @@ def _slot(
     meal: str,
     source: str,
     recipe: dict[str, Any] | None = None,
+    side_recipe: dict[str, Any] | None = None,
+    needs_side: bool = False,
     suggestion_id: str | None = None,
     servings: float = 1,
     locked: bool = False,
@@ -402,6 +473,9 @@ def _slot(
         "locked": locked,
         "recipe_id": (recipe or {}).get("id") or None,
         "recipe": _recipe_summary(recipe),
+        "side_recipe_id": (side_recipe or {}).get("id") or None,
+        "side_recipe": _recipe_summary(side_recipe),
+        "needs_side": bool(needs_side),
         "suggestion_id": suggestion_id,
         "approved": bool(recipe),
         "servings": servings,
@@ -428,12 +502,26 @@ def build_base_slots(
     by_meal: dict[str, list[tuple[float, dict[str, Any]]]] = {
         meal: _build_candidates(recipes, meal, profile) for meal in meals
     }
+    side_pool = _side_candidates(recipes, profile)
     used: set[str] = set()
+    side_usage: dict[str, int] = {}
     for entries in existing.values():
         for entry in entries:
             rid = entry.get("recipe_id")
-            if rid:
-                used.add(str(rid))
+            if not rid:
+                continue
+            used.add(str(rid))
+            recipe = recipe_store.get(str(rid))
+            if recipe and course_kind(recipe) in ("side", "salad"):
+                side_usage[str(rid)] = side_usage.get(str(rid), 0) + 1
+
+    def wants_side(recipe: dict[str, Any] | None, meal: str) -> bool:
+        return bool(
+            recipe
+            and meal in ("lunch", "dinner")
+            and course_kind(recipe) in ("main", "other")
+            and not is_self_contained(recipe)
+        )
 
     slots: list[dict[str, Any]] = []
     for day in days:
@@ -442,11 +530,19 @@ def build_base_slots(
             if entries:
                 entry = entries[0]
                 recipe = recipe_store.get(str(entry.get("recipe_id") or ""))
+                side_recipe = None
+                for extra in entries[1:]:
+                    extra_recipe = recipe_store.get(str(extra.get("recipe_id") or ""))
+                    if extra_recipe and course_kind(extra_recipe) in ("side", "salad"):
+                        side_recipe = extra_recipe
+                        break
                 slot = _slot(
                     day=day,
                     meal=meal,
                     source="existing",
                     recipe=recipe,
+                    side_recipe=side_recipe,
+                    needs_side=wants_side(recipe, meal) and not side_recipe,
                     servings=float(entry.get("servings") or servings),
                     locked=True,
                 )
@@ -464,9 +560,17 @@ def build_base_slots(
                 break
             if picked is not None:
                 used.add(str(picked.get("id")))
+                needs_side = wants_side(picked, meal)
+                side_recipe = (
+                    _pick_side(side_pool, side_usage, str(picked.get("id")))
+                    if needs_side
+                    else None
+                )
                 slots.append(_slot(
                     day=day, meal=meal, source="base",
-                    recipe=picked, servings=servings,
+                    recipe=picked, side_recipe=side_recipe,
+                    needs_side=needs_side and not side_recipe,
+                    servings=servings,
                 ))
             else:
                 slots.append(_slot(
@@ -527,7 +631,8 @@ def build_meal_prompt(
     if meal in ("lunch", "dinner"):
         lines.append(
             "Не предлагай отдельный гарнир или салат как единственное блюдо "
-            "на обед/ужин. Нужно самостоятельное основное блюдо."
+            "на обед/ужин. Нужно самостоятельное основное блюдо: гарнир "
+            "(крупа, картофель, паста или овощи) уже должен входить в состав."
         )
     lines.append(f"Каждый рецепт должен быть на {servings:g} порций.")
     lines.append(f"В YAML укажи courses: [{label}] и tags: [{label}].")

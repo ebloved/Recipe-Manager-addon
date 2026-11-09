@@ -112,6 +112,9 @@ def _draft_view(draft: dict[str, Any] | None) -> dict[str, Any] | None:
         rid = slot.get("recipe_id")
         if rid and not slot.get("recipe"):
             slot["recipe"] = _recipe_summary(recipe_store.get(str(rid)))
+        side_id = slot.get("side_recipe_id")
+        if side_id and not slot.get("side_recipe"):
+            slot["side_recipe"] = _recipe_summary(recipe_store.get(str(side_id)))
         if rid and slot.get("source") != "existing":
             has_recipe = True
         sid = slot.get("suggestion_id")
@@ -439,6 +442,9 @@ async def reject_suggestion(
         "approved": False,
         "recipe_id": None,
         "recipe": None,
+        "side_recipe_id": None,
+        "side_recipe": None,
+        "needs_side": False,
     })
     await meal_plan_drafts_store.update(draft_id, {"slots": draft.get("slots") or []})
     return {"draft": _draft_view(meal_plan_drafts_store.get(draft_id))}
@@ -484,6 +490,9 @@ async def replace_slot(
         "approved": False,
         "recipe_id": None,
         "recipe": None,
+        "side_recipe_id": None,
+        "side_recipe": None,
+        "needs_side": False,
     })
 
     profile = None
@@ -561,8 +570,7 @@ async def save_draft(
         if key in occupied:
             skipped += 1
             continue
-        new_entries.append({
-            "recipe_id": recipe_id,
+        base_entry = {
             "date": slot.get("date"),
             "meal_type": slot.get("meal_type"),
             "servings": slot.get("servings"),
@@ -570,7 +578,16 @@ async def save_draft(
             "source": "generated",
             "draft_id": draft_id,
             "job_id": draft.get("job_id"),
-        })
+        }
+        new_entries.append({**base_entry, "recipe_id": recipe_id})
+        side_id = slot.get("side_recipe_id")
+        if side_id:
+            new_entries.append({
+                **base_entry,
+                "recipe_id": side_id,
+                "source": "generated_side",
+                "side_for": recipe_id,
+            })
         occupied.add(key)
         added_slots.append(slot)
 
@@ -583,36 +600,41 @@ async def save_draft(
         raise HTTPException(
             500, f"Не удалось сохранить план: {type(exc).__name__}: {exc}"
         ) from exc
+    saved_slots = len(added_slots)
     added = len(new_entries)
 
     shopping = {"added": 0, "merged": 0, "total": 0}
     if payload.get("add_to_shopping"):
         for slot in added_slots:
-            try:
-                recipe = recipe_store.get(str(slot["recipe_id"])) or {}
+            desired = float(slot.get("servings") or 1)
+            for rid in (slot.get("recipe_id"), slot.get("side_recipe_id")):
+                if not rid:
+                    continue
                 try:
-                    recipe_yield = float(recipe.get("servings") or 1)
-                except (TypeError, ValueError):
-                    recipe_yield = 1.0
-                if recipe_yield <= 0:
-                    recipe_yield = 1.0
-                desired = float(slot.get("servings") or 1)
-                # Ингредиенты в рецепте — на его выход (recipe.servings).
-                # Нужно масштабировать к запланированному числу порций.
-                multiplier = desired / recipe_yield
-                result = await add_recipe_id_to_shopping(
-                    str(slot["recipe_id"]),
-                    owner_id=user["id"],
-                    multiplier=multiplier,
-                )
-                for key in ("added", "merged", "total"):
-                    shopping[key] += int(result.get(key, 0))
-            except Exception as exc:  # noqa: BLE001
-                print(f"[meal-plan-gen] shopping failed: {exc}")
+                    recipe = recipe_store.get(str(rid)) or {}
+                    try:
+                        recipe_yield = float(recipe.get("servings") or 1)
+                    except (TypeError, ValueError):
+                        recipe_yield = 1.0
+                    if recipe_yield <= 0:
+                        recipe_yield = 1.0
+                    # Ингредиенты в рецепте — на его выход (recipe.servings).
+                    # Нужно масштабировать к запланированному числу порций.
+                    multiplier = desired / recipe_yield
+                    result = await add_recipe_id_to_shopping(
+                        str(rid),
+                        owner_id=user["id"],
+                        multiplier=multiplier,
+                    )
+                    for key in ("added", "merged", "total"):
+                        shopping[key] += int(result.get(key, 0))
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[meal-plan-gen] shopping failed: {exc}")
 
     updated = await meal_plan_drafts_store.update(draft_id, {
         "status": "saved",
         "saved_count": added,
+        "saved_slots": saved_slots,
         "skipped_existing": skipped,
         "shopping": shopping,
         "saved_at": _now(),
@@ -620,6 +642,7 @@ async def save_draft(
     })
     return {
         "saved": added,
+        "saved_slots": saved_slots,
         "skipped_existing": skipped,
         "shopping": shopping,
         "draft": _draft_view(updated),

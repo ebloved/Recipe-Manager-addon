@@ -4260,3 +4260,17 @@ header::before {
   line-height: 1.4;
   color: var(--text-muted);
 }
+
+.mpg-side {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  background: var(--elevated);
+  border-radius: 5px;
+  padding: 2px 5px;
+  align-self: flex-start;
+}
+.mpg-side.needs {
+  color: #a76f00;
+  background: rgba(217,154,0,0.12);
+}

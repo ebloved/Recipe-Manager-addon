@@ -293,7 +293,7 @@
       </div>`;
     } else if (draft.status === "saved") {
       actions = `<div class="mpg-actions">
-        <span class="mpg-saved">✅ План сохранён: ${draft.saved_count || 0} слотов.</span>
+        <span class="mpg-saved">✅ План сохранён: ${draft.saved_slots || draft.saved_count || 0} слотов.</span>
         <button class="btn" id="mpg-discard">Закрыть черновик</button>
       </div>`;
     }
@@ -328,12 +328,20 @@
     }
     if (slot.recipe_id || (slot.recipe && slot.recipe.id)) {
       const recipe = slot.recipe || {};
+      const side = slot.side_recipe || null;
       const badge = slot.source === "existing"
         ? `<span class="mpg-badge muted">уже в плане</span>`
         : `<span class="mpg-badge base">из базы</span>`;
+      let sideLine = "";
+      if (side && side.name) {
+        sideLine = `<span class="mpg-side">＋ гарнир: ${escHtml(side.name)}</span>`;
+      } else if (slot.needs_side) {
+        sideLine = `<span class="mpg-side needs">нужен гарнир</span>`;
+      }
       return `<div class="mpg-cell filled" data-mpg-open-recipe="${escHtml(recipe.id || slot.recipe_id || "")}" title="Открыть рецепт">
         ${badge}
         <span class="mpg-dish-name">${escHtml(recipe.name || "(без названия)")}</span>
+        ${sideLine}
       </div>`;
     }
     return `<div class="mpg-cell empty">
@@ -476,7 +484,11 @@
         { add_to_shopping: addShopping },
       );
       setDraft(data.draft);
-      const parts = [`Сохранено слотов: ${data.saved}`];
+      const savedSlots = data.saved_slots != null ? data.saved_slots : data.saved;
+      const parts = [`Сохранено слотов: ${savedSlots}`];
+      if (data.saved_slots != null && data.saved !== data.saved_slots) {
+        parts.push(`блюд с гарнирами: ${data.saved}`);
+      }
       if (data.skipped_existing) parts.push(`пропущено занятых: ${data.skipped_existing}`);
       if (addShopping) {
         parts.push(`в покупки: ${data.shopping?.total || 0} (объединено: ${data.shopping?.merged || 0})`);

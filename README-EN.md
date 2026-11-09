@@ -302,9 +302,12 @@ wishes. The backend fills empty slots from visible recipes, classifies dishes by
 meal type, and generates missing recipes with the LLM in small batches (at most
 10 new recipes per run). Generated recipes stay in a server-side draft until
 approved; rejected slots remain empty and can be regenerated separately.
-Existing meal-plan entries are never overwritten. On save you can optionally add
-ingredients to the shopping list with serving multipliers. Drafts survive page
-reloads and add-on restarts.
+Existing meal-plan entries are never overwritten. Main dishes tagged
+`нужен гарнир` get a side dish from the library (up to 2 uses per side per week);
+dishes tagged `самостоятельное` are treated as complete. On save a paired side is
+added as a second entry in the same slot, and shopping/nutrition include it.
+On save you can optionally add ingredients to the shopping list with serving
+multipliers. Drafts survive page reloads and add-on restarts.
 
 ---
 

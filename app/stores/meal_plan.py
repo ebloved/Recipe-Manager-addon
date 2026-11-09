@@ -113,7 +113,10 @@ class MealPlanStore:
 
     async def delete_by_recipe(self, recipe_id: str) -> int:
         before = len(self.entries)
-        self.entries = [e for e in self.entries if e.get("recipe_id") != recipe_id]
+        self.entries = [
+            e for e in self.entries
+            if e.get("recipe_id") != recipe_id and e.get("side_for") != recipe_id
+        ]
         removed = before - len(self.entries)
         if removed:
             await self.save()
