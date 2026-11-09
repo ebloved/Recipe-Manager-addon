@@ -15,6 +15,50 @@
     return RM.recipes && RM.recipes.kindOf ? RM.recipes.kindOf(r) : "main";
   }
 
+  const SHOW_SIDE_KEY = "rm_show_side_dish";
+  const SELF_CONTAINED_TAG = "самостоятельное";
+  const NEEDS_SIDE_TAG = "нужен гарнир";
+  const SIDE_HINTS = [
+    "картоф", "рис", "греч", "паста", "макарон", "спагет", "лапш", "пюре",
+    "овощ", "брокколи", "капуст", "фасол", "горош", "кукуруз", "булгур",
+    "кус-кус", "киноа", "плов", "пельмен", "вареник", "лазань", "пицц",
+    "бургер", "шаурм", "запекан", "рагу", "суп",
+  ];
+
+  function normTag(value) {
+    return String(value || "").trim().toLowerCase().replace(/ё/g, "е");
+  }
+
+  function getShowSideDish() {
+    try {
+      const value = localStorage.getItem(SHOW_SIDE_KEY);
+      return value === null ? true : value === "1";
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function setShowSideDish(value) {
+    try {
+      localStorage.setItem(SHOW_SIDE_KEY, value ? "1" : "0");
+    } catch (_) { /* localStorage может быть отключён */ }
+  }
+
+  function needsSide(recipe) {
+    if (!recipe) return false;
+    const tags = (recipe.tags || []).map(normTag);
+    if (tags.includes(SELF_CONTAINED_TAG)) return false;
+    if (tags.includes(NEEDS_SIDE_TAG)) return true;
+    if (kindOf(recipe) !== "main") return false;
+    const parts = [normTag(recipe.name)];
+    for (const ing of recipe.ingredients || []) {
+      if (typeof ing === "string") parts.push(normTag(ing));
+      else if (ing && ing.name) parts.push(normTag(ing.name));
+    }
+    const text = parts.join(" ");
+    return !SIDE_HINTS.some((word) => text.includes(word));
+  }
+
   function toast(message) {
     let el = $("cooking-toast");
     if (!el) {
@@ -439,7 +483,12 @@
       current = await postJSON("api/cooking/current", payload);
       updateBadge();
       RM.tabs.activateTab("cooking");
-      if (kind === "main" && !current.side_recipe) {
+      if (
+        kind === "main"
+        && !current.side_recipe
+        && needsSide(recipe)
+        && getShowSideDish()
+      ) {
         openGarnishPicker(recipe);
       }
     } catch (e) {
@@ -558,5 +607,8 @@
     refreshBadge();
   }
 
-  RM.cooking = { setup, load, start, refreshBadge };
+  RM.cooking = {
+    setup, load, start, refreshBadge, needsSide,
+    getShowSideDish, setShowSideDish,
+  };
 })(window.RM);

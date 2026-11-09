@@ -112,7 +112,29 @@
           <div style="font-size:13px; color:var(--text-secondary)">
             Источник: ${data.source === 'ha' ? 'Home Assistant' : 'Прямой доступ'}
           </div>
+        </div>
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+          <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="cabinet-show-side" style="width:18px; height:18px; accent-color:var(--accent);">
+            Показывать гарнир
+          </label>
+          <div style="font-size:11px; line-height:1.4; color:var(--text-muted); margin-top:5px;">
+            Предлагать гарнир при запуске готовки. Для блюд с тегом
+            «самостоятельное» предложение не появляется.
+          </div>
         </div>`;
+
+      const sidePref = $("cabinet-show-side");
+      if (sidePref) {
+        sidePref.checked = RM.cooking && RM.cooking.getShowSideDish
+          ? RM.cooking.getShowSideDish()
+          : true;
+        sidePref.onchange = (e) => {
+          if (RM.cooking && RM.cooking.setShowSideDish) {
+            RM.cooking.setShowSideDish(e.target.checked);
+          }
+        };
+      }
     } catch (err) {
       box.innerHTML = `<div class="hint" style="color:var(--danger)">Ошибка: ${escHtml(err.message)}</div>`;
     }
