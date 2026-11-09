@@ -16,6 +16,12 @@ from typing import Any
 from PIL import Image, ImageOps
 
 try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except Exception:  # noqa: BLE001
+    pass
+
+try:
     import pytesseract
 except ImportError:  # pragma: no cover
     pytesseract = None
