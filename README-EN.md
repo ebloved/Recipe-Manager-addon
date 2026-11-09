@@ -301,8 +301,8 @@ weight, BMI, a healthy weight range, a weight journal, a food diary, a 14-day
 plan vs actual calorie chart, a weekly check-in and a weight forecast. Forecasts
 are calibrated from the actual weight trend when enough data exists. Initial
 data is hidden after saving and can be edited or reset in the Cabinet. It is
-admin-only for now. BMI and forecasts are references, not a diagnosis or medical
-advice.
+available to all users. BMI and forecasts are references, not a diagnosis or
+medical advice.
 
 ---
 

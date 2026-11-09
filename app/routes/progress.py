@@ -1,6 +1,6 @@
-"""Личный прогресс: рост, вес, цель и BMI-ориентир.
+"""Личный прогресс: рост, вес, цель, журнал и BMI-ориентир.
 
-Стадия 1: доступно только администраторам. Это не медицинская рекомендация.
+Данные доступны только владельцу. Это не медицинская рекомендация.
 """
 from __future__ import annotations
 
@@ -19,11 +19,9 @@ def _user(request: Request) -> dict[str, Any] | None:
     return get_current_user(request)
 
 
-def _require_admin(user: dict[str, Any] | None) -> None:
+def _require_user(user: dict[str, Any] | None) -> None:
     if not user:
         raise HTTPException(401, "Unauthorized")
-    if user.get("role") != "admin":
-        raise HTTPException(403, "Прогресс доступен только администраторам")
 
 
 def _num(value: Any) -> float | None:
@@ -131,7 +129,7 @@ def _validate(payload: dict[str, Any]) -> dict[str, Any]:
 @router.get("")
 async def get_progress(request: Request):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     data = progress_store.get(user["id"]) or {}
     weights = sorted(
         [dict(item) for item in (data.get("weights") or [])],
@@ -158,7 +156,7 @@ async def get_progress(request: Request):
 @router.post("/food")
 async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     date_value = str(payload.get("date") or "").strip()
     try:
         date_type.fromisoformat(date_value)
@@ -184,7 +182,7 @@ async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
 @router.delete("/food/{entry_id}")
 async def delete_food(entry_id: str, request: Request):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     food = await progress_store.delete_food(user["id"], entry_id)
     if food is None:
         raise HTTPException(404, "Запись не найдена")
@@ -194,7 +192,7 @@ async def delete_food(entry_id: str, request: Request):
 @router.post("/weights")
 async def add_weight(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     date_value = str(payload.get("date") or "").strip()
     try:
         date_type.fromisoformat(date_value)
@@ -215,7 +213,7 @@ async def add_weight(request: Request, payload: dict[str, Any] = Body(...)):
 @router.delete("/weights/{entry_id}")
 async def delete_weight(entry_id: str, request: Request):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     weights = await progress_store.delete_weight(user["id"], entry_id)
     if weights is None:
         raise HTTPException(404, "Запись не найдена")
@@ -225,7 +223,7 @@ async def delete_weight(entry_id: str, request: Request):
 @router.delete("")
 async def reset_progress(request: Request):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     deleted = await progress_store.delete(user["id"])
     return {"deleted": deleted}
 
@@ -233,7 +231,7 @@ async def reset_progress(request: Request):
 @router.post("")
 async def save_progress(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)
-    _require_admin(user)
+    _require_user(user)
     patch = _validate(payload)
     if not patch:
         raise HTTPException(400, "Нет данных для сохранения")
