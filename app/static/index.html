@@ -26,6 +26,7 @@
       <div id="global-job-indicator" style="display:none; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary); margin-right:12px;"></div>
       <button class="tab cabinet-tab" data-panel="cabinet">👤 Кабинет</button>
       <button class="tab cabinet-tab" data-panel="audit" id="tab-audit" style="display:none">🧾 Журнал</button>
+      <button class="tab cabinet-tab" data-panel="progress" id="tab-progress" style="display:none">📈 Прогресс</button>
       <div class="profile-selector" id="profile-selector">
         <span class="profile-selector-icon" id="profile-selector-icon">🍽</span>
         <select id="profile-select" class="profile-select" title="Активный профиль">
@@ -471,33 +472,8 @@
       </div>
     </div>
   </section>
-  <section class="panel" id="panel-cabinet">
+  <section class="panel" id="panel-progress">
     <div class="panel-inner">
-      
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom: 10px;">
-        <button class="btn" id="btn-cabinet-help">❓ Помощь</button>
-        <button class="btn" id="btn-cabinet-tour">▶️ Тур по приложению</button>
-      </div>
-
-      <div class="card" id="cabinet-weights" style="display:none">
-        <div class="hint" style="margin-bottom:10px;">
-          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
-          </div>
-        </div>
-        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
-        <div style="display:flex; gap:10px;">
-          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
-          <button class="btn primary" id="weights-save">Сохранить</button>
-          <button class="btn" id="weights-skip">Пропустить</button>
-        </div>
-      </div>
-
-      <div class="card" id="cabinet-user">
-        <div class="loading"><span class="spinner"></span> Загрузка профиля…</div>
-      </div>
-
       <div class="card" id="cabinet-progress" style="display:none">
         <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
           <div>
@@ -536,6 +512,36 @@
           возраст, беременность, отёки и индивидуальные особенности.
           Не является медицинской рекомендацией. При сомнениях обратитесь к врачу.
         </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="panel" id="panel-cabinet">
+    <div class="panel-inner">
+      
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom: 10px;">
+        <button class="btn" id="btn-cabinet-help">❓ Помощь</button>
+        <button class="btn" id="btn-cabinet-tour">▶️ Тур по приложению</button>
+      </div>
+
+      <div class="card" id="cabinet-weights" style="display:none">
+        <div class="hint" style="margin-bottom:10px;">
+          <div style="font-size:14px; font-weight:600;">⚖️ Проверь себя</div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+            Помогите нам понять, сколько весит 1 штука продукта. Это нужно для точных списков покупок.
+          </div>
+        </div>
+        <div id="weights-question" style="font-size:15px; font-weight:600; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="weights-input" placeholder="Вес, г" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);">
+          <button class="btn primary" id="weights-save">Сохранить</button>
+          <button class="btn" id="weights-skip">Пропустить</button>
+        </div>
+      </div>
+
+      <div class="card" id="cabinet-user">
+        <div class="loading"><span class="spinner"></span> Загрузка профиля…</div>
       </div>
 
       <div class="card" id="cabinet-settings">
@@ -1704,7 +1710,7 @@
 <script src="static/js/state.js?v=108"></script>
 <script src="static/js/prefs.js?v=131"></script>
 <script src="static/js/allergens.js?v=132"></script>
-<script src="static/js/tabs.js?v=113"></script>
+<script src="static/js/tabs.js?v=136"></script>
 <script src="static/js/youtube.js?v=108"></script>
 <script src="static/js/imports.js?v=111"></script>
 <script src="static/js/recipes.js?v=132"></script>
@@ -1722,7 +1728,7 @@
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
 <script src="static/js/quiz.js?v=133"></script>
-<script src="static/js/cabinet.js?v=135"></script>
+<script src="static/js/cabinet.js?v=136"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

@@ -23,9 +23,22 @@
       if (!me) me = await getJSON("api/me");
       const tab = $("tab-audit");
       if (tab) tab.style.display = me && me.role === "admin" ? "" : "none";
+      const progressTab = $("tab-progress");
+      if (progressTab) {
+        progressTab.style.display = me && me.can_use_progress ? "" : "none";
+      }
+      if (me && me.can_use_progress) {
+        try {
+          await loadProgress();
+        } catch (e) {
+          if (progressTab) progressTab.style.display = "none";
+        }
+      }
     } catch (e) {
       const tab = $("tab-audit");
       if (tab) tab.style.display = "none";
+      const progressTab = $("tab-progress");
+      if (progressTab) progressTab.style.display = "none";
     }
   }
 
@@ -241,6 +254,11 @@
       return;
     }
     const enabled = data.enabled !== false;
+    const progressTab = $("tab-progress");
+    if (progressTab) progressTab.style.display = enabled ? "" : "none";
+    if (!enabled && $("panel-progress")?.classList.contains("active") && RM.tabs) {
+      RM.tabs.activateTab("cabinet");
+    }
     const toggle = $("cabinet-show-progress");
     if (toggle) {
       toggle.checked = enabled;
@@ -253,6 +271,11 @@
               await loadProgress();
             } else {
               card.style.display = "none";
+              const tab = $("tab-progress");
+              if (tab) tab.style.display = "none";
+              if ($("panel-progress")?.classList.contains("active") && RM.tabs) {
+                RM.tabs.activateTab("cabinet");
+              }
             }
           } catch (err) {
             e.target.checked = !e.target.checked;
@@ -1222,5 +1245,5 @@
     }
   }
 
-  RM.cabinet = { setup, load, deleteUser, loadAudit };
+  RM.cabinet = { setup, load, deleteUser, loadAudit, loadProgress };
 })(window.RM);

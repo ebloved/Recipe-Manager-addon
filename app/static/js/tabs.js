@@ -82,6 +82,9 @@
         case "audit":
           if (RM.cabinet && RM.cabinet.loadAudit) RM.cabinet.loadAudit();
           break;
+        case "progress":
+          if (RM.cabinet && RM.cabinet.loadProgress) RM.cabinet.loadProgress();
+          break;
       }
     if (RM.snow) RM.snow.setActive(name === "recipes");
   }
