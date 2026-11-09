@@ -31,6 +31,7 @@
 
   async function load() {
     try { await loadUser(); } catch (e) { console.error("loadUser", e); }
+    try { await loadProgress(); } catch (e) { console.error("loadProgress", e); }
     try { await loadSettings(); } catch (e) { console.error("loadSettings", e); }
     try { await loadAdmin(); } catch (e) { console.error("loadAdmin", e); }
     try { await loadApify(); } catch (e) { console.error("loadApify", e); }
@@ -130,6 +131,15 @@
             Предлагать гарнир при добавлении в «На кухню». Для блюд с тегом
             «самостоятельное» не работает.
           </div>
+
+          ${data.can_use_progress ? `
+          <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-top:12px;">
+            <input type="checkbox" id="cabinet-show-progress" style="width:18px; height:18px; accent-color:var(--accent);">
+            Показывать «Мой прогресс»
+          </label>
+          <div style="font-size:11px; line-height:1.4; color:var(--text-muted); margin-top:5px;">
+            Показывать карточку с ростом, весом и BMI-ориентиром.
+          </div>` : ""}
         </div>`;
 
       const showSideRecipes = $("cabinet-show-side-recipes");
@@ -159,6 +169,139 @@
     }
   }
 
+
+  function progressStatus(text, type) {
+    const el = $("progress-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "status" + (text ? " show " + (type || "info") : "");
+  }
+
+  function renderProgress(metrics) {
+    const box = $("progress-result");
+    if (!box) return;
+    if (!metrics) {
+      box.innerHTML = '<div class="hint" style="font-size:11px; margin-top:12px;">Укажите рост и вес, чтобы увидеть BMI и здоровый диапазон веса.</div>';
+      return;
+    }
+    const rows = [
+      { id: "low", label: "Ниже нормы", range: "< 18.5" },
+      { id: "normal", label: "В пределах нормы", range: "18.5–24.9" },
+      { id: "above", label: "Выше нормы", range: "25–29.9" },
+      { id: "high", label: "Значительно выше нормы", range: "30+" },
+    ];
+    const active = metrics.category ? metrics.category.id : "";
+    const healthy = metrics.healthy_range_kg || {};
+    let target = "";
+    if (metrics.target_weight_kg) {
+      target = `<div class="progress-target">
+        Цель: <b>${escHtml(String(metrics.target_weight_kg))} кг</b>
+        ${metrics.target_bmi ? `· BMI ${escHtml(String(metrics.target_bmi))}` : ""}
+        ${metrics.target_category ? `(${escHtml(metrics.target_category.label)})` : ""}
+      </div>`;
+      if (metrics.target_category && metrics.target_category.id !== "normal") {
+        target += `<div class="progress-warning">Целевой вес вне типичного диапазона. Это ориентир, а не рекомендация — обсудите с врачом.</div>`;
+      }
+    }
+    box.innerHTML = `
+      <div class="progress-summary">
+        <div class="progress-bmi-main">
+          <b>${escHtml(String(metrics.bmi))}</b>
+          <span>BMI</span>
+        </div>
+        <div>
+          <div class="progress-bmi-label">${escHtml(metrics.category ? metrics.category.label : "")}</div>
+          <div class="progress-muted">${escHtml(metrics.category ? metrics.category.range : "")}</div>
+        </div>
+      </div>
+      <div class="progress-healthy">
+        Здоровый диапазон для роста: <b>${escHtml(String(healthy.min ?? "—"))}–${escHtml(String(healthy.max ?? "—"))} кг</b>
+      </div>
+      ${target}
+      <table class="bmi-table">
+        <thead><tr><th>BMI</th><th>Категория</th><th>Диапазон</th></tr></thead>
+        <tbody>
+          ${rows.map((row) => `<tr class="${row.id === active ? "active" : ""}">
+            <td>${row.id === active ? `● ${escHtml(String(metrics.bmi))}` : ""}</td>
+            <td>${escHtml(row.label)}</td>
+            <td>${escHtml(row.range)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  async function loadProgress() {
+    const card = $("cabinet-progress");
+    if (!card) return;
+    let data;
+    try {
+      data = await getJSON("api/progress");
+    } catch (_) {
+      card.style.display = "none";
+      return;
+    }
+    const enabled = data.enabled !== false;
+    const toggle = $("cabinet-show-progress");
+    if (toggle) {
+      toggle.checked = enabled;
+      if (!toggle.dataset.bound) {
+        toggle.dataset.bound = "1";
+        toggle.onchange = async (e) => {
+          try {
+            await postJSON("api/progress", { enabled: e.target.checked });
+            if (e.target.checked) {
+              await loadProgress();
+            } else {
+              card.style.display = "none";
+            }
+          } catch (err) {
+            e.target.checked = !e.target.checked;
+            alert("Ошибка сохранения: " + err.message);
+          }
+        };
+      }
+    }
+    card.style.display = enabled ? "" : "none";
+    if (!enabled) return;
+
+    const progress = data.progress || {};
+    if ($("progress-height")) $("progress-height").value = progress.height_cm ?? "";
+    if ($("progress-weight")) $("progress-weight").value = progress.weight_kg ?? "";
+    if ($("progress-target")) $("progress-target").value = progress.target_weight_kg ?? "";
+    renderProgress(data.metrics || null);
+    progressStatus("");
+
+    const save = $("progress-save");
+    if (save && !save.dataset.bound) {
+      save.dataset.bound = "1";
+      save.onclick = async () => {
+        const height = parseFloat($("progress-height")?.value || "");
+        const weight = parseFloat($("progress-weight")?.value || "");
+        const targetRaw = $("progress-target")?.value || "";
+        const target = targetRaw ? parseFloat(targetRaw) : null;
+        if (!Number.isFinite(height) || !Number.isFinite(weight)) {
+          progressStatus("Укажите рост и вес.", "error");
+          return;
+        }
+        save.disabled = true;
+        progressStatus("Сохранение…", "info");
+        try {
+          const result = await postJSON("api/progress", {
+            height_cm: height,
+            weight_kg: weight,
+            target_weight_kg: target,
+          });
+          renderProgress(result.metrics || null);
+          progressStatus("Сохранено.", "success");
+          if ($("cabinet-progress")) $("cabinet-progress").style.display = "";
+        } catch (err) {
+          progressStatus("Ошибка: " + err.message, "error");
+        } finally {
+          save.disabled = false;
+        }
+      };
+    }
+  }
 
   async function loadSettings() {
     try {

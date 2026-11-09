@@ -13,6 +13,7 @@ from . import (
     generator,
     meal_plan,
     meal_plan_generator,
+    progress,
     shopping,
     sync,
     ingredients,
@@ -38,6 +39,7 @@ api_router.include_router(imports.router)
 api_router.include_router(youtube.router)
 api_router.include_router(meal_plan.router)
 api_router.include_router(meal_plan_generator.router)
+api_router.include_router(progress.router)
 api_router.include_router(shopping.router)
 api_router.include_router(sync.router)
 api_router.include_router(ingredients.router)

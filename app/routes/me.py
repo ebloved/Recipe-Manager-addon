@@ -37,6 +37,7 @@ def _meal_plan_access(user: dict | None) -> dict:
     return {
         "meal_plan_gen_access": get_access(),
         "can_generate_meal_plan": can_use(user),
+        "can_use_progress": bool(user and user.get("role") == "admin"),
     }
 
 

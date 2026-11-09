@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=132">
+<link rel="stylesheet" href="static/css/style.css?v=134">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -496,6 +496,45 @@
 
       <div class="card" id="cabinet-user">
         <div class="loading"><span class="spinner"></span> Загрузка профиля…</div>
+      </div>
+
+      <div class="card" id="cabinet-progress" style="display:none">
+        <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:15px; font-weight:700;">📈 Мой прогресс</div>
+            <div class="hint" style="margin:4px 0 0; font-size:11px; background:transparent; padding:0; border:0;">
+              BMI и здоровый диапазон веса. Это ориентир, не медицинская рекомендация.
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <div class="field">
+            <label for="progress-height">Рост, см</label>
+            <input type="number" id="progress-height" min="100" max="250" step="0.1" placeholder="например, 178">
+          </div>
+          <div class="field">
+            <label for="progress-weight">Вес, кг</label>
+            <input type="number" id="progress-weight" min="30" max="300" step="0.1" placeholder="например, 82">
+          </div>
+          <div class="field">
+            <label for="progress-target">Целевой вес, кг</label>
+            <input type="number" id="progress-target" min="30" max="300" step="0.1" placeholder="необязательно">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn primary" id="progress-save">💾 Сохранить</button>
+          <span class="status" id="progress-status"></span>
+        </div>
+
+        <div id="progress-result"></div>
+
+        <div class="hint" style="font-size:11px; margin:14px 0 0; line-height:1.45;">
+          BMI — популяционный ориентир, а не диагноз. Он не учитывает состав тела,
+          возраст, беременность, отёки и индивидуальные особенности.
+          Не является медицинской рекомендацией. При сомнениях обратитесь к врачу.
+        </div>
       </div>
 
       <div class="card" id="cabinet-settings">
@@ -1682,7 +1721,7 @@
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
 <script src="static/js/quiz.js?v=133"></script>
-<script src="static/js/cabinet.js?v=131"></script>
+<script src="static/js/cabinet.js?v=134"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

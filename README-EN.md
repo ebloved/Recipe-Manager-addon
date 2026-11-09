@@ -294,6 +294,14 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## My progress
+
+The Cabinet has an optional “My progress” card with height, weight, optional
+target weight, BMI and a healthy weight range. It is admin-only for now and can
+be hidden with a checkbox. BMI is a reference, not a diagnosis or medical advice.
+
+---
+
 ## Nutrition quiz
 
 The profile management modal has a “🧭 Pick a profile” button. A five-step quiz

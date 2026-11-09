@@ -35,6 +35,7 @@ _TEXT_KEYS = {
 }
 _EXCLUDE_PREFIXES = (
     "/api/meal-plan",
+    "/api/progress",
     "/api/shopping",
     "/api/products",
     "/api/cooking",

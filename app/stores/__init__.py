@@ -1,6 +1,7 @@
 from .recipes import recipe_store, RecipeStore
 from .meal_plan import meal_plan_store, MealPlanStore
 from .meal_plan_drafts import meal_plan_drafts_store, MealPlanDraftStore
+from .progress import progress_store, ProgressStore
 from .shopping import shopping_store, ShoppingStore
 from .ingredients import (
     ingredients_store,
@@ -26,6 +27,7 @@ __all__ = [
     # Meal plan
     "meal_plan_store", "MealPlanStore",
     "meal_plan_drafts_store", "MealPlanDraftStore",
+    "progress_store", "ProgressStore",
     # Shopping
     "shopping_store", "ShoppingStore",
     # Ingredients
