@@ -123,6 +123,10 @@
     if (!target) return;
     if (target.name === "quiz-goal") {
       answers.goal = target.value;
+      document.querySelectorAll(".quiz-goal").forEach((el) => {
+        const input = el.querySelector('input[name="quiz-goal"]');
+        el.classList.toggle("active", !!input && input.value === answers.goal);
+      });
       return;
     }
     if (target.dataset && target.dataset.quizGroup) {
@@ -234,8 +238,12 @@
       <div class="quiz-hint">Если ничего не выбрано — без ограничений.</div>
       <div class="quiz-subtitle">Аллергены и непереносимость</div>
       <div class="quiz-checks">${groupChecks("allergen")}</div>
-      <div class="quiz-subtitle">Стиль питания</div>
+      <div class="quiz-subtitle">Мясо и птица</div>
       <div class="quiz-checks">${groupChecks("diet")}</div>
+      <div class="quiz-note">
+        Рыба, морепродукты, молоко и яйца находятся в разделе аллергенов
+        выше — отметьте их там, если их тоже нужно исключить.
+      </div>
       <div class="quiz-note">
         Фильтр работает по названиям ингредиентов. Соусы, полуфабрикаты
         и следы аллергенов могут не распознаваться.
@@ -319,6 +327,7 @@
         <label for="quiz-name">Название профиля</label>
         <input type="text" id="quiz-name" value="${escHtml(answers.name || defaultName())}" placeholder="Мой профиль">
       </div>
+      ${(answers.goal === "maintain" || answers.goal === "none") ? `<div class="quiz-hint">Числовых ограничений по калориям, белку и времени нет — профиль только исключает выбранные продукты.</div>` : ""}
       <div class="quiz-disclaimer quiz-disclaimer-small">
         Фильтр не гарантирует отсутствие аллергенов и следов. Проверяйте
         состав и маркировку. Это не медицинская рекомендация.

@@ -166,9 +166,17 @@
       const active = p.id === state.activeProfileId;
       const c = p.constraints || {};
       const badges = [];
+      const hasNumeric = [
+        c.max_calories_per_serving, c.max_active_time_min, c.max_total_time_min,
+        c.min_protein_per_serving_g, c.max_sugar_per_serving_g,
+      ].some((value) => value !== null && value !== undefined && value !== "");
       if (c.max_calories_per_serving) badges.push(`≤${c.max_calories_per_serving} ккал`);
-      if (c.max_active_time_min) badges.push(`≤${c.max_active_time_min} мин`);
+      if (c.max_active_time_min) badges.push(`активно ≤${c.max_active_time_min} мин`);
+      if (c.max_total_time_min) badges.push(`всего ≤${c.max_total_time_min} мин`);
       if (c.min_protein_per_serving_g) badges.push(`белок ≥${c.min_protein_per_serving_g} г`);
+      if (c.max_sugar_per_serving_g) badges.push(`сахар ≤${c.max_sugar_per_serving_g} г`);
+      if ((c.avoid_methods || []).length) badges.push(`без: ${c.avoid_methods.join(", ")}`);
+      if (!hasNumeric) badges.push("КБЖУ и время: без ограничений");
       if (c.avoid_groups && c.avoid_groups.length && RM.allergenLabels) {
         badges.push(`без: ${RM.allergenLabels(c.avoid_groups).join(", ")}`);
       }
@@ -250,6 +258,15 @@
     $("profile-max-total").value = c.max_total_time_min ?? "";
     $("profile-min-protein").value = c.min_protein_per_serving_g ?? "";
     $("profile-max-sugar").value = c.max_sugar_per_serving_g ?? "";
+
+    const numericHint = $("profile-numeric-hint");
+    if (numericHint) {
+      const hasNumeric = [
+        c.max_calories_per_serving, c.max_active_time_min, c.max_total_time_min,
+        c.min_protein_per_serving_g, c.max_sugar_per_serving_g,
+      ].some((value) => value !== null && value !== undefined && value !== "");
+      numericHint.style.display = !isNew && !hasNumeric ? "" : "none";
+    }
 
     const allergenBox = $("profile-allergen-summary");
     const allergenChips = $("profile-allergen-chips");
