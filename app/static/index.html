@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=126">
+<link rel="stylesheet" href="static/css/style.css?v=127">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -138,8 +138,12 @@
 
         <div class="row">
           <div class="field">
-            <label for="mpg-servings">Порций на приём</label>
+            <label for="mpg-servings">Порций на приём (на сколько человек)</label>
             <input type="number" id="mpg-servings" min="1" max="20" value="2">
+            <div class="mpg-field-hint">
+              Если готовите на 3 человек — поставьте 3. От этого считаются
+              КБЖУ и количество продуктов в покупках.
+            </div>
           </div>
           <div class="field">
             <label for="mpg-max-new">Новых рецептов за запуск</label>
@@ -149,11 +153,17 @@
 
         <div class="field">
           <label>Приёмы пищи</label>
-          <div class="mpg-meals">
-            <label><input type="checkbox" name="mpg-meal" value="breakfast" checked> Завтрак</label>
-            <label><input type="checkbox" name="mpg-meal" value="lunch" checked> Обед</label>
-            <label><input type="checkbox" name="mpg-meal" value="snack"> Полдник</label>
-            <label><input type="checkbox" name="mpg-meal" value="dinner" checked> Ужин</label>
+          <div class="mpg-meals-row">
+            <div class="mpg-meals">
+              <label><input type="checkbox" name="mpg-meal" value="breakfast" checked> Завтрак</label>
+              <label><input type="checkbox" name="mpg-meal" value="lunch" checked> Обед</label>
+              <label><input type="checkbox" name="mpg-meal" value="snack"> Полдник</label>
+              <label><input type="checkbox" name="mpg-meal" value="dinner" checked> Ужин</label>
+            </div>
+            <button type="button" class="btn small" id="mpg-meals-all">Выбрать все</button>
+          </div>
+          <div class="mpg-field-hint">
+            План будет только по отмеченным приёмам пищи.
           </div>
         </div>
 
@@ -1614,7 +1624,7 @@
 
 <script src="static/vendor/qrcode.js?v=108"></script>
 <script src="static/js/utils.js?v=108"></script>
-<script src="static/js/api.js?v=108"></script>
+<script src="static/js/api.js?v=127"></script>
 <script src="static/js/state.js?v=108"></script>
 <script src="static/js/tabs.js?v=113"></script>
 <script src="static/js/youtube.js?v=108"></script>
@@ -1631,7 +1641,7 @@
 <script src="static/js/products.js?v=108"></script>
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=124"></script>
-<script src="static/js/meal-plan-generator.js?v=124"></script>
+<script src="static/js/meal-plan-generator.js?v=127"></script>
 <script src="static/js/profiles.js?v=108"></script>
 <script src="static/js/cabinet.js?v=124"></script>
 <script src="static/js/help.js?v=123"></script>

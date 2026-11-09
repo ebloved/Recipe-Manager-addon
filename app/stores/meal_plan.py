@@ -72,6 +72,28 @@ class MealPlanStore:
         await self.save()
         return entry
 
+    async def add_many(
+        self,
+        items: list[dict[str, Any]],
+        owner_id: str,
+    ) -> list[dict[str, Any]]:
+        """Добавляет несколько записей одним сохранением файла."""
+        if not items:
+            return []
+        now = datetime.now(timezone.utc).isoformat()
+        entries = [
+            {"id": uuid.uuid4().hex, "owner_id": owner_id, "created_at": now, **data}
+            for data in items
+        ]
+        before = len(self.entries)
+        self.entries.extend(entries)
+        try:
+            await self.save()
+        except Exception:
+            del self.entries[before:]
+            raise
+        return entries
+
     async def update(self, entry_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
         for i, e in enumerate(self.entries):
             if e.get("id") == entry_id:

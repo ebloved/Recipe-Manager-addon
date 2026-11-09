@@ -4247,3 +4247,16 @@ header::before {
   .mpg-cell { min-height: 64px; }
   .mpg-actions { align-items: flex-start; }
 }
+
+.mpg-meals-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mpg-field-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}

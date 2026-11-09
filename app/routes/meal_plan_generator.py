@@ -548,7 +548,7 @@ async def save_draft(
         for e in existing
     }
 
-    added = 0
+    new_entries: list[dict[str, Any]] = []
     skipped = 0
     added_slots: list[dict[str, Any]] = []
     for slot in slots:
@@ -561,7 +561,7 @@ async def save_draft(
         if key in occupied:
             skipped += 1
             continue
-        entry = await meal_plan_store.add({
+        new_entries.append({
             "recipe_id": recipe_id,
             "date": slot.get("date"),
             "meal_type": slot.get("meal_type"),
@@ -570,13 +570,20 @@ async def save_draft(
             "source": "generated",
             "draft_id": draft_id,
             "job_id": draft.get("job_id"),
-        }, owner_id="family")
+        })
         occupied.add(key)
-        added += 1
         added_slots.append(slot)
 
-    if not added and not skipped:
+    if not new_entries and not skipped:
         raise HTTPException(400, "В плане нет рецептов для сохранения")
+
+    try:
+        await meal_plan_store.add_many(new_entries, owner_id="family")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            500, f"Не удалось сохранить план: {type(exc).__name__}: {exc}"
+        ) from exc
+    added = len(new_entries)
 
     shopping = {"added": 0, "merged": 0, "total": 0}
     if payload.get("add_to_shopping"):

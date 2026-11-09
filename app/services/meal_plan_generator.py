@@ -67,64 +67,114 @@ _BREAKFAST = (
     "завтрак", "каша", "овсян", "омлет", "яичн", "сырник", "блин", "олад",
     "тост", "бутерброд", "гранол", "мюсли", "йогурт", "творог", "круассан",
 )
-_LUNCH = ("обед", "суп", "борщ", "щи", "похлеб", "бульон", "рассольник", "солянк")
-_SNACK = (
-    "полдник", "перекус", "салат", "закуск", "десерт", "выпеч", "фрукт",
-    "орех", "смузи", "йогурт", "творог", "сырник", "блин",
+_SALAD = ("салат",)
+_SIDE = ("гарнир",)
+_DESSERT = ("десерт", "выпеч", "сладк")
+_SOUP = ("суп", "борщ", "щи", "похлеб", "бульон", "рассольник", "солянк")
+_DRINK = ("напиток", "смузи", "компот", "морс")
+_MAIN_KEYWORDS = (
+    "мясо", "рыб", "котлет", "куриц", "индейк", "запекан", "плов", "паста",
+    "стейк", "гуляш", "рагу", "лазань", "пельмен", "тефтел",
 )
-_DINNER = (
-    "ужин", "мясо", "рыб", "котлет", "куриц", "индейк", "запекан", "плов",
-    "паста", "рис", "гречк", "овощ", "стейк", "гуляш", "рагу",
-)
-_MAIN = ("основное", "горячее", "второе")
+_MAIN_COURSE = ("основное", "горячее", "второе")
+
+
+def course_kind(recipe: dict[str, Any]) -> str:
+    """Тип блюда: main / side / salad / dessert / soup / breakfast / drink.
+
+    Смотрим сначала tags/courses/categories, а имя — только как fallback.
+    Описание не используем: в нём часто пишут «подавать с салатом», и это
+    ломало бы классификацию.
+    """
+    course_values: list[str] = []
+    for key in ("tags", "courses", "categories", "collections", "category"):
+        value = recipe.get(key)
+        items = value if isinstance(value, list) else [value]
+        for item in items:
+            text = _norm(item)
+            if text:
+                course_values.append(text)
+    course_text = " ".join(course_values)
+    name_text = _norm(recipe.get("name"))
+
+    if "завтрак" in course_text:
+        return "breakfast"
+    if any(word in course_text for word in _SIDE):
+        return "side"
+    if any(word in course_text for word in _SALAD):
+        return "salad"
+    if any(word in course_text for word in _DESSERT):
+        return "dessert"
+    if any(word in course_text for word in _SOUP):
+        return "soup"
+    if any(word in course_text for word in _DRINK):
+        return "drink"
+    if any(word in course_text for word in _MAIN_COURSE):
+        return "main"
+
+    if any(word in name_text for word in _BREAKFAST):
+        return "breakfast"
+    if any(word in name_text for word in _SIDE):
+        return "side"
+    if any(word in name_text for word in _SALAD):
+        return "salad"
+    if any(word in name_text for word in _DESSERT):
+        return "dessert"
+    if any(word in name_text for word in _SOUP):
+        return "soup"
+    if any(word in name_text for word in _DRINK):
+        return "drink"
+    if any(word in name_text for word in _MAIN_KEYWORDS):
+        return "main"
+    return "other"
 
 
 def classify_recipe(recipe: dict[str, Any]) -> set[str]:
-    """Определяет приёмы пищи по tags/courses и названию.
+    """Определяет приёмы пищи по типу блюда и явным тегам.
 
-    В текущей базе нет отдельного meal_type, поэтому это эвристика.
+    Салаты и гарниры не считаются полноценным обедом/ужином: на ужин
+    не должно попадать «только рис» или «только салат». Их место — полдник.
     Пользователь всегда может заменить блюдо в предпросмотре.
     """
-    values = _values(recipe)
-    text = " ".join(values)
+    kind = course_kind(recipe)
+    course_values = [
+        _norm(item)
+        for key in ("tags", "courses", "categories", "collections", "category")
+        for item in (
+            recipe.get(key) if isinstance(recipe.get(key), list) else [recipe.get(key)]
+        )
+        if _norm(item)
+    ]
+    course_text = " ".join(course_values)
 
     explicit: set[str] = set()
-    for value in values:
-        if "завтрак" in value:
-            explicit.add("breakfast")
-        if "обед" in value:
-            explicit.add("lunch")
-        if "полдник" in value or "перекус" in value:
-            explicit.add("snack")
-        if "ужин" in value:
-            explicit.add("dinner")
-    if explicit:
-        return explicit
+    if "завтрак" in course_text:
+        explicit.add("breakfast")
+    if "обед" in course_text:
+        explicit.add("lunch")
+    if "полдник" in course_text or "перекус" in course_text:
+        explicit.add("snack")
+    if "ужин" in course_text:
+        explicit.add("dinner")
 
     out: set[str] = set()
-    if any(word in text for word in _BREAKFAST):
+    if kind == "breakfast" or "breakfast" in explicit:
         out.add("breakfast")
-    if any(word in text for word in _LUNCH):
-        out.add("lunch")
-        out.add("dinner")
-    if any(word in text for word in _SNACK):
+    elif kind in ("main", "soup", "other"):
+        out.update({"lunch", "dinner"})
+    elif kind == "salad":
         out.add("snack")
-    if any(word in text for word in _DINNER):
-        out.add("dinner")
-    if any(word in text for word in _MAIN):
-        out.add("lunch")
-        out.add("dinner")
+        if "lunch" in explicit:
+            out.add("lunch")
+    elif kind in ("dessert", "drink"):
+        out.add("snack")
+        if "breakfast" in explicit:
+            out.add("breakfast")
+    elif kind == "side":
+        # Отдельный гарнир не должен занимать слот обеда или ужина.
+        out.clear()
 
-    if "салат" in text:
-        out.add("lunch")
-        out.add("snack")
-    if "десерт" in text or "выпеч" in text:
-        out.add("snack")
-        if not any(word in text for word in _BREAKFAST):
-            out.discard("lunch")
-            out.discard("dinner")
-
-    if not out:
+    if not out and kind != "side":
         out.update({"lunch", "dinner"})
     return out
 
@@ -466,7 +516,20 @@ def build_meal_prompt(
         lines.append("Профиль не задан — готовь без специальных ограничений.")
         lines.append("")
 
+    meal_hint = {
+        "breakfast": "Это завтрак: каши, омлеты, сырники, тосты, творог, выпечка к чаю.",
+        "lunch": "Это обед: полноценное основное блюдо или сытный суп.",
+        "snack": "Это полдник: лёгкий перекус, салат, десерт, фрукты или йогурт.",
+        "dinner": "Это ужин: полноценное горячее основное блюдо.",
+    }.get(meal, "")
     lines.append(f"Приём пищи: {label}. Сгенерируй ровно {count} рецепт(ов).")
+    if meal_hint:
+        lines.append(meal_hint)
+    if meal in ("lunch", "dinner"):
+        lines.append(
+            "Не предлагай отдельный гарнир или салат как единственное блюдо "
+            "на обед/ужин. Нужно самостоятельное основное блюдо."
+        )
     lines.append(f"Каждый рецепт должен быть на {servings:g} порций.")
     lines.append(f"В YAML укажи courses: [{label}] и tags: [{label}].")
     if user_prompt:

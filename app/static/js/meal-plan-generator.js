@@ -24,8 +24,23 @@
     const nextMonday = addDays(getMonday(new Date()), 7);
     if ($("mpg-week-start")) $("mpg-week-start").value = toISO(nextMonday);
 
+    // Сбрасываем сохранённое браузером состояние чекбоксов на понятные
+    // значения по умолчанию: завтрак, обед и ужин.
+    const defaults = { breakfast: true, lunch: true, snack: false, dinner: true };
+    document.querySelectorAll('input[name="mpg-meal"]').forEach((cb) => {
+      cb.checked = !!defaults[cb.value];
+    });
+
     $("mpg-run").addEventListener("click", onRun);
     $("mpg-draft").addEventListener("click", onDraftClick);
+    const allMeals = $("mpg-meals-all");
+    if (allMeals) {
+      allMeals.addEventListener("click", () => {
+        document.querySelectorAll('input[name="mpg-meal"]').forEach((cb) => {
+          cb.checked = true;
+        });
+      });
+    }
 
     loadAccess().then((ok) => {
       if (!ok) return;
