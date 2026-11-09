@@ -163,9 +163,8 @@ def classify_recipe(recipe: dict[str, Any]) -> set[str]:
     elif kind in ("main", "soup", "other"):
         out.update({"lunch", "dinner"})
     elif kind == "salad":
+        # Салат — самостоятельный перекус, но не полноценный обед/ужин.
         out.add("snack")
-        if "lunch" in explicit:
-            out.add("lunch")
     elif kind in ("dessert", "drink"):
         out.add("snack")
         if "breakfast" in explicit:
