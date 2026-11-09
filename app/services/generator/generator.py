@@ -162,7 +162,15 @@ async def generate_suggestions(
 
     if profile_id:
         profile = gen_profiles_store.get(profile_id)
-        if not profile or profile.get("deleted"):
+        if (
+            not profile
+            or profile.get("deleted")
+            or (
+                profile.get("owner_id")
+                and user_id
+                and profile.get("owner_id") != user_id
+            )
+        ):
             raise HTTPException(404, f"Profile {profile_id} not found")
     else:
         from stores.user_active_profiles import user_active_profiles
@@ -177,6 +185,13 @@ async def generate_suggestions(
                 profile = None
         else:
             profile = gen_profiles_store.get_active()
+            if (
+                profile
+                and user_id
+                and profile.get("owner_id")
+                and profile.get("owner_id") != user_id
+            ):
+                profile = None
 
     from services.llm_cascade import call_llm_cascade
 

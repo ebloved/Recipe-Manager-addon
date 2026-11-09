@@ -294,6 +294,16 @@ is `visual_effect`; clients read it through `/api/me`.
 
 ---
 
+## Nutrition quiz
+
+The profile management modal has a “🧭 Pick a profile” button. A five-step quiz
+builds a personal profile: goal, allergens/exclusions, disliked foods, time and
+equipment. Users can have multiple private profiles; base profiles stay shared.
+Allergen filtering uses ingredient groups and aliases, but it is not a medical
+reference — always check labels and ingredients.
+
+---
+
 ## Weekly meal plan generator
 
 Admins can enable “Weekly meal plan generator” in the Cabinet. The Generator

@@ -59,6 +59,7 @@
       RM.profiles.setup();
       RM.profiles.load();
     }
+    if (RM.quiz) RM.quiz.setup();
 
     // Кабинет (включает в себя синхронизацию)
     if (RM.cabinet) RM.cabinet.setup();

@@ -18,10 +18,41 @@
     return (RM.profiles && RM.profiles.getActive) ? RM.profiles.getActive() : null;
   }
   
+  function recipeFilterText(recipe) {
+    const parts = [recipe && recipe.name, recipe && recipe.description];
+    for (const key of ["tags", "courses", "categories", "collections", "category"]) {
+      const value = recipe ? recipe[key] : null;
+      const items = Array.isArray(value) ? value : [value];
+      for (const item of items) if (item) parts.push(String(item));
+    }
+    for (const ing of (recipe && recipe.ingredients) || []) {
+      if (typeof ing === "string") parts.push(ing);
+      else if (ing && ing.name) parts.push(ing.name);
+    }
+    return parts.join(" ").toLowerCase().replace(/ё/g, "е");
+  }
+
   function fitsProfile(recipe, profile) {
     if (!profile) return true;
     const c = profile.constraints || {};
     const num = (v) => (v === null || v === undefined || v === "") ? null : Number(v);
+    if (
+      RM.matchAllergens
+      && c.avoid_groups
+      && c.avoid_groups.length
+      && RM.matchAllergens(recipe, c.avoid_groups).length
+    ) {
+      return false;
+    }
+    const filterText = recipeFilterText(recipe);
+    for (const item of c.avoid_ingredients || []) {
+      const needle = String(item || "").trim().toLowerCase().replace(/ё/g, "е");
+      if (needle && filterText.includes(needle)) return false;
+    }
+    for (const item of c.avoid_methods || []) {
+      const needle = String(item || "").trim().toLowerCase().replace(/ё/g, "е");
+      if (needle && filterText.includes(needle)) return false;
+    }
     if (c.max_calories_per_serving != null) {
       const cal = num((recipe.nutrition || {}).calories);
       if (cal == null || cal > Number(c.max_calories_per_serving)) return false;

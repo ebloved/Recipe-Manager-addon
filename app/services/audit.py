@@ -25,7 +25,8 @@ _MAX_DETAILS_CHARS = 4000
 _MAX_BODY = 65536
 
 _SENSITIVE = re.compile(
-    r"(pass(word)?|secret|token|api[_-]?key|authorization|cookie|credential|private)",
+    r"(pass(word)?|secret|token|api[_-]?key|authorization|cookie|credential|private"
+    r"|allergen|avoid_groups|avoid_ingredients|constraints?)",
     re.I,
 )
 _TEXT_KEYS = {

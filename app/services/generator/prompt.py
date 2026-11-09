@@ -130,6 +130,13 @@ def build_prompt(
         lines.append(f"- Избегать способов готовки: {_fmt_list(c.get('avoid_methods'))}")
         lines.append(f"- Предпочитать способы готовки: {_fmt_list(c.get('prefer_methods'))}")
         lines.append(f"- Избегать ингредиентов: {_fmt_list(c.get('avoid_ingredients'))}")
+        try:
+            from services.allergens import labels_for
+            avoid_groups = labels_for(c.get("avoid_groups") or [])
+        except Exception:  # noqa: BLE001
+            avoid_groups = []
+        if avoid_groups:
+            lines.append(f"- Исключить полностью: {_fmt_list(avoid_groups)}")
         lines.append(f"- Предпочитать ингредиенты: {_fmt_list(c.get('prefer_ingredients'))}")
         lines.append(f"- Минимум белка на порцию: {_fmt_num(c.get('min_protein_per_serving_g'), 'г')}")
     else:

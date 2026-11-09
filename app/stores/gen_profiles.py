@@ -47,6 +47,7 @@ _EMPTY_CONSTRAINTS: dict[str, Any] = {
     "avoid_methods": [],
     "prefer_methods": [],
     "avoid_ingredients": [],
+    "avoid_groups": [],
     "prefer_ingredients": [],
     "min_protein_per_serving_g": None,
     "max_sugar_per_serving_g": None,
@@ -60,7 +61,10 @@ def _normalize_constraints(raw: Any) -> dict[str, Any]:
         for k, v in raw.items():
             if k not in c:
                 continue
-            if k in ("avoid_methods", "prefer_methods", "avoid_ingredients", "prefer_ingredients"):
+            if k in (
+                "avoid_methods", "prefer_methods", "avoid_ingredients",
+                "avoid_groups", "prefer_ingredients",
+            ):
                 c[k] = [str(x).strip() for x in (v or []) if str(x).strip()]
             elif k in ("max_calories_per_serving", "max_active_time_min", "max_total_time_min",
                        "min_protein_per_serving_g", "max_sugar_per_serving_g"):
@@ -187,6 +191,7 @@ class GenProfilesStore:
             "icon": item.get("icon") or "🍽",
             "constraints": _normalize_constraints(item.get("constraints")),
             "source": "base",
+            "owner_id": None,
             "deleted": False,
             "created_at": now,
             "updated_at": now,
@@ -210,10 +215,19 @@ class GenProfilesStore:
 
     # --- Чтение -------------------------------------------------------
 
-    def get_all(self, include_deleted: bool = False) -> list[dict[str, Any]]:
+    def get_all(
+        self,
+        include_deleted: bool = False,
+        owner_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         items = list(self.profiles.values())
         if not include_deleted:
             items = [p for p in items if not p.get("deleted")]
+        if owner_id is not None:
+            items = [
+                p for p in items
+                if not p.get("owner_id") or p.get("owner_id") == owner_id
+            ]
         # Сначала базовые (source="base"), потом пользовательские.
         # Внутри — по имени.
         return sorted(
@@ -255,6 +269,9 @@ class GenProfilesStore:
             "icon": data.get("icon") or "🍽",
             "constraints": _normalize_constraints(data.get("constraints")),
             "source": data.get("source", "user"),
+            "owner_id": data.get("owner_id") or None,
+            "goal": data.get("goal"),
+            "quiz_version": data.get("quiz_version"),
             "deleted": False,
             "created_at": now,
             "updated_at": now,
@@ -276,6 +293,10 @@ class GenProfilesStore:
             p["icon"] = patch["icon"] or "🍽"
         if "constraints" in patch:
             p["constraints"] = _normalize_constraints(patch["constraints"])
+        if "goal" in patch:
+            p["goal"] = patch["goal"]
+        if "quiz_version" in patch:
+            p["quiz_version"] = patch["quiz_version"]
         if "deleted" in patch:
             p["deleted"] = bool(patch["deleted"])
 

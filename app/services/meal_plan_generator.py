@@ -17,6 +17,7 @@ from fastapi import HTTPException
 
 from config import GENERATOR_MAX_TOKENS
 from recipe_manager.importer import parse_markdown_recipe
+from services.allergens import match_groups
 from services.generator.generator import _clean_md, _SPLIT_RE
 from services.generator.prompt import _fmt_list, _fmt_num, _recipe_to_md
 from services.llm_cascade import call_llm_cascade
@@ -388,6 +389,9 @@ def profile_fit(recipe: dict[str, Any], profile: dict[str, Any] | None) -> tuple
             return False, 0.0
         if sugar is not None:
             score += 0.5
+
+    if match_groups(recipe, c.get("avoid_groups") or []):
+        return False, 0.0
 
     text = " ".join(_values(recipe))
     ingredients = " ".join(_ingredient_names(recipe))

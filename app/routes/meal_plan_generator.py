@@ -53,7 +53,14 @@ async def _profile(
 ) -> dict[str, Any] | None:
     if profile_id:
         profile = gen_profiles_store.get(profile_id)
-        if not profile or profile.get("deleted"):
+        if (
+            not profile
+            or profile.get("deleted")
+            or (
+                profile.get("owner_id")
+                and profile.get("owner_id") != user_id
+            )
+        ):
             raise HTTPException(404, "Profile not found")
         return profile
     if user_id:
@@ -65,7 +72,15 @@ async def _profile(
                 return None
             profile = gen_profiles_store.get(per_user_id)
             return profile if profile and not profile.get("deleted") else None
-    return gen_profiles_store.get_active()
+    fallback = gen_profiles_store.get_active()
+    if (
+        fallback
+        and user_id
+        and fallback.get("owner_id")
+        and fallback.get("owner_id") != user_id
+    ):
+        return None
+    return fallback
 
 
 def _draft_for(user: dict[str, Any], draft_id: str) -> dict[str, Any]:

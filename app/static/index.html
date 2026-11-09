@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=131">
+<link rel="stylesheet" href="static/css/style.css?v=132">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -1138,6 +1138,7 @@
     <div class="profiles-header">
       <h3 id="profiles-title">Профили генерации</h3>
       <div class="profiles-header-actions">
+        <button class="editor-btn" id="profiles-quiz">🧭 Подобрать</button>
         <button class="editor-btn" id="profiles-add">+ Новый</button>
         <button class="product-editor-close" id="profiles-close">×</button>
       </div>
@@ -1211,6 +1212,15 @@
           <input type="text" id="profile-avoid-ingredients" placeholder="майонез, сливки">
         </div>
 
+        <div class="field" id="profile-allergen-summary" style="display:none">
+          <label>Аллергены и исключения</label>
+          <div id="profile-allergen-chips" class="profile-card-badges"></div>
+          <div class="hint" style="font-size:11px; margin-top:6px; padding:6px 8px;">
+            Эти группы задаются квизом «Подобрать». При ручном сохранении
+            они сохраняются.
+          </div>
+        </div>
+
         <div class="field">
           <label for="profile-prefer-ingredients">Предпочитать ингредиенты</label>
           <input type="text" id="profile-prefer-ingredients" placeholder="овощи, зелень">
@@ -1227,6 +1237,26 @@
             <button class="btn primary" id="profile-save">💾 Сохранить</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="profiles-overlay" id="quiz-overlay">
+  <div class="profiles-panel quiz-panel">
+    <div class="profiles-header">
+      <h3>🧭 Подбор профиля питания</h3>
+      <button class="product-editor-close" id="quiz-close">×</button>
+    </div>
+    <div class="quiz-progress"><div class="quiz-progress-bar" id="quiz-progress-bar"></div></div>
+    <div class="profiles-body">
+      <div id="quiz-body"></div>
+    </div>
+    <div class="profiles-editor-footer quiz-footer">
+      <button class="btn" id="quiz-back">← Назад</button>
+      <div class="editor-footer-right">
+        <button class="btn primary" id="quiz-next">Далее →</button>
+        <button class="btn primary" id="quiz-save" style="display:none;">💾 Сохранить профиль</button>
       </div>
     </div>
   </div>
@@ -1629,10 +1659,11 @@
 <script src="static/js/api.js?v=127"></script>
 <script src="static/js/state.js?v=108"></script>
 <script src="static/js/prefs.js?v=131"></script>
+<script src="static/js/allergens.js?v=132"></script>
 <script src="static/js/tabs.js?v=113"></script>
 <script src="static/js/youtube.js?v=108"></script>
 <script src="static/js/imports.js?v=111"></script>
-<script src="static/js/recipes.js?v=131"></script>
+<script src="static/js/recipes.js?v=132"></script>
 <script src="static/js/cooking.js?v=131"></script>
 <script src="static/js/detail.js?v=121"></script>
 <script src="static/js/editor.js?v=108"></script>
@@ -1645,7 +1676,8 @@
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=124"></script>
 <script src="static/js/meal-plan-generator.js?v=128"></script>
-<script src="static/js/profiles.js?v=108"></script>
+<script src="static/js/profiles.js?v=132"></script>
+<script src="static/js/quiz.js?v=132"></script>
 <script src="static/js/cabinet.js?v=131"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
@@ -1655,6 +1687,6 @@
 <script src="static/js/jobs.js?v=108"></script>
 <script src="static/js/finder.js?v=108"></script>
 <script src="static/js/snow.js?v=114"></script>
-<script src="static/js/app.js?v=124"></script>
+<script src="static/js/app.js?v=132"></script>
 </body>
 </html>

@@ -26,7 +26,7 @@ try:
     from services.telegram_service import telegram_service
 except ImportError:
     telegram_service = None
-from stores import jobs_store, recipe_store, suggestions_store
+from stores import gen_profiles_store, jobs_store, recipe_store, suggestions_store
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,17 @@ async def run_generation(request: Request, payload: dict[str, Any] = Body(...)):
     from services.auth import get_current_user
     _u = get_current_user(request)
     user_id = _u.get("id") if _u else "family"
+    if profile_id:
+        profile = gen_profiles_store.get(str(profile_id))
+        if (
+            not profile
+            or profile.get("deleted")
+            or (
+                profile.get("owner_id")
+                and profile.get("owner_id") != user_id
+            )
+        ):
+            raise HTTPException(404, "Profile not found")
 
     params = {
         "kind": "generation",

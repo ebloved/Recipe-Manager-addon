@@ -169,6 +169,17 @@
       if (c.max_calories_per_serving) badges.push(`≤${c.max_calories_per_serving} ккал`);
       if (c.max_active_time_min) badges.push(`≤${c.max_active_time_min} мин`);
       if (c.min_protein_per_serving_g) badges.push(`белок ≥${c.min_protein_per_serving_g} г`);
+      if (c.avoid_groups && c.avoid_groups.length && RM.allergenLabels) {
+        badges.push(`без: ${RM.allergenLabels(c.avoid_groups).join(", ")}`);
+      }
+      const ownerBadge = p.owner_id
+        ? `<span class="profile-owner-badge mine">мой</span>`
+        : `<span class="profile-owner-badge shared">общий</span>`;
+      const canEdit = p.can_edit !== undefined
+        ? !!p.can_edit
+        : (p.owner_id
+          ? p.owner_id === (state.user && state.user.id)
+          : !!(state.user && state.user.role === "admin"));
       const badgesHtml = badges.length
         ? `<div class="profile-card-badges">${badges.map((b) => `<span class="profile-badge">${escHtml(b)}</span>`).join("")}</div>`
         : "";
@@ -178,12 +189,13 @@
         <div class="profile-card-info">
           <div class="profile-card-name">
             ${escHtml(p.name)}
+            ${ownerBadge}
             ${active ? `<span class="profile-card-active">активный</span>` : ""}
           </div>
           ${p.description ? `<div class="profile-card-desc">${escHtml(p.description)}</div>` : ""}
           ${badgesHtml}
         </div>
-        <button class="profile-card-edit" title="Редактировать">✏️</button>
+        ${canEdit ? `<button class="profile-card-edit" title="Редактировать">✏️</button>` : ""}
       </div>`;
     }).join("");
 
@@ -222,7 +234,11 @@
     const p = profile || {};
     const c = p.constraints || {};
 
-    editorState = { profile: p, isNew };
+    editorState = {
+      profile: p,
+      isNew,
+      avoidGroups: (c.avoid_groups || []).slice(),
+    };
 
     $("profiles-editor-title").textContent = isNew ? "Новый профиль" : "Редактирование";
     $("profile-name").value = p.name || "";
@@ -234,6 +250,23 @@
     $("profile-max-total").value = c.max_total_time_min ?? "";
     $("profile-min-protein").value = c.min_protein_per_serving_g ?? "";
     $("profile-max-sugar").value = c.max_sugar_per_serving_g ?? "";
+
+    const allergenBox = $("profile-allergen-summary");
+    const allergenChips = $("profile-allergen-chips");
+    if (allergenBox && allergenChips) {
+      const labels = RM.allergenLabels
+        ? RM.allergenLabels(editorState.avoidGroups || [])
+        : [];
+      if (labels.length) {
+        allergenChips.innerHTML = labels
+          .map((label) => `<span class="profile-badge">без: ${escHtml(label)}</span>`)
+          .join("");
+        allergenBox.style.display = "";
+      } else {
+        allergenChips.innerHTML = "";
+        allergenBox.style.display = "none";
+      }
+    }
 
     $("profile-avoid-methods").value = (c.avoid_methods || []).join(", ");
     $("profile-prefer-methods").value = (c.prefer_methods || []).join(", ");
@@ -298,6 +331,7 @@
         avoid_methods: readList("profile-avoid-methods"),
         prefer_methods: readList("profile-prefer-methods"),
         avoid_ingredients: readList("profile-avoid-ingredients"),
+        avoid_groups: editorState.avoidGroups || [],
         prefer_ingredients: readList("profile-prefer-ingredients"),
       },
     };
