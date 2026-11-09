@@ -113,6 +113,14 @@ async def get_progress(request: Request):
     }
 
 
+@router.delete("")
+async def reset_progress(request: Request):
+    user = _user(request)
+    _require_admin(user)
+    deleted = await progress_store.delete(user["id"])
+    return {"deleted": deleted}
+
+
 @router.post("")
 async def save_progress(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)

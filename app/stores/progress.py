@@ -52,6 +52,13 @@ class ProgressStore:
         item = self.users.get(str(owner_id))
         return dict(item) if item else None
 
+    async def delete(self, owner_id: str) -> bool:
+        if str(owner_id) not in self.users:
+            return False
+        self.users.pop(str(owner_id), None)
+        await self.save()
+        return True
+
     async def upsert(self, owner_id: str, patch: dict[str, Any]) -> dict[str, Any]:
         current = dict(self.users.get(str(owner_id)) or {})
         current.update(patch)

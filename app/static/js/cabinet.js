@@ -271,6 +271,21 @@
     renderProgress(data.metrics || null);
     progressStatus("");
 
+    const reset = $("progress-reset");
+    if (reset && !reset.dataset.bound) {
+      reset.dataset.bound = "1";
+      reset.onclick = async () => {
+        if (!confirm("Сбросить рост, вес и цель? Карточка останется, данные удалятся.")) return;
+        try {
+          await del("api/progress");
+          await loadProgress();
+          progressStatus("Данные удалены.", "success");
+        } catch (err) {
+          progressStatus("Ошибка: " + err.message, "error");
+        }
+      };
+    }
+
     const save = $("progress-save");
     if (save && !save.dataset.bound) {
       save.dataset.bound = "1";
