@@ -4656,3 +4656,42 @@ header::before {
   white-space: nowrap;
   color: var(--text-secondary);
 }
+
+/* Недельный чек-ин и калории */
+.progress-weekly {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--elevated);
+}
+.progress-weekly-head { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.progress-weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.progress-weekly-item span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.progress-weekly-item b { display: block; font-size: 13px; margin-top: 2px; }
+.progress-weekly-note { margin-top: 8px; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.progress-weekly-note.warn { color: #a76f00; }
+.progress-weekly-note.ok { color: var(--success); }
+.progress-calories-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+#progress-calories-chart {
+  display: block;
+  width: 100%;
+  height: 170px;
+  margin-top: 8px;
+}
+.progress-chart-legend .plan { color: var(--text-muted); }
+.progress-chart-legend .fact { color: var(--accent); }

@@ -8,6 +8,7 @@
   let progressFood = [];
   let progressMetrics = null;
   let progressPlanCalories = null;
+  let progressPlanDays = {};
   let progressResizeBound = false;
 
   function setup() {
@@ -300,6 +301,7 @@
 
   async function loadPlanCalories() {
     progressPlanCalories = null;
+    progressPlanDays = {};
     try {
       const start = dateISOOffset(-7);
       const end = dateISOOffset(7);
@@ -312,17 +314,19 @@
         const servings = parseFloat(entry.servings) || 1;
         byDate[entry.date] = (byDate[entry.date] || 0) + calories * servings;
       }
+      progressPlanDays = byDate;
       const values = Object.values(byDate).filter((value) => value > 0);
       if (values.length) {
         progressPlanCalories = values.reduce((sum, value) => sum + value, 0) / values.length;
       }
     } catch (_) {
       progressPlanCalories = null;
+      progressPlanDays = {};
     }
   }
 
-  function recentFoodCalories() {
-    const cutoff = dateISOOffset(-14);
+  function recentFoodCalories(days = 14) {
+    const cutoff = dateISOOffset(-days);
     const values = (progressFood || [])
       .filter((item) => item.calories !== null && item.calories !== undefined)
       .filter((item) => String(item.date) >= cutoff)
@@ -331,8 +335,38 @@
     return values;
   }
 
+  function weightTrendPerWeek(days = 28) {
+    const cutoff = dateISOOffset(-days);
+    const items = (progressWeights || [])
+      .filter((item) => String(item.date) >= cutoff)
+      .map((item) => ({
+        date: item.date,
+        weight: Number(item.weight_kg),
+        time: new Date(String(item.date) + "T00:00:00").getTime(),
+      }))
+      .filter((item) => Number.isFinite(item.weight) && Number.isFinite(item.time))
+      .sort((a, b) => a.time - b.time);
+    if (items.length < 3) return null;
+    const firstTime = items[0].time;
+    const xs = items.map((item) => (item.time - firstTime) / 86400000);
+    const ys = items.map((item) => item.weight);
+    const mx = xs.reduce((sum, value) => sum + value, 0) / xs.length;
+    const my = ys.reduce((sum, value) => sum + value, 0) / ys.length;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < xs.length; i++) {
+      num += (xs[i] - mx) * (ys[i] - my);
+      den += (xs[i] - mx) ** 2;
+    }
+    if (den <= 0) return null;
+    return {
+      weekly: (num / den) * 7,
+      count: items.length,
+      spanDays: xs[xs.length - 1] || 0,
+    };
+  }
+
   function computeProgressForecast() {
-    if (!progressMetrics || !progressMetrics.tdee) return null;
     const weights = (progressWeights || []).slice().sort(
       (a, b) => String(a.date).localeCompare(String(b.date))
     );
@@ -341,7 +375,7 @@
     const lastDate = new Date(String(last.date) + "T00:00:00");
     if (isNaN(lastDate.getTime())) return null;
 
-    const foodCalories = recentFoodCalories();
+    const foodCalories = recentFoodCalories(28);
     let intake = null;
     let basis = "";
     if (foodCalories.length >= 3) {
@@ -353,7 +387,20 @@
     }
     if (!intake) return null;
 
-    const weekly = ((intake - Number(progressMetrics.tdee)) * 7) / 7700;
+    let maintenance = progressMetrics ? Number(progressMetrics.tdee) : null;
+    let calibrated = false;
+    const trend = weightTrendPerWeek(28);
+    if (trend && trend.spanDays >= 10 && foodCalories.length >= 3) {
+      const avgIntake = foodCalories.reduce((sum, value) => sum + value, 0) / foodCalories.length;
+      const candidate = avgIntake - (trend.weekly / 7) * 7700;
+      if (Number.isFinite(candidate) && candidate >= 1000 && candidate <= 6000) {
+        maintenance = candidate;
+        calibrated = true;
+      }
+    }
+    if (!maintenance) return null;
+
+    const weekly = ((intake - maintenance) * 7) / 7700;
     const points = [];
     for (let week = 0; week <= 12; week++) {
       const d = new Date(lastDate);
@@ -363,29 +410,178 @@
         weight_kg: Number(last.weight_kg) + weekly * week,
       });
     }
-    return { points, intake, basis, weekly };
+    return { points, intake, basis, weekly, maintenance, calibrated, trend };
   }
 
   function updateForecastNote(forecast) {
     const note = $("progress-forecast-note");
     if (!note) return;
-    if (!progressMetrics || !progressMetrics.tdee) {
-      note.textContent = "Для прогноза веса заполните возраст, пол и активность в Кабинете → Исходные данные.";
-      return;
-    }
     if (!(progressWeights || []).length) {
       note.textContent = "Добавьте запись веса — прогноз построится от неё.";
       return;
     }
-    if (!forecast) {
-      note.textContent = "Для прогноза добавьте записи «Что я съел» или меню на неделю. Пока можно смотреть фактический вес.";
+    if ((progressWeights || []).length < 3) {
+      note.textContent = "Для прогноза нужно минимум 3 записи веса.";
       return;
     }
-    let text = `Прогноз по ${forecast.basis}: ${Math.round(forecast.intake)} ккал/день, поддерживающая ~${Math.round(progressMetrics.tdee)} ккал.`;
+    if (!forecast) {
+      const longFood = recentFoodCalories(28);
+      if ((!progressMetrics || !progressMetrics.tdee) && longFood.length < 3) {
+        note.textContent = "Для прогноза заполните возраст, пол и активность в Кабинете → Исходные данные.";
+      } else {
+        note.textContent = "Для прогноза добавьте записи «Что я съел» или меню на неделю.";
+      }
+      return;
+    }
+    let text = `Прогноз по ${forecast.basis}: ${Math.round(forecast.intake)} ккал/день, поддерживающая ~${Math.round(forecast.maintenance)} ккал.`;
+    if (forecast.calibrated) text += " Уточнено по вашему тренду.";
     if (Math.abs(forecast.weekly) > 1.2) {
       text += " Темп изменения очень высокий — проверьте данные.";
     }
     note.textContent = text;
+  }
+
+  function renderWeeklyCheckin() {
+    const box = $("progress-weekly");
+    if (!box) return;
+    const weights = (progressWeights || []).slice().sort(
+      (a, b) => String(a.date).localeCompare(String(b.date))
+    );
+    if (!weights.length) {
+      box.innerHTML = '<div class="progress-weekly-head">Недельный чек-ин</div><div class="progress-weekly-note">Добавьте первую запись веса — здесь появится сравнение недели.</div>';
+      return;
+    }
+    const last = weights[weights.length - 1];
+    const lastDate = new Date(String(last.date) + "T00:00:00");
+    const days = isNaN(lastDate.getTime())
+      ? null
+      : Math.floor((Date.now() - lastDate.getTime()) / 86400000);
+    const recent = weights.filter((item) => String(item.date) >= dateISOOffset(-7));
+    let delta = null;
+    if (recent.length >= 2) {
+      delta = Number(recent[recent.length - 1].weight_kg) - Number(recent[0].weight_kg);
+    } else if (weights.length >= 2) {
+      delta = Number(weights[weights.length - 1].weight_kg) - Number(weights[weights.length - 2].weight_kg);
+    }
+    const trend = weightTrendPerWeek(28);
+    const food7 = recentFoodCalories(7);
+    const avg7 = food7.length
+      ? Math.round(food7.reduce((sum, value) => sum + value, 0) / food7.length)
+      : null;
+    const plan = progressPlanCalories ? Math.round(progressPlanCalories) : null;
+
+    const items = `
+      <div class="progress-weekly-grid">
+        <div class="progress-weekly-item"><span>Последний вес</span><b>${escHtml(String(last.weight_kg))} кг · ${escHtml(fmtProgressDate(last.date))}</b></div>
+        <div class="progress-weekly-item"><span>Изменение</span><b>${delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} кг`}</b></div>
+        <div class="progress-weekly-item"><span>Тренд</span><b>${trend ? `${trend.weekly > 0 ? "+" : ""}${trend.weekly.toFixed(2)} кг/нед` : "—"}</b></div>
+        <div class="progress-weekly-item"><span>Питание</span><b>${avg7 ? `${avg7} ккал/день` : "—"}${plan ? ` / план ${plan}` : ""}</b></div>
+      </div>`;
+    let note = "";
+    let kind = "";
+    if (days !== null && days >= 7) {
+      note = `Последняя запись ${days} дн. назад — пора сделать недельный чек-ин.`;
+      kind = "warn";
+    } else if (avg7 && plan) {
+      const diff = avg7 - plan;
+      if (Math.abs(diff) >= 250) {
+        note = `Факт ${diff > 0 ? "выше" : "ниже"} плана примерно на ${Math.abs(diff)} ккал/день.`;
+        kind = "warn";
+      } else {
+        note = "Питание близко к плану.";
+        kind = "ok";
+      }
+    } else {
+      note = "Записывайте вес раз в неделю и отмечайте питание — динамика будет точнее.";
+    }
+    box.innerHTML = `<div class="progress-weekly-head">Недельный чек-ин</div>${items}<div class="progress-weekly-note ${kind}">${escHtml(note)}</div>`;
+  }
+
+  function drawCaloriesChart() {
+    const canvas = $("progress-calories-chart");
+    if (!canvas) return;
+    const ctx = canvas.getContext && canvas.getContext("2d");
+    if (!ctx) return;
+    const width = Math.max(280, canvas.clientWidth || 600);
+    const height = Math.max(140, canvas.clientHeight || 170);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const days = [];
+    const foodMap = {};
+    for (const item of progressFood || []) {
+      const calories = Number(item.calories);
+      if (Number.isFinite(calories)) foodMap[item.date] = calories;
+    }
+    for (let i = 13; i >= 0; i--) {
+      const date = dateISOOffset(-i);
+      days.push({
+        date,
+        plan: Number(progressPlanDays[date]) || 0,
+        fact: Number(foodMap[date]) || 0,
+      });
+    }
+    const values = days.flatMap((day) => [day.plan, day.fact]).filter((value) => value > 0);
+    const css = getComputedStyle(document.documentElement);
+    const accent = (css.getPropertyValue("--accent") || "#ff6b35").trim();
+    const muted = (css.getPropertyValue("--text-muted") || "#888").trim();
+    const border = (css.getPropertyValue("--border") || "#ddd").trim();
+    ctx.font = "10px sans-serif";
+    if (!values.length) {
+      ctx.fillStyle = muted;
+      ctx.textAlign = "center";
+      ctx.fillText("Нет данных по питанию за 14 дней", width / 2, height / 2);
+      return;
+    }
+    const maxValue = Math.max(...values) * 1.15;
+    const left = 42;
+    const right = 12;
+    const top = 12;
+    const bottom = 24;
+    const plotW = width - left - right;
+    const plotH = height - top - bottom;
+    const y = (value) => top + (1 - value / maxValue) * plotH;
+
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.textAlign = "right";
+    ctx.fillStyle = muted;
+    for (let i = 0; i <= 3; i++) {
+      const value = (maxValue * i) / 3;
+      const yy = y(value);
+      ctx.beginPath();
+      ctx.moveTo(left, yy);
+      ctx.lineTo(width - right, yy);
+      ctx.stroke();
+      ctx.fillText(Math.round(value), left - 6, yy + 3);
+    }
+
+    const slot = plotW / days.length;
+    days.forEach((day, index) => {
+      const x0 = left + index * slot;
+      const barW = Math.max(3, slot * 0.32);
+      if (day.plan > 0) {
+        ctx.fillStyle = "rgba(255,107,53,0.22)";
+        ctx.fillRect(x0 + slot * 0.14, y(day.plan), barW, top + plotH - y(day.plan));
+      }
+      if (day.fact > 0) {
+        ctx.fillStyle = accent;
+        ctx.fillRect(x0 + slot * 0.54, y(day.fact), barW, top + plotH - y(day.fact));
+      }
+      if (index % 2 === 0 || index === days.length - 1) {
+        const d = new Date(day.date + "T00:00:00");
+        ctx.fillStyle = muted;
+        ctx.textAlign = "center";
+        ctx.fillText(
+          isNaN(d.getTime()) ? day.date : d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }),
+          x0 + slot / 2,
+          height - 6,
+        );
+      }
+    });
   }
 
   function renderWeightLog() {
@@ -474,6 +670,7 @@
           </div>`).join("")}</div>`
         : "";
     }
+    drawCaloriesChart();
   }
 
   function drawProgressChart() {
@@ -643,6 +840,7 @@
       ctx.fillText(label, x(actualTimes[index]), height - 8);
     }
     updateForecastNote(forecast);
+    renderWeeklyCheckin();
   }
 
   function openProgressEditor() {
@@ -916,7 +1114,10 @@
     bindProgressControls();
     if (!progressResizeBound) {
       progressResizeBound = true;
-      window.addEventListener("resize", () => drawProgressChart());
+      window.addEventListener("resize", () => {
+        drawProgressChart();
+        drawCaloriesChart();
+      });
     }
   }
 

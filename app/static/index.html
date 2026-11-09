@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=138">
+<link rel="stylesheet" href="static/css/style.css?v=139">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -526,6 +526,7 @@
             </div>
           </div>
           <div id="progress-forecast-note" class="progress-forecast-note"></div>
+          <div id="progress-weekly"></div>
           <div id="progress-weight-list"></div>
         </div>
 
@@ -556,6 +557,15 @@
           </div>
           <div class="status" id="progress-food-status"></div>
           <div id="progress-food-stats"></div>
+          <div class="progress-calories-block">
+            <div class="progress-log-title">Питание по дням</div>
+            <div class="progress-log-sub">План меню и фактический дневник за последние 14 дней.</div>
+            <canvas id="progress-calories-chart"></canvas>
+            <div class="progress-chart-legend">
+              <span class="plan">▮ план</span>
+              <span class="fact">▮ факт</span>
+            </div>
+          </div>
           <div id="progress-food-list"></div>
         </div>
 
@@ -1837,7 +1847,7 @@
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
 <script src="static/js/quiz.js?v=133"></script>
-<script src="static/js/cabinet.js?v=139"></script>
+<script src="static/js/cabinet.js?v=140"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>
