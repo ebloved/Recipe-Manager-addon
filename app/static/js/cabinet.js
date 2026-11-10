@@ -1850,7 +1850,7 @@
     ].filter(Boolean).join(" · ");
     return `<tr class="audit-row">
       <td data-label="Время" class="audit-time">${escHtml(auditTime(e.created_at))}<div title="${escHtml(e.id || "")}" class="audit-id">${escHtml(shortId)}…</div></td>
-      <td data-label="Кто" class="audit-actor">${auditActor(e)}</td>
+      <td data-label="Кто" class="audit-actor">${auditActor(e)}${e.ip ? `<div class="audit-sub audit-ip">IP: ${escHtml(e.ip)}</div>` : ""}</td>
       <td data-label="Действие" class="audit-action">${escHtml(e.action_label || e.action || "—")}<div class="audit-sub">${escHtml(e.action || "")}</div></td>
       <td data-label="Объект" class="audit-target">${auditTarget(e)}</td>
       <td data-label="Статус" class="audit-status-cell">${auditStatus(e.status)}${dur ? `<div class="audit-sub">${escHtml(dur)}</div>` : ""}</td>

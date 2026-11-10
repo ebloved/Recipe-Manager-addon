@@ -562,6 +562,11 @@ def _client_ip(request) -> str | None:
     return request.client.host[:64] if request.client else None
 
 
+def client_ip(request) -> str | None:
+    """Публичный helper для middleware, чтобы не импортировать private."""
+    return _client_ip(request)
+
+
 async def start_request_event(request) -> str | None:
     """Создаёт событие до выполнения запроса. Возвращает id или None."""
     if not should_audit(request):
@@ -593,7 +598,7 @@ async def start_request_event(request) -> str | None:
                 event_id, event_id.replace("-", ""),
                 info["action"], info["action_label"], actor["name"], actor["email"],
                 actor["id"], info["target_type"], info["target_id"],
-                info["target_name"], path,
+                info["target_name"], path, _client_ip(request) or "",
             ),
             ip=_client_ip(request),
             user_agent=(request.headers.get("user-agent") or "")[:300] or None,
@@ -810,6 +815,7 @@ async def log_event(
                 action, label, actor_name, actor_email, actor_id,
                 target_type, target_id, target_name, path,
                 raw_error, effective_code, error_provider, error_model,
+                ip or "",
             ),
             correlation_id=correlation_id,
         )

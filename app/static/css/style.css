@@ -4740,3 +4740,8 @@ header::before {
 @media (max-width: 620px) {
   .progress-macro-form .field { min-width: 90px; }
 }
+
+.audit-table .audit-ip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+}

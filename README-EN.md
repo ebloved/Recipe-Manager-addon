@@ -343,6 +343,15 @@ between days and meal types.
 
 ---
 
+## Authentication security
+
+Failed authentication attempts are written to the audit log: missing/invalid
+sessions, auth rate limits, OAuth callback failures, invalid device codes and
+cross-origin state changes. Events store the client IP and User-Agent; the IP is
+shown in the journal and included in search.
+
+---
+
 ## LLM key help
 
 The Cabinet LLM form has a “How to get a key” button that opens a step-by-step

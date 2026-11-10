@@ -47,6 +47,7 @@ async def login(request: Request, next: str = "/"):
 
 @router.get("/callback")
 async def auth_callback(request: Request):
+    userinfo = None
     try:
         token = await oauth.google.authorize_access_token(request)
         userinfo = token.get('userinfo')
@@ -61,26 +62,38 @@ async def auth_callback(request: Request):
         )
         
         if not user:
-            real_ip = request.headers.get("CF-Connecting-IP") or request.client.host
+            from services import audit
+
+            real_ip = audit.client_ip(request)
+            user_agent = (request.headers.get("user-agent") or "")[:300] or None
             logger.warning(f"[AUTH] Access denied for {userinfo['email']} from {real_ip}")
             try:
-                from services import audit
-
                 await audit.log_event(
                     action="auth.login",
-                    label="Вход в систему",
+                    label="Отклонён вход",
                     actor_kind="anonymous",
                     actor_email=userinfo.get("email"),
                     actor_name=userinfo.get("name"),
                     status="denied",
-                    error="access_denied",
-                    details={"email": userinfo.get("email"), "ip": real_ip},
+                    error="Доступ запрещён: email нет в allowlist.",
+                    error_code="auth_access_denied",
+                    method="GET",
+                    path=request.url.path,
+                    http_status=403,
+                    details={
+                        "email": userinfo.get("email"),
+                        "stage": "access_check",
+                    },
+                    ip=real_ip,
+                    user_agent=user_agent,
                 )
             except Exception:  # noqa: BLE001
                 pass
             return RedirectResponse(url="/?error=access_denied")
         
-        real_ip = request.headers.get("CF-Connecting-IP") or request.client.host
+        from services import audit
+
+        real_ip = audit.client_ip(request)
         user_agent = request.headers.get("user-agent") or ""
         sid = uuid.uuid4().hex
         try:
@@ -103,12 +116,13 @@ async def auth_callback(request: Request):
                 actor_email=actor["email"],
                 actor_role=actor["role"],
                 status="ok",
+                method="GET",
+                path=request.url.path,
+                http_status=200,
                 details={
                     "email": user.get("email"),
-                    "ip": real_ip,
                     "provider": "google",
                     "session_id": sid,
-                    "user_agent": user_agent[:300],
                 },
                 ip=real_ip,
                 user_agent=user_agent[:300] or None,
@@ -133,7 +147,32 @@ async def auth_callback(request: Request):
         )
         return response
     except Exception as e:
-        return RedirectResponse(url=f"/?error={str(e)}")
+        try:
+            from services import audit
+
+            await audit.log_event(
+                action="auth.login",
+                label="Неудачный вход",
+                actor_kind="anonymous",
+                actor_email=(userinfo or {}).get("email"),
+                actor_name=(userinfo or {}).get("name"),
+                status="error",
+                error="Не удалось завершить OAuth-вход.",
+                error_code="auth_oauth_failed",
+                method="GET",
+                path=request.url.path,
+                http_status=400,
+                details={
+                    "stage": "callback",
+                    "error_type": type(e).__name__,
+                    "error": str(e)[:300],
+                },
+                ip=audit.client_ip(request),
+                user_agent=(request.headers.get("user-agent") or "")[:300] or None,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return RedirectResponse(url="/?error=auth_failed")
 
 @router.get("/logout")
 async def logout(request: Request):

@@ -239,6 +239,7 @@ _PUBLIC_API = {
 }
 
 _AUTH_HITS: dict[str, deque[float]] = defaultdict(deque)
+_AUTH_FAIL_LAST: dict[str, float] = {}
 _AUTH_WINDOW = 60.0
 _AUTH_LIMIT = 10
 
@@ -333,6 +334,64 @@ async def audit_log_middleware(request: Request, call_next):
     return response
 
 
+def _auth_failure_log_allowed(key: str, interval: float) -> bool:
+    now = time.monotonic()
+    last = _AUTH_FAIL_LAST.get(key)
+    if last is not None and now - last < interval:
+        return False
+    if len(_AUTH_FAIL_LAST) > 2000:
+        _AUTH_FAIL_LAST.clear()
+    _AUTH_FAIL_LAST[key] = now
+    return True
+
+
+async def _log_auth_failure(
+    request: Request,
+    *,
+    action: str,
+    label: str,
+    error: str,
+    error_code: str,
+    http_status: int,
+    details: dict | None = None,
+) -> None:
+    from services import audit
+
+    ip = audit.client_ip(request)
+    path = request.url.path
+    # Не забиваем журнал одинаковыми 401 с одного IP каждую секунду.
+    interval = 5.0 if path.startswith("/api/auth/") else 30.0
+    key = f"{ip or '-'}:{path}:{error_code}"
+    if not _auth_failure_log_allowed(key, interval):
+        return
+    auth_header = (request.headers.get("authorization") or "").lower()
+    data = {
+        "path": path,
+        "method": request.method.upper(),
+        "session_present": bool(request.cookies.get("rm_session")),
+        "bearer_present": auth_header.startswith("bearer "),
+    }
+    if details:
+        data.update(details)
+    try:
+        await audit.log_event(
+            action=action,
+            label=label,
+            actor_kind="anonymous",
+            status="denied",
+            error=error,
+            error_code=error_code,
+            method=request.method,
+            path=path,
+            http_status=http_status,
+            details=data,
+            ip=ip,
+            user_agent=(request.headers.get("user-agent") or "")[:300] or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[auth-audit] failed: {type(exc).__name__}: {exc}")
+
+
 @app.middleware("http")
 async def auth_guard(request: Request, call_next):
     if AUTH_MODE != "oauth":
@@ -345,6 +404,14 @@ async def auth_guard(request: Request, call_next):
         return await call_next(request)
 
     if (path.startswith("/api/auth/") or path.startswith("/api/v1/auth/device/")) and not _auth_rate_ok(request):
+        await _log_auth_failure(
+            request,
+            action="auth.rate_limit",
+            label="Превышен лимит попыток входа",
+            error="Слишком много попыток авторизации.",
+            error_code="auth_rate_limit",
+            http_status=429,
+        )
         return JSONResponse(
             status_code=429,
             content={"detail": "Слишком много попыток авторизации. Попробуйте позже."},
@@ -355,6 +422,22 @@ async def auth_guard(request: Request, call_next):
 
     from services.auth import get_current_user
     if not get_current_user(request):
+        has_cookie = bool(request.cookies.get("rm_session"))
+        has_bearer = (request.headers.get("authorization") or "").lower().startswith("bearer ")
+        if has_cookie or has_bearer:
+            reason = "Недействительная или истёкшая сессия."
+            code = "auth_invalid_session"
+        else:
+            reason = "Запрос без авторизации."
+            code = "auth_required"
+        await _log_auth_failure(
+            request,
+            action="auth.denied",
+            label="Отклонён доступ без авторизации",
+            error=reason,
+            error_code=code,
+            http_status=401,
+        )
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
     # Bearer device-token не отправляется браузером автоматически,
@@ -370,6 +453,14 @@ async def auth_guard(request: Request, call_next):
         if origin:
             expected = f"{request.url.scheme}://{request.url.netloc}".rstrip("/")
             if origin != expected:
+                await _log_auth_failure(
+                    request,
+                    action="auth.csrf",
+                    label="Отклонена cross-origin попытка",
+                    error="Cross-origin state change is not allowed.",
+                    error_code="auth_csrf",
+                    http_status=403,
+                )
                 return JSONResponse(
                     status_code=403,
                     content={"detail": "Cross-origin state change is not allowed"},

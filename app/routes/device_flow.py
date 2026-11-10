@@ -24,6 +24,42 @@ _CODE_TTL = 300
 _ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
+async def _log_device_failure(
+    request: Request,
+    user: dict | None,
+    *,
+    error: str,
+    code: str,
+    http_status: int,
+) -> None:
+    from services import audit
+
+    actor = audit.resolve_actor((user or {}).get("id")) if user else {
+        "kind": "anonymous", "id": None, "name": None, "email": None, "role": None,
+    }
+    try:
+        await audit.log_event(
+            action="auth.device",
+            label="Неудачное подключение устройства",
+            actor_kind=actor["kind"],
+            actor_id=actor["id"],
+            actor_name=actor["name"],
+            actor_email=actor["email"],
+            actor_role=actor["role"],
+            status="denied",
+            error=error,
+            error_code=code,
+            method=request.method,
+            path=request.url.path,
+            http_status=http_status,
+            details={"stage": "device_auth"},
+            ip=audit.client_ip(request),
+            user_agent=(request.headers.get("user-agent") or "")[:300] or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[device-audit] failed: {type(exc).__name__}: {exc}")
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -106,6 +142,13 @@ async def device_poll(request: Request, payload: dict = Body(...)):
     async with SessionLocal() as session:
         code = await session.get(DeviceCode, device_code)
         if code is None:
+            await _log_device_failure(
+                request,
+                None,
+                error="Код устройства не найден.",
+                code="device_code_invalid",
+                http_status=404,
+            )
             raise HTTPException(404, "device_code not found")
         if _as_utc(code.expires_at) <= _now() and code.status == "pending":
             code.status = "expired"
@@ -151,6 +194,13 @@ async def device_approve(request: Request, user_code: str = Form(...)):
             )
         ).scalar_one_or_none()
         if code is None:
+            await _log_device_failure(
+                request,
+                user,
+                error="Код устройства не найден.",
+                code="device_code_invalid",
+                http_status=400,
+            )
             return _page(
                 "Код не найден",
                 "<h1>Код не найден</h1><p>Проверьте код и попробуйте снова.</p>"
@@ -159,11 +209,25 @@ async def device_approve(request: Request, user_code: str = Form(...)):
         if _as_utc(code.expires_at) <= _now():
             code.status = "expired"
             await session.commit()
+            await _log_device_failure(
+                request,
+                user,
+                error="Код устройства истёк.",
+                code="device_code_expired",
+                http_status=410,
+            )
             return _page(
                 "Код истёк",
                 "<h1>Код истёк</h1><p>Начните подключение заново в аддоне.</p>",
             )
         if code.status != "pending":
+            await _log_device_failure(
+                request,
+                user,
+                error="Код устройства уже использован.",
+                code="device_code_used",
+                http_status=409,
+            )
             return _page(
                 "Код уже использован",
                 "<h1>Код уже использован</h1><p>Начните подключение заново.</p>",
