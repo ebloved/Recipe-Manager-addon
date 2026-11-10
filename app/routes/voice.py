@@ -70,7 +70,10 @@ async def step_audio_file(request: Request, audio_hash: str):
 async def list_step_audio(recipe_id: str, request: Request):
     if not get_current_user(request):
         raise HTTPException(401, "Unauthorized")
-    return {"items": await step_audio.list_for_recipe(recipe_id)}
+    return {
+        "items": await step_audio.list_for_recipe(recipe_id),
+        "usage": step_audio.usage(),
+    }
 
 
 @router.post("/api/recipes/{recipe_id}/step-audio/{index}")

@@ -10,6 +10,7 @@
   let voiceRecipeId = null;
   let voiceOutputEnabled = false;
   let voiceAudioEl = null;
+  let voiceLimitReached = false;
   let stepAudioByRecipe = {};
   function kindOf(r) {
     return RM.recipes && RM.recipes.kindOf ? RM.recipes.kindOf(r) : "main";
@@ -221,6 +222,11 @@
           `api/recipes/${encodeURIComponent(recipeId)}/step-audio`
         );
         stepAudioByRecipe[recipeId] = data.items || [];
+        const usage = data.usage;
+        if (usage && Number(usage.count) >= Number(usage.limit)) {
+          voiceLimitReached = true;
+          voiceStatus("Дневной лимит озвучки исчерпан. Новые шаги сегодня озвучиваться не будут.");
+        }
       } catch (_) {
         stepAudioByRecipe[recipeId] = [];
       }
@@ -236,6 +242,10 @@
     }
     let item = items.find((x) => Number(x.step_index) === Number(index));
     if (!item) {
+      if (voiceLimitReached) {
+        voiceStatus("Дневной лимит озвучки исчерпан. Новые шаги сегодня озвучиваться не будут.");
+        return;
+      }
       try {
         const data = await postJSON(
           `api/recipes/${encodeURIComponent(recipeId)}/step-audio/${index}`,
@@ -243,8 +253,19 @@
         );
         item = data.item;
         items.push(item);
+        const usage = data.usage;
+        if (usage && Number(usage.count) >= Number(usage.limit)) {
+          voiceLimitReached = true;
+          voiceStatus("Дневной лимит озвучки исчерпан — это последний доступный шаг.");
+        }
       } catch (e) {
-        voiceStatus("Аудио шага: " + e.message);
+        const message = String(e.message || "");
+        if (/лимит.*озвуч|tts_daily_limit|429/i.test(message)) {
+          voiceLimitReached = true;
+          voiceStatus("Дневной лимит озвучки исчерпан. Новые шаги сегодня озвучиваться не будут.");
+        } else {
+          voiceStatus("Аудио шага: " + message);
+        }
         return;
       }
     }
@@ -271,6 +292,17 @@
     return !!(cb && cb.checked);
   }
 
+  function playStepAtIndex(index) {
+    const steps = voiceSteps();
+    if (!steps.length) return;
+    const idx = Math.max(0, Math.min(steps.length - 1, index));
+    const stepEl = steps[idx];
+    const recipeId = stepEl.dataset.recipeId
+      || (current && current.main_recipe && current.main_recipe.id);
+    const localIndex = parseInt(stepEl.dataset.stepIndex, 10);
+    playStepAudio(recipeId, Number.isFinite(localIndex) ? localIndex : idx);
+  }
+
   function voiceSelect(index, options = {}) {
     const steps = voiceSteps();
     if (!steps.length) {
@@ -284,11 +316,7 @@
     }
     updateVoiceStepLabel();
 
-    const stepEl = steps[voiceStepIndex];
-    const recipeId = stepEl.dataset.recipeId
-      || (current && current.main_recipe && current.main_recipe.id);
-    const localIndex = parseInt(stepEl.dataset.stepIndex, 10);
-    playStepAudio(recipeId, Number.isFinite(localIndex) ? localIndex : voiceStepIndex);
+    playStepAtIndex(voiceStepIndex);
   }
 
   function voiceGo(delta) {
@@ -316,7 +344,7 @@
         if (!voiceOutputEnabled && voiceAudioEl) {
           voiceAudioEl.pause();
         } else if (voiceOutputEnabled && voiceStepIndex >= 0) {
-          playStepAudio(voiceStepIndex);
+          playStepAtIndex(voiceStepIndex);
         }
       };
     }
