@@ -92,12 +92,6 @@
       openShareModal(`${base}/share/${r.share_token}`);
       return;
     }
-    // Создание ссылки — осознанное действие: случайный тап по кнопке
-    // не должен открывать рецепт по ссылке без входа.
-    if (!confirm(
-      "Создать ссылку на рецепт?\n\n" +
-      "Любой, у кого есть ссылка, сможет открыть рецепт без входа."
-    )) return;
     try {
       const data = await RM.api.postJSON(`api/sharing/${r.id}/share`, {});
       r.share_token = data.token;
