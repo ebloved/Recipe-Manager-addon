@@ -287,12 +287,16 @@ async def audit_log_middleware(request: Request, call_next):
             error_provider=state_error.get("provider"),
             error_model=state_error.get("model"),
             details_extra=state_details or None,
+            action=getattr(request.state, "audit_action", None),
+            action_label=getattr(request.state, "audit_action_label", None),
         )
         raise
 
     state_error = getattr(request.state, "audit_error", None) or {}
     state_details = dict(getattr(request.state, "audit_details", None) or {})
     state_details.update(state_error.get("details") or {})
+    state_action = getattr(request.state, "audit_action", None)
+    state_action_label = getattr(request.state, "audit_action_label", None)
 
     if response.status_code >= 400:
         # BaseHTTPMiddleware отдаёт streaming-response, поэтому тело ошибки
@@ -312,6 +316,8 @@ async def audit_log_middleware(request: Request, call_next):
             error_provider=state_error.get("provider"),
             error_model=state_error.get("model"),
             details_extra=state_details or None,
+            action=state_action,
+            action_label=state_action_label,
         )
         headers = {
             key: value
@@ -330,6 +336,8 @@ async def audit_log_middleware(request: Request, call_next):
         response,
         audit_error=state_error,
         details_extra=state_details or None,
+        action=state_action,
+        action_label=state_action_label,
     )
     return response
 

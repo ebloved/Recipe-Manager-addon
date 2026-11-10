@@ -86,11 +86,23 @@
   async function onShareRecipe() {
     const r = state.currentRecipe;
     if (!r || !r.id) return;
+    const base = (state.remoteServerUrl || window.location.origin).replace(/\/+$/, "");
+    // Ссылка уже создана — просто показываем её, ничего не публикуем.
+    if (r.share_token) {
+      openShareModal(`${base}/share/${r.share_token}`);
+      return;
+    }
+    // Создание ссылки — осознанное действие: случайный тап по кнопке
+    // не должен открывать рецепт по ссылке без входа.
+    if (!confirm(
+      "Создать ссылку на рецепт?\n\n" +
+      "Любой, у кого есть ссылка, сможет открыть рецепт без входа."
+    )) return;
     try {
       const data = await RM.api.postJSON(`api/sharing/${r.id}/share`, {});
-      const base = (state.remoteServerUrl || window.location.origin).replace(/\/+$/, "");
-      const url = `${base}/share/${data.token}`;
-      openShareModal(url);
+      r.share_token = data.token;
+      r.visibility = "unlisted";
+      openShareModal(`${base}/share/${data.token}`);
     } catch (e) { alert("Ошибка: " + e.message); }
   }
 

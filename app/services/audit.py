@@ -139,8 +139,8 @@ _RULES: tuple[Rule, ...] = (
     _r("POST", r"^/api/matcher/queue/remove$", "matcher.queue_remove", "Удаление из очереди матчера"),
     _r("POST", r"^/api/matcher/queue/clear$", "matcher.queue_clear", "Очистка очереди матчера"),
     # --- Публикация / синхронизация ---------------------------------
-    _r("POST", r"^/api/sharing/([^/]+)/share$", "share.create", "Публикация рецепта", "recipe", 1),
-    _r("DELETE", r"^/api/sharing/([^/]+)/share$", "share.delete", "Снятие публикации", "recipe", 1),
+    _r("POST", r"^/api/sharing/([^/]+)/share$", "share.create", "Создание ссылки на рецепт", "recipe", 1),
+    _r("DELETE", r"^/api/sharing/([^/]+)/share$", "share.delete", "Отзыв ссылки на рецепт", "recipe", 1),
     _r("POST", r"^/api/sharing/([^/]+)/fork$", "share.fork", "Копирование публичного рецепта"),
     _r("POST", r"^/api/sync/push$", "sync.push", "Отправка синхронизации"),
     _r("POST", r"^/api/sync/pull$", "sync.pull", "Получение синхронизации"),
@@ -622,6 +622,8 @@ async def finish_event(
     error_provider: str | None = None,
     error_model: str | None = None,
     details_extra: dict[str, Any] | None = None,
+    action: str | None = None,
+    action_label: str | None = None,
 ) -> None:
     if not event_id:
         return
@@ -644,6 +646,10 @@ async def finish_event(
             row = await session.get(AuditEvent, event_id)
             if row is None:
                 return
+            if action:
+                row.action = action
+            if action_label:
+                row.action_label = action_label
             row.status = status
             row.http_status = http_status
             row.error = human_error[:_MAX_ERROR] if human_error else None
@@ -671,6 +677,7 @@ async def finish_event(
             row.search_text = _search_blob(
                 row.search_text, effective_code, error_provider,
                 error_model, human_error, raw_error, *model_names,
+                action or "", action_label or "",
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001
@@ -714,6 +721,8 @@ async def finish_from_response(
     *,
     audit_error: dict[str, Any] | None = None,
     details_extra: dict[str, Any] | None = None,
+    action: str | None = None,
+    action_label: str | None = None,
 ) -> None:
     if not event_id:
         return
@@ -732,6 +741,8 @@ async def finish_from_response(
         error_provider=info.get("provider"),
         error_model=info.get("model"),
         details_extra=extra or None,
+        action=action,
+        action_label=action_label,
     )
 
 

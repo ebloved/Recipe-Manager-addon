@@ -71,15 +71,23 @@ async def create_share_link(recipe_id: str, request: Request):
         raise HTTPException(403, "Можно делиться только своими рецептами")
 
     token = recipe.get("share_token")
-    if not token:
-        # 128 бит вместо прежних 48.
+    created = not token
+    if created:
+        # Один токен на рецепт: повторный запрос не создаёт новую ссылку.
         token = uuid.uuid4().hex
         while recipe_store.get_by_share_token(token):
             token = uuid.uuid4().hex
-    await recipe_store.update(recipe_id, {
-        "share_token": token,
-        "visibility": "unlisted",
-    })
+        await recipe_store.update(recipe_id, {
+            "share_token": token,
+            "visibility": "unlisted",
+        })
+    # В журнал пишем отдельно создание новой ссылки и повторную выдачу
+    # уже существующей — иначе кажется, что рецепт опубликовали снова.
+    request.state.audit_action = "share.create" if created else "share.reuse"
+    request.state.audit_action_label = (
+        "Создание ссылки на рецепт" if created else "Повторная выдача ссылки"
+    )
+    request.state.audit_details = {"token_created": created}
     return {"token": token}
 
 
