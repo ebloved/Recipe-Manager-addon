@@ -1,7 +1,7 @@
 "use strict";
 (function (RM) {
   const { $, escHtml } = RM.utils;
-  const { getJSON, postJSON, postForm, del } = RM.api;
+  const { getJSON, postJSON, postForm, patchJSON, del } = RM.api;
 
   let progressData = {};
   let progressWeights = [];
@@ -10,6 +10,7 @@
   let progressPlanCalories = null;
   let progressPlanDays = {};
   let progressResizeBound = false;
+  let editingFoodId = null;
 
   function setup() {
     const btnTour = $("btn-start-tour");
@@ -668,11 +669,125 @@
             <span class="progress-food-note-text">${escHtml(item.note || "")}${item.outside ? " · вне дома" : ""}${(
               item.protein_g || item.fat_g || item.carbohydrates_g
             ) ? ` · Б ${escHtml(String(item.protein_g ?? "—"))} Ж ${escHtml(String(item.fat_g ?? "—"))} У ${escHtml(String(item.carbohydrates_g ?? "—"))}` : ""}</span>
+            <button class="progress-weight-edit" data-progress-food-edit="${escHtml(item.id)}" title="Изменить">✎</button>
             <button class="progress-weight-del" data-progress-food-id="${escHtml(item.id)}" title="Удалить">×</button>
           </div>`).join("")}</div>`
         : "";
     }
     drawCaloriesChart();
+  }
+
+  function foodFormValues() {
+    const numberValue = (id) => {
+      const raw = $(id)?.value || "";
+      return raw === "" ? null : parseFloat(raw);
+    };
+    const rawCalories = $("progress-food-calories")?.value || "";
+    return {
+      date: $("progress-food-date")?.value || todayISO(),
+      calories: rawCalories ? parseFloat(rawCalories) : null,
+      protein_g: numberValue("progress-food-protein"),
+      fat_g: numberValue("progress-food-fat"),
+      carbohydrates_g: numberValue("progress-food-carbs"),
+      note: ($("progress-food-note")?.value || "").trim() || null,
+      outside: !!$("progress-food-outside")?.checked,
+    };
+  }
+
+  function resetFoodForm() {
+    editingFoodId = null;
+    for (const id of [
+      "progress-food-calories", "progress-food-protein",
+      "progress-food-fat", "progress-food-carbs", "progress-food-note",
+    ]) {
+      if ($(id)) $(id).value = "";
+    }
+    if ($("progress-food-outside")) $("progress-food-outside").checked = false;
+    if ($("progress-food-add")) $("progress-food-add").textContent = "Добавить";
+    if ($("progress-food-cancel")) $("progress-food-cancel").style.display = "none";
+    if ($("progress-food-photo")) $("progress-food-photo").value = "";
+    const preview = $("progress-food-photo-preview");
+    if (preview) preview.style.display = "none";
+    const ocrBox = $("progress-food-photo-text");
+    if (ocrBox) ocrBox.style.display = "none";
+    if ($("progress-food-photo-ocr")) $("progress-food-photo-ocr").value = "";
+    const assumptions = $("progress-food-assumptions");
+    if (assumptions) {
+      assumptions.style.display = "none";
+      assumptions.innerHTML = "";
+    }
+  }
+
+  function confidenceLabel(value) {
+    return { low: "низкая", medium: "средняя", high: "высокая" }[value] || "низкая";
+  }
+
+  function applyFoodEstimate(estimate, text) {
+    if (!estimate) {
+      if ($("progress-food-note")) {
+        $("progress-food-note").value = (text || "").slice(0, 500);
+      }
+      return;
+    }
+    if ($("progress-food-note")) {
+      const note = [estimate.dish, estimate.description]
+        .filter(Boolean).join(" — ").slice(0, 500);
+      $("progress-food-note").value = note || (text || "").slice(0, 500);
+    }
+    if (estimate.calories && $("progress-food-calories")) {
+      $("progress-food-calories").value = estimate.calories.mid ?? "";
+    }
+    if ($("progress-food-protein")) $("progress-food-protein").value = estimate.protein_g ?? "";
+    if ($("progress-food-fat")) $("progress-food-fat").value = estimate.fat_g ?? "";
+    if ($("progress-food-carbs")) $("progress-food-carbs").value = estimate.carbohydrates_g ?? "";
+
+    const assumptions = Array.isArray(estimate.assumptions) ? estimate.assumptions : [];
+    const box = $("progress-food-assumptions");
+    if (box) {
+      if (assumptions.length) {
+        box.innerHTML = `<b>Почему оценка приблизительная</b><ul>${
+          assumptions.map((item) => `<li>${escHtml(String(item))}</li>`).join("")
+        }</ul>`;
+        box.style.display = "";
+      } else if (estimate.confidence === "low") {
+        box.innerHTML = "<b>Почему низкая уверенность</b>"
+          + "<div>В тексте нет веса порции или калорий — оценка сделана по типичному составу блюда.</div>";
+        box.style.display = "";
+      } else {
+        box.style.display = "none";
+        box.innerHTML = "";
+      }
+    }
+
+    const ocr = $("progress-food-photo-ocr");
+    if (ocr) ocr.value = text || "";
+    const ocrBox = $("progress-food-photo-text");
+    if (ocrBox) ocrBox.style.display = text ? "" : "none";
+
+    const form = document.querySelector(".progress-food-form");
+    if (form && form.scrollIntoView) {
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
+  function startFoodEdit(entryId) {
+    const item = (progressFood || []).find((entry) => entry.id === entryId);
+    if (!item) return;
+    editingFoodId = entryId;
+    if ($("progress-food-date")) $("progress-food-date").value = item.date || todayISO();
+    if ($("progress-food-calories")) $("progress-food-calories").value = item.calories ?? "";
+    if ($("progress-food-protein")) $("progress-food-protein").value = item.protein_g ?? "";
+    if ($("progress-food-fat")) $("progress-food-fat").value = item.fat_g ?? "";
+    if ($("progress-food-carbs")) $("progress-food-carbs").value = item.carbohydrates_g ?? "";
+    if ($("progress-food-note")) $("progress-food-note").value = item.note || "";
+    if ($("progress-food-outside")) $("progress-food-outside").checked = !!item.outside;
+    if ($("progress-food-add")) $("progress-food-add").textContent = "Сохранить";
+    if ($("progress-food-cancel")) $("progress-food-cancel").style.display = "";
+    foodStatus(`Редактирование записи от ${fmtProgressDate(item.date)}.`, "info");
+    const form = document.querySelector(".progress-food-form");
+    if (form && form.scrollIntoView) {
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }
 
   function drawProgressChart() {
@@ -996,47 +1111,58 @@
     if (foodAdd && !foodAdd.dataset.bound) {
       foodAdd.dataset.bound = "1";
       foodAdd.onclick = async () => {
-        const date = $("progress-food-date")?.value || todayISO();
-        if (date > todayISO()) {
+        const values = foodFormValues();
+        if (values.date > todayISO()) {
           foodStatus("Дата не может быть в будущем.", "error");
           return;
         }
-        const rawCalories = $("progress-food-calories")?.value || "";
-        const calories = rawCalories ? parseFloat(rawCalories) : null;
-        if (calories !== null && !Number.isFinite(calories)) {
+        if (values.calories !== null && !Number.isFinite(values.calories)) {
           foodStatus("Проверьте калории.", "error");
           return;
         }
+        for (const [key, label] of [
+          ["protein_g", "белки"], ["fat_g", "жиры"], ["carbohydrates_g", "углеводы"],
+        ]) {
+          if (values[key] !== null && !Number.isFinite(values[key])) {
+            foodStatus(`Проверьте ${label}.`, "error");
+            return;
+          }
+        }
+        if (
+          values.calories === null && !values.note
+          && values.protein_g === null && values.fat_g === null
+          && values.carbohydrates_g === null
+        ) {
+          foodStatus("Укажите калории, БЖУ или заметку.", "error");
+          return;
+        }
+        const wasEditing = !!editingFoodId;
+        const entryId = editingFoodId;
         foodAdd.disabled = true;
         foodStatus("Сохранение…", "info");
         try {
-          const data = await postJSON("api/progress/food", {
-            date,
-            calories,
-            protein_g: $("progress-food-protein")?.value || null,
-            fat_g: $("progress-food-fat")?.value || null,
-            carbohydrates_g: $("progress-food-carbs")?.value || null,
-            note: $("progress-food-note")?.value || null,
-            outside: !!$("progress-food-outside")?.checked,
-          });
+          const data = wasEditing
+            ? await patchJSON(`api/progress/food/${entryId}`, values)
+            : await postJSON("api/progress/food", values);
           progressFood = data.food || [];
-          if ($("progress-food-calories")) $("progress-food-calories").value = "";
-          if ($("progress-food-protein")) $("progress-food-protein").value = "";
-          if ($("progress-food-fat")) $("progress-food-fat").value = "";
-          if ($("progress-food-carbs")) $("progress-food-carbs").value = "";
-          if ($("progress-food-note")) $("progress-food-note").value = "";
-          if ($("progress-food-outside")) $("progress-food-outside").checked = false;
-          if ($("progress-food-photo")) $("progress-food-photo").value = "";
-          const photoPreview = $("progress-food-photo-preview");
-          if (photoPreview) photoPreview.style.display = "none";
+          resetFoodForm();
           renderFoodLog();
           drawProgressChart();
-          foodStatus("Запись добавлена.", "success");
+          foodStatus(wasEditing ? "Запись обновлена." : "Запись добавлена.", "success");
         } catch (err) {
           foodStatus("Ошибка: " + err.message, "error");
         } finally {
           foodAdd.disabled = false;
         }
+      };
+    }
+
+    const foodCancel = $("progress-food-cancel");
+    if (foodCancel && !foodCancel.dataset.bound) {
+      foodCancel.dataset.bound = "1";
+      foodCancel.onclick = () => {
+        resetFoodForm();
+        foodStatus("");
       };
     }
 
@@ -1064,24 +1190,15 @@
           const data = await postForm("api/progress/food/photo", form);
           const estimate = data.estimate;
           const text = data.text || "";
+          applyFoodEstimate(estimate, text);
           if (estimate) {
-            if ($("progress-food-note")) {
-              $("progress-food-note").value = [estimate.dish, estimate.description]
-                .filter(Boolean).join(" — ").slice(0, 500) || text.slice(0, 500);
-            }
-            if (estimate.calories && $("progress-food-calories")) {
-              $("progress-food-calories").value = estimate.calories.mid ?? "";
-            }
-            if ($("progress-food-protein")) $("progress-food-protein").value = estimate.protein_g ?? "";
-            if ($("progress-food-fat")) $("progress-food-fat").value = estimate.fat_g ?? "";
-            if ($("progress-food-carbs")) $("progress-food-carbs").value = estimate.carbohydrates_g ?? "";
-            const confidence = { low: "низкая", medium: "средняя", high: "высокая" }[estimate.confidence] || "низкая";
+            const confidence = confidenceLabel(estimate.confidence);
             foodStatus(
-              `Распознано: ${estimate.dish || "блюдо"}. Оценка ${estimate.calories.min}–${estimate.calories.max} ккал, уверенность: ${confidence}. Проверьте и поправьте.`,
+              `Распознано: ${estimate.dish || "блюдо"}. Оценка ${estimate.calories.min}–${estimate.calories.max} ккал, уверенность: ${confidence}. ` +
+              "Значения подставлены в поля выше — их можно изменить.",
               "success",
             );
           } else {
-            if ($("progress-food-note")) $("progress-food-note").value = text.slice(0, 500);
             foodStatus(
               (data.estimate_error ? "Текст распознан, но оценка не удалась. " : "Текст распознан. ") +
               "Проверьте описание, калории и БЖУ вручную.",
@@ -1094,16 +1211,52 @@
       };
     }
 
+    const reestimate = $("progress-food-reestimate");
+    if (reestimate && !reestimate.dataset.bound) {
+      reestimate.dataset.bound = "1";
+      reestimate.onclick = async () => {
+        const text = ($("progress-food-photo-ocr")?.value || "").trim();
+        if (!text) {
+          foodStatus("Вставьте текст с фото.", "error");
+          return;
+        }
+        reestimate.disabled = true;
+        foodStatus("Пересчитываю…", "info");
+        try {
+          const data = await postJSON("api/progress/food/estimate", { text });
+          applyFoodEstimate(data.estimate, data.text || text);
+          if (data.estimate) {
+            const confidence = confidenceLabel(data.estimate.confidence);
+            foodStatus(
+              `Пересчитано: ${data.estimate.dish || "блюдо"}. Оценка ${data.estimate.calories.min}–${data.estimate.calories.max} ккал, уверенность: ${confidence}.`,
+              "success",
+            );
+          }
+        } catch (err) {
+          foodStatus("Ошибка оценки: " + err.message, "error");
+        } finally {
+          reestimate.disabled = false;
+        }
+      };
+    }
+
     const foodList = $("progress-food-list");
     if (foodList && !foodList.dataset.bound) {
       foodList.dataset.bound = "1";
       foodList.onclick = async (e) => {
+        const editBtn = e.target.closest("[data-progress-food-edit]");
+        if (editBtn) {
+          startFoodEdit(editBtn.dataset.progressFoodEdit);
+          return;
+        }
         const btn = e.target.closest("[data-progress-food-id]");
         if (!btn) return;
         if (!confirm("Удалить эту запись питания?")) return;
         try {
-          const data = await del(`api/progress/food/${btn.dataset.progressFoodId}`);
+          const deletedId = btn.dataset.progressFoodId;
+          const data = await del(`api/progress/food/${deletedId}`);
           progressFood = data.food || [];
+          if (editingFoodId === deletedId) resetFoodForm();
           renderFoodLog();
           drawProgressChart();
           foodStatus("Запись удалена.", "success");

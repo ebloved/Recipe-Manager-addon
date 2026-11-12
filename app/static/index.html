@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=141">
+<link rel="stylesheet" href="static/css/style.css?v=142">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -554,6 +554,7 @@
               <input type="checkbox" id="progress-food-outside"> Вне дома
             </label>
             <button class="btn primary" id="progress-food-add">Добавить</button>
+            <button class="btn" id="progress-food-cancel" style="display:none;">Отмена</button>
             <label class="btn progress-photo-label" for="progress-food-photo">📷 Фото меню</label>
             <input type="file" id="progress-food-photo" accept="image/*" capture="environment" style="display:none;">
           </div>
@@ -575,6 +576,15 @@
             <img id="progress-food-photo-img" alt="">
             <span>Фото не сохраняется — используется только для распознавания.</span>
           </div>
+          <details class="progress-photo-text" id="progress-food-photo-text" style="display:none;">
+            <summary>Текст с фото</summary>
+            <textarea id="progress-food-photo-ocr" rows="4" placeholder="Распознанный текст"></textarea>
+            <div class="progress-photo-text-actions">
+              <button class="btn" type="button" id="progress-food-reestimate">Переоценить</button>
+              <span class="hint">Поправьте текст, если OCR ошибся, и пересчитайте.</span>
+            </div>
+          </details>
+          <div class="progress-photo-assumptions" id="progress-food-assumptions" style="display:none;"></div>
           <div class="status" id="progress-food-status"></div>
           <div id="progress-food-stats"></div>
           <div class="progress-calories-block">
@@ -1867,7 +1877,7 @@
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
 <script src="static/js/quiz.js?v=141"></script>
-<script src="static/js/cabinet.js?v=143"></script>
+<script src="static/js/cabinet.js?v=144"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

@@ -115,6 +115,54 @@ class ProgressStore:
         await self.save()
         return [dict(item) for item in food]
 
+    async def update_food(
+        self,
+        owner_id: str,
+        entry_id: str,
+        *,
+        date: str,
+        calories: float | None,
+        note: str | None,
+        outside: bool,
+        protein_g: float | None = None,
+        fat_g: float | None = None,
+        carbohydrates_g: float | None = None,
+    ) -> list[dict[str, Any]] | None:
+        record = self.users.get(str(owner_id))
+        if not record:
+            return None
+        food = list(record.get("food") or [])
+        index = next(
+            (i for i, item in enumerate(food) if item.get("id") == entry_id),
+            None,
+        )
+        if index is None:
+            return None
+        if any(
+            item.get("date") == date and item.get("id") != entry_id
+            for item in food
+        ):
+            raise ValueError("food_date_conflict")
+        entry = dict(food[index])
+        entry.update({
+            "date": date,
+            "calories": calories,
+            "protein_g": protein_g,
+            "fat_g": fat_g,
+            "carbohydrates_g": carbohydrates_g,
+            "note": note,
+            "outside": bool(outside),
+            "updated_at": _now(),
+        })
+        food[index] = entry
+        food.sort(key=lambda item: str(item.get("date") or ""))
+        record = dict(record)
+        record["food"] = food
+        record["updated_at"] = _now()
+        self.users[str(owner_id)] = record
+        await self.save()
+        return [dict(item) for item in food]
+
     async def delete_food(self, owner_id: str, entry_id: str) -> list[dict[str, Any]] | None:
         record = self.users.get(str(owner_id))
         if not record:

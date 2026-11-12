@@ -4737,6 +4737,59 @@ header::before {
   border: 1px solid var(--border);
 }
 .progress-photo-preview span { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.progress-photo-text {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--elevated);
+  font-size: 12px;
+}
+.progress-photo-text summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.progress-photo-text textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.progress-photo-text-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.progress-photo-assumptions {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--elevated);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.progress-photo-assumptions b { color: var(--text); }
+.progress-photo-assumptions ul { margin: 5px 0 0 16px; padding: 0; }
+.progress-weight-edit {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+}
+.progress-weight-edit:hover { color: var(--accent); }
 @media (max-width: 620px) {
   .progress-macro-form .field { min-width: 90px; }
 }

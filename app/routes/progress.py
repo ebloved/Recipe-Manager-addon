@@ -35,6 +35,39 @@ def _num(value: Any) -> float | None:
         return None
 
 
+def _food_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    date_value = str(payload.get("date") or "").strip()
+    try:
+        date_type.fromisoformat(date_value)
+    except ValueError as exc:
+        raise HTTPException(400, "Некорректная дата") from exc
+    if date_value > date_type.today().isoformat():
+        raise HTTPException(400, "Дата не может быть в будущем")
+    raw_calories = payload.get("calories")
+    calories = _num(raw_calories) if raw_calories not in (None, "") else None
+    if calories is not None and not (0 <= calories <= 10000):
+        raise HTTPException(400, "Калории должны быть от 0 до 10000")
+    note = str(payload.get("note") or "").strip()[:1000] or None
+    macros = {}
+    for key in ("protein_g", "fat_g", "carbohydrates_g"):
+        raw = payload.get(key)
+        value = _num(raw) if raw not in (None, "") else None
+        if value is not None and not (0 <= value <= 1000):
+            raise HTTPException(400, "БЖУ должно быть от 0 до 1000 г")
+        macros[key] = value
+    if calories is None and note is None and all(v is None for v in macros.values()):
+        raise HTTPException(400, "Укажите калории, БЖУ или заметку")
+    return {
+        "date": date_value,
+        "calories": calories,
+        "note": note,
+        "outside": bool(payload.get("outside")),
+        "protein_g": macros["protein_g"],
+        "fat_g": macros["fat_g"],
+        "carbohydrates_g": macros["carbohydrates_g"],
+    }
+
+
 def _category(bmi: float) -> dict[str, str]:
     if bmi < 18.5:
         return {"id": "low", "label": "Ниже нормы", "range": "< 18.5"}
@@ -187,39 +220,61 @@ async def food_photo(request: Request, file: UploadFile = File(...)):
     }
 
 
+@router.post("/food/estimate")
+async def estimate_food(request: Request, payload: dict[str, Any] = Body(...)):
+    user = _user(request)
+    _require_user(user)
+    text = str(payload.get("text") or "").strip()[:8000]
+    if not text:
+        raise HTTPException(400, "Вставьте текст с фото")
+    try:
+        estimate = await asyncio.wait_for(
+            estimate_food_from_text(text, user["id"]), timeout=45
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(503, f"Не удалось оценить: {str(exc)[:200]}") from exc
+    return {"text": text, "estimate": estimate}
+
+
 @router.post("/food")
 async def add_food(request: Request, payload: dict[str, Any] = Body(...)):
     user = _user(request)
     _require_user(user)
-    date_value = str(payload.get("date") or "").strip()
-    try:
-        date_type.fromisoformat(date_value)
-    except ValueError as exc:
-        raise HTTPException(400, "Некорректная дата") from exc
-    if date_value > date_type.today().isoformat():
-        raise HTTPException(400, "Дата не может быть в будущем")
-    raw_calories = payload.get("calories")
-    calories = _num(raw_calories) if raw_calories not in (None, "") else None
-    if calories is not None and not (0 <= calories <= 10000):
-        raise HTTPException(400, "Калории должны быть от 0 до 10000")
-    note = str(payload.get("note") or "").strip()[:1000] or None
-    macros = {}
-    for key in ("protein_g", "fat_g", "carbohydrates_g"):
-        raw = payload.get(key)
-        value = _num(raw) if raw not in (None, "") else None
-        if value is not None and not (0 <= value <= 1000):
-            raise HTTPException(400, "БЖУ должно быть от 0 до 1000 г")
-        macros[key] = value
+    fields = _food_payload(payload)
     food = await progress_store.add_food(
         user["id"],
-        date=date_value,
-        calories=calories,
-        note=note,
-        outside=bool(payload.get("outside")),
-        protein_g=macros["protein_g"],
-        fat_g=macros["fat_g"],
-        carbohydrates_g=macros["carbohydrates_g"],
+        date=fields["date"],
+        calories=fields["calories"],
+        note=fields["note"],
+        outside=fields["outside"],
+        protein_g=fields["protein_g"],
+        fat_g=fields["fat_g"],
+        carbohydrates_g=fields["carbohydrates_g"],
     )
+    return {"food": food}
+
+
+@router.patch("/food/{entry_id}")
+async def update_food(entry_id: str, request: Request, payload: dict[str, Any] = Body(...)):
+    user = _user(request)
+    _require_user(user)
+    fields = _food_payload(payload)
+    try:
+        food = await progress_store.update_food(
+            user["id"],
+            entry_id,
+            date=fields["date"],
+            calories=fields["calories"],
+            note=fields["note"],
+            outside=fields["outside"],
+            protein_g=fields["protein_g"],
+            fat_g=fields["fat_g"],
+            carbohydrates_g=fields["carbohydrates_g"],
+        )
+    except ValueError as exc:
+        raise HTTPException(409, "На эту дату уже есть другая запись") from exc
+    if food is None:
+        raise HTTPException(404, "Запись не найдена")
     return {"food": food}
 
 
