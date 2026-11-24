@@ -113,6 +113,31 @@ class UserStoreCredential(Base):
     )
 
 
+class UserStoreSetting(Base):
+    """Per-user настройки магазина без OAuth (например, адрес Ленты)."""
+
+    __tablename__ = "user_store_settings"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id", "store_id",
+            name="uq_user_store_settings_owner_store",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[str] = mapped_column(String(128), index=True)
+    store_id: Mapped[str] = mapped_column(String(32), index=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    store_alias_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    store_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
 class UserLLMConfig(Base):
     """Персональные LLM-ключи, зашифрованные в SQLite."""
 

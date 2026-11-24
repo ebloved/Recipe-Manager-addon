@@ -3379,6 +3379,37 @@ header {
   flex-wrap: wrap;
   margin-top: auto;
 }
+.store-address-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.store-address-row input {
+  flex: 1;
+  min-width: 180px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.store-address-row input:focus { outline: none; border-color: var(--accent); }
+.store-product {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.store-product:first-of-type { border-top: 0; }
+.store-product-name a { color: var(--text); text-decoration: none; }
+.store-product-name a:hover { color: var(--accent); }
+.store-product-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
 
 /* --- Recipe normalization badges ------------------------------------- */
 .meta-chip.norm-ok {

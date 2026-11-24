@@ -3,15 +3,22 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from integrations.stores.vkusvill import oauth as vv_oauth
 from integrations.stores.vkusvill.cart import build_cart
 from integrations.stores.vkusvill.client import products_search
 from integrations.stores.vkusvill.mcp_client import MCPError
+from integrations.stores.lenta import cart as lenta_cart
+from integrations.stores.lenta.client import (
+    products_search as lenta_products_search,
+    resolve_store as lenta_resolve_store,
+)
+from integrations.stores.lenta.mcp_client import MCPError as LentaMCPError
 from services.auth import get_current_user
 from stores.store_credentials import store_credentials
+from stores.store_settings import store_settings
 
 router = APIRouter(prefix="/api/stores", tags=["stores"])
 
@@ -20,6 +27,12 @@ SUPPORTED_STORES = {
         "id": "vkusvill",
         "name": "ВкусВилл",
         "auth_type": "oauth2_pkce",
+    },
+    "lenta": {
+        "id": "lenta",
+        "name": "Лента",
+        "auth_type": "address",
+        "hint": "Укажите адрес доставки — OAuth не нужен.",
     },
 }
 
@@ -37,6 +50,20 @@ async def list_stores(request: Request):
     owner_id = user["id"]
     stores = []
     for store_id, meta in SUPPORTED_STORES.items():
+        if store_id == "lenta":
+            setting = await store_settings.get(owner_id, "lenta")
+            address = (setting or {}).get("address")
+            stores.append({
+                **meta,
+                "configured": True,
+                "connected": bool(address),
+                "address": address,
+                "store_name": (setting or {}).get("store_name"),
+                "store_alias_id": (setting or {}).get("store_alias_id"),
+                "expires_at": None,
+                "scopes": None,
+            })
+            continue
         connected = await store_credentials.is_connected(owner_id, store_id)
         creds = await store_credentials.get(owner_id, store_id) if connected else None
         configured = vv_oauth.is_configured() if store_id == "vkusvill" else False
@@ -51,6 +78,92 @@ async def list_stores(request: Request):
             "scopes": (creds or {}).get("scopes"),
         })
     return {"stores": stores}
+
+
+@router.post("/{store_id}/settings")
+async def save_store_settings(
+    store_id: str,
+    request: Request,
+    payload: dict = Body(...),
+):
+    user = _user_or_401(request)
+    if store_id not in SUPPORTED_STORES:
+        raise HTTPException(404, "Unknown store")
+    if store_id != "lenta":
+        raise HTTPException(400, "У этого магазина настройки не поддерживаются")
+    address = str(payload.get("address") or "").strip()[:300]
+    if not address:
+        raise HTTPException(400, "Укажите адрес доставки")
+    try:
+        resolved = await lenta_resolve_store(address=address, channel="lo")
+    except LentaMCPError as exc:
+        raise HTTPException(502, f"Лента MCP error: {exc}") from exc
+
+    hubs = resolved.get("hubs") or []
+    def _hub_score(hub: dict) -> tuple[int, int]:
+        fmt = str(hub.get("format") or "").lower()
+        priority = {"super": 0, "hyper": 1, "mm": 2}.get(fmt, 3)
+        try:
+            distance = int(hub.get("distance") or 10**9)
+        except (TypeError, ValueError):
+            distance = 10**9
+        return priority, distance
+
+    usable = [
+        hub for hub in hubs
+        if str(hub.get("format") or "").lower() in ("super", "hyper")
+        and hub.get("aliasId")
+    ]
+    best = min(usable, key=_hub_score) if usable else None
+    saved = await store_settings.upsert(
+        user["id"],
+        "lenta",
+        address=str(resolved.get("addressUsed") or address),
+        store_alias_id=int(best["aliasId"]) if best else None,
+        store_name=str(best.get("name")) if best else None,
+    )
+    return {
+        "ok": True,
+        "store_id": store_id,
+        "address": saved["address"],
+        "store_alias_id": saved["store_alias_id"],
+        "store_name": saved["store_name"],
+        "hubs": hubs,
+    }
+
+
+@router.post("/{store_id}/search")
+async def search_store(
+    store_id: str,
+    request: Request,
+    payload: dict = Body(...),
+):
+    user = _user_or_401(request)
+    if store_id not in SUPPORTED_STORES:
+        raise HTTPException(404, "Unknown store")
+    if store_id != "lenta":
+        raise HTTPException(400, "Поиск поддерживается только для Ленты")
+    query = str(payload.get("query") or "").strip()[:200]
+    if not query:
+        raise HTTPException(400, "Укажите поисковый запрос")
+    setting = await store_settings.get(user["id"], "lenta")
+    address = (setting or {}).get("address")
+    if not address:
+        raise HTTPException(400, "Сначала укажите адрес доставки Ленты")
+    try:
+        resolved_store, products = await lenta_products_search(
+            query,
+            address=address,
+            store_id=(setting or {}).get("store_alias_id"),
+        )
+    except LentaMCPError as exc:
+        raise HTTPException(502, f"Лента MCP error: {exc}") from exc
+    return {
+        "store_id": store_id,
+        "store_name": (setting or {}).get("store_name"),
+        "lenta_store_id": resolved_store,
+        "items": [p.model_dump() for p in products],
+    }
 
 
 @router.get("/{store_id}/oauth/start")
@@ -115,6 +228,8 @@ async def disconnect(store_id: str, request: Request):
         raise HTTPException(404, "Unknown store")
     if store_id == "vkusvill":
         await vv_oauth.revoke(user["id"], store_id)
+    elif store_id == "lenta":
+        await store_settings.delete(user["id"], store_id)
     else:
         await store_credentials.delete(user["id"], store_id)
     return {"status": "ok", "connected": False}
@@ -141,6 +256,29 @@ async def test_store(store_id: str, request: Request):
             "sample": products[0].name if products else None,
             "message": "OAuth и MCP работают.",
         }
+    if store_id == "lenta":
+        setting = await store_settings.get(user["id"], "lenta")
+        address = (setting or {}).get("address")
+        if not address:
+            raise HTTPException(400, "Сначала укажите адрес доставки Ленты")
+        try:
+            resolved_store, products = await lenta_products_search(
+                "молоко",
+                address=address,
+                store_id=(setting or {}).get("store_alias_id"),
+            )
+        except LentaMCPError as exc:
+            raise HTTPException(502, f"Лента MCP error: {exc}") from exc
+        return {
+            "ok": True,
+            "store_id": store_id,
+            "address": address,
+            "lenta_store_id": resolved_store,
+            "store_name": (setting or {}).get("store_name"),
+            "mcp_products": len(products),
+            "sample": products[0].name if products else None,
+            "message": "MCP Ленты работает.",
+        }
     return {"ok": True, "store_id": store_id}
 
 
@@ -149,6 +287,21 @@ async def build_store_cart(store_id: str, request: Request):
     user = _user_or_401(request)
     if store_id not in SUPPORTED_STORES:
         raise HTTPException(404, "Unknown store")
+    if store_id == "lenta":
+        try:
+            result = await lenta_cart.build_cart(
+                owner_id=user["id"],
+                user_id=user["id"],
+                store_id="lenta",
+                user=user,
+            )
+        except lenta_cart.StoreNotConfigured as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except LentaMCPError as exc:
+            raise HTTPException(502, f"Лента MCP error: {exc}") from exc
+        except RuntimeError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return result
     if store_id != "vkusvill":
         raise HTTPException(400, "Cart building is not supported for this store")
 
@@ -167,4 +320,5 @@ async def build_store_cart(store_id: str, request: Request):
         raise HTTPException(502, f"VkusVill MCP error: {exc}") from exc
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc
+    result.setdefault("store_name", "ВкусВилл")
     return result

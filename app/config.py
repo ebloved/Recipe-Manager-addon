@@ -322,3 +322,11 @@ VKUSVILL_MCP_TIMEOUT = float(os.environ.get("VKUSVILL_MCP_TIMEOUT", "30") or 30)
 VKUSVILL_MAX_CART_ITEMS = int(os.environ.get("VKUSVILL_MAX_CART_ITEMS", "100") or 100)
 VKUSVILL_LLM_TIMEOUT = float(os.environ.get("VKUSVILL_LLM_TIMEOUT", "120") or 120)
 VKUSVILL_PROXY = os.environ.get("VKUSVILL_PROXY") or None
+
+# --- Магазины: Лента MCP (без OAuth, адрес доставки) --------------------
+LENTA_MCP_URL = os.environ.get("LENTA_MCP_URL", "https://mcp.lenta.com/mcp").strip()
+LENTA_MCP_TIMEOUT = float(os.environ.get("LENTA_MCP_TIMEOUT", "30") or 30)
+LENTA_MAX_CART_ITEMS = int(os.environ.get("LENTA_MAX_CART_ITEMS", "100") or 100)
+LENTA_LLM_TIMEOUT = float(os.environ.get("LENTA_LLM_TIMEOUT", "120") or 120)
+LENTA_PROXY = os.environ.get("LENTA_PROXY") or None
+LENTA_DEFAULT_CHANNEL = os.environ.get("LENTA_DEFAULT_CHANNEL", "lo").strip() or "lo"

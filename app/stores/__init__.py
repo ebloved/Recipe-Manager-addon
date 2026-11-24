@@ -20,6 +20,7 @@ from .gen_profiles import (
 )
 from .suggestions import suggestions_store, SuggestionsStore
 from .jobs import jobs_store, JobsStore
+from .store_settings import store_settings, StoreSettingsRepository
 
 __all__ = [
     # Recipes
@@ -41,4 +42,6 @@ __all__ = [
     "suggestions_store", "SuggestionsStore",
     # Jobs
     "jobs_store", "JobsStore",
+    # Store settings
+    "store_settings", "StoreSettingsRepository",
 ]
