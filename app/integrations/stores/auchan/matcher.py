@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """\
   sku_hint           — необязательные подсказки: barcode / brand / name
   notes              — заметка пользователя
   candidates         — товары Ашана: id / name / price_rub / price_per_kg /
-                       weight_g / package / stock / rating / brand
+                       weight_g / package / stock / rating / brand / category
 
 Для КАЖДОЙ задачи верни РОВНО ОДИН элемент в items ответа.
 Количество элементов items ДОЛЖНО совпадать с количеством задач.
@@ -48,6 +48,15 @@ product_id = 0, если ни один кандидат не подходит.
 7. packages — приблизительное число упаковок; окончательное количество
    всё равно пересчитает код. Округляй вверх.
 8. reason — короткая строка, confidence — 0..1.
+
+Русские синонимы и типы:
+- помидоры = томаты, картофель = картошка, курица = цыплёнок;
+- если ингредиент — свежий овощ, фрукт, мясо, рыба или зелень,
+  не выбирай соус, кетчуп, консервы, чипсы, приправу, готовое блюдо
+  или полуфабрикат, если есть свежий аналог;
+- если ингредиент — соус/специя/приправа, выбирай именно соус/специю,
+  а не свежий овощ;
+- поле category помогает отличить свежий продукт от соуса/консервов.
 
 Формат ответа — строго JSON:
 {"items": [{"task_index": 1, "product_id": 123, "packages": 1, "reason": "...", "confidence": 0.8}]}
@@ -124,6 +133,7 @@ def build_tasks_payload(
                 "stock": product.stock_qty,
                 "rating": product.rating,
                 "brand": product.brandName,
+                "category": (product.categoryNames[-1] if product.categoryNames else None),
             })
         payload.append({
             "task_index": index,

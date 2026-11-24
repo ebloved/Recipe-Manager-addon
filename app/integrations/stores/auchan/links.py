@@ -181,7 +181,11 @@ async def build_links(
                         continue
                     seen.add(product.id)
                     found.append(product)
-                if len(found) >= 8:
+                    # Не отдаём LLM весь каталог: первые результаты поиска
+                    # релевантнее, а длинный список только путает модель.
+                    if len(found) >= 12:
+                        break
+                if len(found) >= 12:
                     break
             return [p for p in found if (p.stock_qty or 0) > 0]
         except auchan.AuchanAPIError as exc:

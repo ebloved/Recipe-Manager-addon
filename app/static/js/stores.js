@@ -195,10 +195,12 @@
     const box = target || $("stores-result");
     if (!box) return;
     const items = data.items || [];
+    const total = Number(data.total || 0);
+    const found = total > items.length ? `${items.length} из ${total}` : `${items.length}`;
     box.style.display = "block";
     box.innerHTML = `
       <div style="font-size:14px;font-weight:600;margin-bottom:8px;">
-        Найдено: ${items.length}${data.store_name ? ` · ${esc(data.store_name)}` : ""}
+        Найдено: ${found}${data.store_name ? ` · ${esc(data.store_name)}` : ""}
       </div>
       ${items.length
         ? items.map((p) => {

@@ -246,7 +246,7 @@ async def search_store(
             "store_name": (setting or {}).get("store_name"),
             "merchant_id": merchant_id,
             "total": total,
-            "items": [_auchan_item(p) for p in products],
+            "items": [_auchan_item(p) for p in products[:24]],
         }
     if store_id != "lenta":
         raise HTTPException(400, "Поиск поддерживается только для Ленты и Ашана")
