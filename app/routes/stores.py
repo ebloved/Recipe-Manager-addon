@@ -84,6 +84,7 @@ def _auchan_item(product) -> dict:
         "package": product.package_display,
         "rating": product.rating,
         "url": product.url,
+        "is_weighted": product.is_weighted,
     }
 
 
@@ -246,7 +247,10 @@ async def search_store(
             "store_name": (setting or {}).get("store_name"),
             "merchant_id": merchant_id,
             "total": total,
-            "items": [_auchan_item(p) for p in products[:24]],
+            "items": [
+                _auchan_item(p)
+                for p in sorted(products, key=lambda p: 0 if p.is_weighted else 1)[:24]
+            ],
         }
     if store_id != "lenta":
         raise HTTPException(400, "Поиск поддерживается только для Ленты и Ашана")

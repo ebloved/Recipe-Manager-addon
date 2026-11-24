@@ -39,8 +39,9 @@ product_id = 0, если ни один кандидат не подходит.
 Правила:
 1. Выбирай товар того же базового типа, что и ингредиент.
 2. Учитывай бренд из sku_hint.brand и заметки пользователя.
-3. Для весовых ингредиентов ("г", "кг") предпочитай весовой аналог,
-   если он есть и заметка не требует упаковку/бренд.
+3. Для весовых ингредиентов ("г", "кг", "мл", "л") выбирай весовой товар,
+   если он есть и заметка не требует упаковку/бренд. Весовые товары
+   в candidates идут первыми.
 4. Сравнивай price_per_kg, а не цену упаковки, когда выбираешь между
    весовым и фасованным товаром.
 5. Не выбирай товар с stock = 0.
@@ -64,6 +65,7 @@ product_id = 0, если ни один кандидат не подходит.
 
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 _TOKEN_RE = re.compile(r"[a-zа-яё0-9]+", re.IGNORECASE)
+_WEIGHT_UNITS = {"г", "гр", "g", "кг", "kg", "мл", "ml", "л", "l"}
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -98,9 +100,14 @@ def _fallback_pick(item: MatchItem, candidates: list[AuchanProduct]) -> ProductP
     available = [p for p in candidates if (p.stock_qty or 0) > 0]
     if not available:
         return ProductPick(product_id=0, reason="нет товара в наличии")
+    prefer_weighted = (item.unit or "").strip().lower() in _WEIGHT_UNITS
     scored = sorted(
         available,
-        key=lambda p: (_similarity(item.name, p.name), p.rating or 0),
+        key=lambda p: (
+            1 if (prefer_weighted and p.is_weighted) else 0,
+            _similarity(item.name, p.name),
+            p.rating or 0,
+        ),
         reverse=True,
     )
     best = scored[0]

@@ -28,6 +28,7 @@ _PIECE_UNITS = {
     "зубчик", "зубчика", "пучок", "пучка", "упаковка", "уп",
     "пачка", "пакет", "щепотка", "щепоть", "веточка",
 }
+_WEIGHT_UNITS = {"г", "гр", "g", "кг", "kg", "мл", "ml", "л", "l"}
 
 
 class StoreNotConfigured(Exception):
@@ -53,6 +54,11 @@ def _is_piece_item(item: dict[str, Any]) -> bool:
         item.get("sold_as") == "piece"
         and (item.get("suggested_unit") or "").strip().lower() in _PIECE_UNITS
     )
+
+
+def _prefer_weighted(item: dict[str, Any]) -> bool:
+    unit = (item.get("suggested_unit") or "").strip().lower()
+    return unit in _WEIGHT_UNITS or item.get("sold_as") in ("weight", "volume")
 
 
 def _match_item(item: dict[str, Any]) -> MatchItem:
@@ -187,7 +193,12 @@ async def build_links(
                         break
                 if len(found) >= 12:
                     break
-            return [p for p in found if (p.stock_qty or 0) > 0]
+            return [
+                p for p in sorted(
+                    (p for p in found if (p.stock_qty or 0) > 0),
+                    key=lambda p: 0 if (p.is_weighted and _prefer_weighted(item)) else 1,
+                )
+            ]
         except auchan.AuchanAPIError as exc:
             warnings.append(
                 f"[{item.get('canonical_name') or ''}] поиск не удался: {exc}"

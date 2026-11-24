@@ -220,7 +220,7 @@
             <div class="store-product-meta">
               ${p.price !== null && p.price !== undefined ? esc(String(p.price)) + unit : "цена н/д"}
               · остаток: ${p.stock !== null && p.stock !== undefined ? esc(String(p.stock)) : "—"}
-              ${p.package ? " · " + esc(p.package) : ""}
+              ${p.is_weighted ? " · весовой" : (p.package ? " · " + esc(p.package) : "")}
               ${perKg && p.price_per !== "weight_kg" ? " · " + esc(String(perKg)) + " ₽/кг" : ""}
             </div>
           </div>`;
