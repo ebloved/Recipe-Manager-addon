@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import LENTA_DEFAULT_CHANNEL
-from integrations.stores.lenta.mcp_client import MCPToolError, lenta_mcp
+from integrations.stores.lenta.mcp_client import MCPError, MCPToolError, lenta_mcp
 from integrations.stores.lenta.models import LentaProduct
 
 
@@ -67,7 +67,7 @@ async def product_details(
     args["id"] = int(product_id)
     try:
         data = await lenta_mcp.call_tool("storefront_product_details", args)
-    except MCPToolError:
+    except MCPError:
         return None
     raw = data.get("item") if isinstance(data, dict) else None
     if not isinstance(raw, dict):

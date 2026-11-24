@@ -90,6 +90,13 @@ def _search_query(item: dict[str, Any]) -> str:
     return str(hint.get("name") or item.get("canonical_name") or "").strip()
 
 
+def _is_piece_item(item: dict[str, Any]) -> bool:
+    return (
+        item.get("sold_as") == "piece"
+        and (item.get("suggested_unit") or "").strip().lower() in _PIECE_UNITS
+    )
+
+
 async def build_cart(
     *,
     owner_id: str,
@@ -106,6 +113,18 @@ async def build_cart(
     cart = build_connector_cart(owner_id, "lenta", user or {"id": owner_id})
     items = cart.get("items") or []
     warnings: list[str] = list(cart.get("warnings") or [])
+    # Для штучных товаров без веса мы всё равно можем купить N штук —
+    # убираем предупреждение, которое относится к весовому подбору.
+    piece_unknown = {
+        (item.get("original_name") or item.get("canonical_name") or "").strip()
+        for item in items
+        if item.get("weight_unknown") and _is_piece_item(item)
+    }
+    if piece_unknown:
+        warnings = [
+            w for w in warnings
+            if not any(w.startswith(f"{name}: неизвестен вес 1 шт") for name in piece_unknown)
+        ]
     if not items:
         return {
             "status": "no_match",
@@ -121,7 +140,7 @@ async def build_cart(
     candidates_by_item: dict[str, list[LentaProduct]] = {}
     for item in items:
         name = item.get("canonical_name") or ""
-        if item.get("weight_unknown"):
+        if item.get("weight_unknown") and not _is_piece_item(item):
             warnings.append(f"[{name}] неизвестен вес 1 шт — пропущено")
             continue
         if _to_float(item.get("suggested_quantity")) is None:
