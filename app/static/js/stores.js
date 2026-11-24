@@ -27,7 +27,7 @@
 
     const meta = [];
     if (isAddress) {
-      if (store.address) meta.push(`Адрес: ${esc(store.address)}`);
+      if (store.address) meta.push(`Адрес доставки: ${esc(store.address)}`);
       if (store.store_name) meta.push(`Магазин: ${esc(store.store_name)}`);
       if (store.hint) meta.push(esc(store.hint));
     } else {
@@ -48,8 +48,8 @@
         <div class="store-address-row">
           <input type="text" data-store-address-input="${esc(store.id)}"
                  value="${esc(store.address || "")}"
-                 placeholder="Москва, Ленинский проспект 45">
-          <button class="btn" data-store-action="save-settings" data-store-id="${esc(store.id)}">Сохранить адрес</button>
+                 placeholder="Адрес доставки: город, улица, дом, квартира">
+          <button class="btn" data-store-action="save-settings" data-store-id="${esc(store.id)}">Сохранить адрес доставки</button>
         </div>
         <div class="store-address-row">
           <input type="text" data-store-search-input="${esc(store.id)}"
@@ -149,7 +149,7 @@
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = old || "Сохранить адрес";
+        btn.textContent = old || "Сохранить адрес доставки";
       }
     }
   }
