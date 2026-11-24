@@ -14,11 +14,14 @@
 
   function card(store) {
     const isAddress = store.auth_type === "address";
+    const isMerchant = store.auth_type === "merchant";
     const configured = !!store.configured;
     const connected = !!store.connected;
     let status = "⚪ Не подключён";
     if (isAddress) {
       status = connected ? "🟢 Адрес указан" : "⚪ Укажите адрес доставки";
+    } else if (isMerchant) {
+      status = connected ? "🟢 Магазин указан" : "⚪ Укажите магазин";
     } else if (!configured) {
       status = "🟡 OAuth не настроен";
     } else if (connected) {
@@ -29,6 +32,13 @@
     if (isAddress) {
       if (store.address) meta.push(`Адрес доставки: ${esc(store.address)}`);
       if (store.store_name) meta.push(`Магазин: ${esc(store.store_name)}`);
+      if (store.hint) meta.push(esc(store.hint));
+    } else if (isMerchant) {
+      if (store.merchant_id) {
+        meta.push(`Магазин: ${esc(store.store_name || "#" + store.merchant_id)}`);
+      }
+      meta.push("На auchan.ru → «Магазины» → ближайший → «Подробнее» → номер в адресе: <code>/shop/622/</code>.");
+      meta.push("Можно вставить ссылку на магазин целиком.");
       if (store.hint) meta.push(esc(store.hint));
     } else {
       if (connected && store.expires_at) {
@@ -60,6 +70,25 @@
           <button class="btn primary" data-store-action="cart" data-store-id="${esc(store.id)}"${connected ? "" : " disabled"}>🛒 Собрать корзину</button>
           <button class="btn" data-store-action="test" data-store-id="${esc(store.id)}"${connected ? "" : " disabled"}>Проверить</button>
           ${connected ? `<button class="btn" data-store-action="disconnect" data-store-id="${esc(store.id)}" style="color:var(--danger)">Удалить адрес</button>` : ""}
+        </div>
+      `;
+    } else if (isMerchant) {
+      actions = `
+        <div class="store-address-row">
+          <input type="text" data-store-merchant-input="${esc(store.id)}"
+                 value="${esc(store.merchant_id || "")}"
+                 placeholder="https://www.auchan.ru/shop/622/ или 622">
+          <button class="btn" data-store-action="save-settings" data-store-id="${esc(store.id)}">Сохранить магазин</button>
+        </div>
+        <div class="store-address-row">
+          <input type="text" data-store-search-input="${esc(store.id)}"
+                 placeholder="Найти товар, например Kinder Bueno">
+          <button class="btn" data-store-action="search" data-store-id="${esc(store.id)}"${connected ? "" : " disabled"}>Найти</button>
+        </div>
+        <div class="store-actions">
+          <button class="btn primary" data-store-action="cart" data-store-id="${esc(store.id)}"${connected ? "" : " disabled"}>🔎 Подобрать товары</button>
+          <button class="btn" data-store-action="test" data-store-id="${esc(store.id)}"${connected ? "" : " disabled"}>Проверить</button>
+          ${connected ? `<button class="btn" data-store-action="disconnect" data-store-id="${esc(store.id)}" style="color:var(--danger)">Удалить магазин</button>` : ""}
         </div>
       `;
     } else if (configured) {
@@ -127,10 +156,13 @@
   }
 
   async function saveSettings(storeId) {
-    const input = document.querySelector(`[data-store-address-input="${storeId}"]`);
-    const address = input ? input.value.trim() : "";
-    if (!address) {
-      alert("Укажите адрес доставки.");
+    const addressInput = document.querySelector(`[data-store-address-input="${storeId}"]`);
+    const merchantInput = document.querySelector(`[data-store-merchant-input="${storeId}"]`);
+    const input = merchantInput || addressInput;
+    const value = input ? input.value.trim() : "";
+    const isMerchant = !!merchantInput;
+    if (!value) {
+      alert(isMerchant ? "Укажите ссылку на магазин или merchantId." : "Укажите адрес доставки.");
       return;
     }
     const btn = document.querySelector(`[data-store-action="save-settings"][data-store-id="${storeId}"]`);
@@ -140,16 +172,21 @@
       btn.textContent = "⏳ Проверяю…";
     }
     try {
-      const data = await RM.api.postJSON(`api/stores/${storeId}/settings`, { address });
-      const hub = data.store_name ? ` · ${data.store_name}` : "";
-      alert(`Адрес сохранён: ${data.address}${hub}`);
+      const payload = isMerchant ? { merchant_id: value } : { address: value };
+      const data = await RM.api.postJSON(`api/stores/${storeId}/settings`, payload);
+      if (isMerchant) {
+        alert(`Магазин сохранён: ${data.store_name || "#" + data.merchant_id}`);
+      } else {
+        const hub = data.store_name ? ` · ${data.store_name}` : "";
+        alert(`Адрес сохранён: ${data.address}${hub}`);
+      }
       await load();
     } catch (e) {
-      alert("Ошибка сохранения адреса: " + e.message);
+      alert("Ошибка сохранения: " + e.message);
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = old || "Сохранить адрес доставки";
+        btn.textContent = old || "Сохранить";
       }
     }
   }
@@ -164,7 +201,14 @@
         Найдено: ${items.length}${data.store_name ? ` · ${esc(data.store_name)}` : ""}
       </div>
       ${items.length
-        ? items.map((p) => `
+        ? items.map((p) => {
+          const unit = p.price_per === "weight_kg"
+            ? " ₽/кг"
+            : p.price_per === "weight_100g"
+              ? " ₽/100 г"
+              : " ₽";
+          const perKg = p.price_per_kg || p.pricePerKg;
+          return `
           <div class="store-product">
             <div class="store-product-name">
               ${p.url
@@ -172,12 +216,13 @@
                 : esc(p.name)}
             </div>
             <div class="store-product-meta">
-              ${p.price !== null && p.price !== undefined ? esc(String(p.price)) + " ₽" : "цена н/д"}
+              ${p.price !== null && p.price !== undefined ? esc(String(p.price)) + unit : "цена н/д"}
               · остаток: ${p.stock !== null && p.stock !== undefined ? esc(String(p.stock)) : "—"}
               ${p.package ? " · " + esc(p.package) : ""}
-              ${p.pricePerKg ? " · " + esc(String(p.pricePerKg)) + " ₽/кг" : ""}
+              ${perKg && p.price_per !== "weight_kg" ? " · " + esc(String(perKg)) + " ₽/кг" : ""}
             </div>
-          </div>`).join("")
+          </div>`;
+        }).join("")
         : '<div class="hint">Ничего не найдено.</div>'}
     `;
   }
@@ -211,15 +256,25 @@
     const warnings = data.warnings || [];
     const matches = data.matched_items || [];
     const storeName = data.store_name || "магазин";
+    const title = data.links_only ? "Подобранные товары" : "Результат сборки корзины";
     box.style.display = "block";
     box.innerHTML = `
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Результат сборки корзины</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">${title}</div>
       ${data.cart_url
         ? `<div style="margin-bottom:8px;"><a href="${esc(data.cart_url)}" target="_blank" rel="noopener">Открыть корзину «${esc(storeName)}» →</a></div>`
-        : '<div style="margin-bottom:8px;color:var(--danger)">Корзина не собрана.</div>'}
+        : data.links_only
+          ? '<div style="margin-bottom:8px;color:var(--text-secondary);">Корзина не создаётся — откройте карточки и добавьте товары вручную.</div>'
+          : '<div style="margin-bottom:8px;color:var(--danger)">Корзина не собрана.</div>'}
       <div style="font-size:13px;color:var(--text-secondary);">Позиций: ${data.items_count || 0}</div>
       ${matches.length
-        ? `<div style="margin-top:10px;">${matches.map((m) => `
+        ? `<div style="margin-top:10px;">${matches.map((m) => {
+          const unit = m.price_per === "weight_kg"
+            ? " ₽/кг"
+            : m.price_per === "weight_100g"
+              ? " ₽/100 г"
+              : " ₽";
+          const qty = m.quantity_label || (m.quantity !== undefined ? `${m.quantity} шт` : "1 шт");
+          return `
             <div class="store-product">
               <div class="store-product-name">
                 ${m.url
@@ -227,11 +282,12 @@
                   : esc(m.product_name || m.sku)}
               </div>
               <div class="store-product-meta">
-                ${m.price !== null && m.price !== undefined ? esc(String(m.price)) + " ₽" : "цена н/д"}
-                · ${esc(String(m.quantity || 1))} шт
+                ${m.price !== null && m.price !== undefined ? esc(String(m.price)) + unit : "цена н/д"}
+                · ${esc(String(qty))}
                 ${m.stock !== null && m.stock !== undefined ? " · остаток: " + esc(String(m.stock)) : ""}
               </div>
-            </div>`).join("")}</div>`
+            </div>`;
+        }).join("")}</div>`
         : ""}
       ${warnings.length
         ? `<div style="margin-top:10px;font-size:12px;color:var(--text-muted);"><b>Предупреждения:</b><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>`
@@ -248,9 +304,10 @@
       btn.textContent = "⏳ Собираю…";
     }
     const box = opts.resultBox || $("stores-result");
+    const actionText = storeId === "auchan" ? "Подбираю товары…" : "Собираю корзину…";
     if (box) {
       box.style.display = "block";
-      box.innerHTML = '<div class="loading"><span class="spinner"></span> Собираю корзину… Это может занять до 2 минут.</div>';
+      box.innerHTML = `<div class="loading"><span class="spinner"></span> ${actionText} Это может занять до 2 минут.</div>`;
     }
     try {
       const data = await RM.api.postJSON(`api/stores/${storeId}/cart`, {});
@@ -263,7 +320,7 @@
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = defaultLabel || "🛒 Собрать корзину";
+        btn.textContent = defaultLabel || (storeId === "auchan" ? "🔎 Подобрать товары" : "🛒 Собрать корзину");
       }
     }
   }

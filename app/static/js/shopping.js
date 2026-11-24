@@ -688,10 +688,13 @@
         holder.innerHTML = "";
         return;
       }
-      holder.innerHTML = connected.map((s) => `
+      holder.innerHTML = connected.map((s) => {
+        const icon = s.cart_supported === false ? "🔎" : "🛒";
+        return `
         <button class="btn" data-shop-store="${escHtml(s.id)}">
-          🛒 ${escHtml(s.name || s.id)}
-        </button>`).join("");
+          ${icon} ${escHtml(s.name || s.id)}
+        </button>`;
+      }).join("");
       wrap.style.display = "flex";
     } catch (e) {
       wrap.style.display = "none";

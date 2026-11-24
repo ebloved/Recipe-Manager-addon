@@ -187,6 +187,17 @@ async def init_db() -> None:
                 "ON audit_events(error_model)"
             ))
 
+        # v3.43.0: merchantId для магазинов без OAuth (Ашан).
+        store_cols = (await conn.execute(
+            text("PRAGMA table_info(user_store_settings)")
+        )).all()
+        store_names = {str(c[1]) for c in store_cols}
+        if store_names and "merchant_id" not in store_names:
+            await conn.execute(text(
+                "ALTER TABLE user_store_settings ADD COLUMN merchant_id INTEGER"
+            ))
+            print("[db] user_store_settings.merchant_id added")
+
     # Backfill revision для существующих shopping-позиций (phase 2b).
     try:
         from stores.db_models import RecipeChange, ShoppingItem

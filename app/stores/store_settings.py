@@ -35,6 +35,7 @@ class StoreSettingsRepository:
                 "store_id": row.store_id,
                 "address": row.address,
                 "store_alias_id": row.store_alias_id,
+                "merchant_id": row.merchant_id,
                 "store_name": row.store_name,
                 "created_at": _as_utc(row.created_at),
                 "updated_at": _as_utc(row.updated_at),
@@ -47,6 +48,7 @@ class StoreSettingsRepository:
         *,
         address: str | None = None,
         store_alias_id: int | None = None,
+        merchant_id: int | None = None,
         store_name: str | None = None,
     ) -> dict[str, Any]:
         async with SessionLocal() as session:
@@ -63,6 +65,7 @@ class StoreSettingsRepository:
             if address is not None:
                 row.address = address
             row.store_alias_id = store_alias_id
+            row.merchant_id = merchant_id
             row.store_name = store_name
             await session.commit()
             return {
@@ -70,6 +73,7 @@ class StoreSettingsRepository:
                 "store_id": row.store_id,
                 "address": row.address,
                 "store_alias_id": row.store_alias_id,
+                "merchant_id": row.merchant_id,
                 "store_name": row.store_name,
             }
 

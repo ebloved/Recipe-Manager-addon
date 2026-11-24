@@ -129,6 +129,7 @@ class UserStoreSetting(Base):
     store_id: Mapped[str] = mapped_column(String(32), index=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     store_alias_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    merchant_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     store_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

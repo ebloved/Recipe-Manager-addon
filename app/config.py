@@ -330,3 +330,14 @@ LENTA_MAX_CART_ITEMS = int(os.environ.get("LENTA_MAX_CART_ITEMS", "100") or 100)
 LENTA_LLM_TIMEOUT = float(os.environ.get("LENTA_LLM_TIMEOUT", "120") or 120)
 LENTA_PROXY = os.environ.get("LENTA_PROXY") or None
 LENTA_DEFAULT_CHANNEL = os.environ.get("LENTA_DEFAULT_CHANNEL", "lo").strip() or "lo"
+
+# --- Магазины: Ашан (публичный REST API, merchantId per-user) -----------
+AUCHAN_API_BASE = os.environ.get("AUCHAN_API_BASE", "https://www.auchan.ru").strip()
+AUCHAN_API_TIMEOUT = float(os.environ.get("AUCHAN_API_TIMEOUT", "30") or 30)
+AUCHAN_MAX_LINKS = int(os.environ.get("AUCHAN_MAX_LINKS", "100") or 100)
+AUCHAN_LLM_TIMEOUT = float(os.environ.get("AUCHAN_LLM_TIMEOUT", "120") or 120)
+AUCHAN_USER_AGENT = os.environ.get(
+    "AUCHAN_USER_AGENT",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+).strip()
