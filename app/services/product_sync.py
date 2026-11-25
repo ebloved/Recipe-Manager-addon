@@ -36,7 +36,7 @@ def _clean(value: Any, limit: int = 500) -> str | None:
     return text[:limit] or None
 
 
-def _find_pending_suggestion(
+async def _find_pending_suggestion(
     session,
     *,
     barcode: str | None,
@@ -45,11 +45,11 @@ def _find_pending_suggestion(
 ) -> ProductSuggestion | None:
     query = select(ProductSuggestion).where(ProductSuggestion.status == "pending")
     if barcode:
-        result = session.execute(query.where(ProductSuggestion.barcode == barcode))
+        result = await session.execute(query.where(ProductSuggestion.barcode == barcode))
         row = result.scalars().first()
         if row:
             return row
-    result = session.execute(
+    result = await session.execute(
         query.where(
             ProductSuggestion.barcode.is_(None),
             ProductSuggestion.name == name,
@@ -106,7 +106,7 @@ async def record_observations(
             product_id = product.get("id") if product else None
             suggestion_id = None
             if not product_id:
-                suggestion = _find_pending_suggestion(
+                suggestion = await _find_pending_suggestion(
                     session, barcode=barcode, name=name, brand=brand
                 )
                 payload = {
