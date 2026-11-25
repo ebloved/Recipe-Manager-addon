@@ -41,7 +41,7 @@
 
   const PANTRY_MARKERS = [
     "сушён", "сушен", "специ", "приправ", "лавров", "мускатн",
-    "кориандр", "орегано", "паприк", "розмарин", "тимьян",
+    "кориандр", "орегано", "паприк", "розмарин", "тимьян", "кориц",
   ];
 
   function isPantryName(name) {
@@ -51,6 +51,16 @@
       return false;
     }
     if (text.includes("соль")) return true;
+    if (text === "перец") return true;
+    if (
+      text === "сахар"
+      || text.startsWith("сахар ")
+      || text.startsWith("сахарный")
+      || text.startsWith("сахарная пудра")
+      || text.startsWith("сахар-песок")
+    ) {
+      return true;
+    }
     if (PANTRY_MARKERS.some((word) => text.includes(word))) return true;
     return text.includes("перец")
       && ["черн", "молот", "красн", "горош"].some((word) => text.includes(word));
