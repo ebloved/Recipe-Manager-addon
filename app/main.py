@@ -202,6 +202,12 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         print(f"[backup] stop failed: {exc}")
 
+    try:
+        from services.webhooks import webhook_manager
+        await webhook_manager.close()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[webhook] stop failed: {exc}")
+
 
 app = FastAPI(title="Recipe Manager", lifespan=lifespan)
 

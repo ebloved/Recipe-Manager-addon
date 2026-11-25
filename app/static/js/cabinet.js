@@ -77,14 +77,51 @@
     if (!list.dataset.bound) {
       list.dataset.bound = "1";
       list.onclick = async (e) => {
-        const btn = e.target.closest("[data-api-token-revoke]");
-        if (!btn) return;
-        if (!confirm("Отозвать токен? Внешний сервис сразу потеряет доступ.")) return;
-        try {
-          await del(`api/me/api-tokens/${btn.dataset.apiTokenRevoke}`);
-          await loadApiTokens();
-        } catch (err) {
-          alert("Ошибка: " + err.message);
+        const revoke = e.target.closest("[data-api-token-revoke]");
+        if (revoke) {
+          if (!confirm("Отозвать токен? Внешний сервис сразу потеряет доступ.")) return;
+          try {
+            await del(`api/me/api-tokens/${revoke.dataset.apiTokenRevoke}`);
+            await loadApiTokens();
+          } catch (err) {
+            alert("Ошибка: " + err.message);
+          }
+          return;
+        }
+        const saveWebhook = e.target.closest("[data-api-token-save-webhook]");
+        if (saveWebhook) {
+          const id = saveWebhook.dataset.apiTokenSaveWebhook;
+          const urlInput = document.querySelector(`[data-api-token-callback="${id}"]`);
+          const eventsInput = document.querySelector(`[data-api-token-events="${id}"]`);
+          const callbackUrl = urlInput ? urlInput.value.trim() : "";
+          const callbackEvents = eventsInput ? eventsInput.value : "shopping";
+          saveWebhook.disabled = true;
+          try {
+            await patchJSON(`api/me/api-tokens/${id}`, {
+              callback_url: callbackUrl,
+              callback_events: callbackEvents,
+            });
+            await loadApiTokens();
+          } catch (err) {
+            alert("Ошибка сохранения webhook: " + err.message);
+          } finally {
+            saveWebhook.disabled = false;
+          }
+          return;
+        }
+        const testWebhook = e.target.closest("[data-api-token-test-webhook]");
+        if (testWebhook) {
+          const id = testWebhook.dataset.apiTokenTestWebhook;
+          testWebhook.disabled = true;
+          try {
+            const data = await postJSON(`api/me/api-tokens/${id}/test-webhook`, {});
+            alert(data.ok ? "Webhook доставлен." : `Ошибка webhook: ${data.status} ${data.error || ""}`);
+            await loadApiTokens();
+          } catch (err) {
+            alert("Ошибка проверки webhook: " + err.message);
+          } finally {
+            testWebhook.disabled = false;
+          }
         }
       };
     }
@@ -110,11 +147,36 @@
     if (token.last_used_at) {
       meta.push(`Использован: ${new Date(token.last_used_at).toLocaleString("ru-RU")}`);
     }
+    if (token.last_ip) meta.push(`IP: ${token.last_ip}`);
+    if (token.last_user_agent) {
+      meta.push(`UA: ${String(token.last_user_agent).slice(0, 50)}`);
+    }
     if (token.revoked_at) meta.push("Отозван");
+    const events = token.callback_events || "shopping";
+    const eventLabel = { shopping: "Корзина", meal_plan: "План", both: "Корзина + план" }[events] || events;
+    const delivery = token.last_delivery_at
+      ? `Доставка: ${new Date(token.last_delivery_at).toLocaleString("ru-RU")} · ${token.last_delivery_status || ""}`
+      : "";
+    const webhook = token.revoked_at ? "" : `
+      <div class="api-token-webhook">
+        <input type="text" data-api-token-callback="${escHtml(token.id)}"
+               value="${escHtml(token.callback_url || "")}"
+               placeholder="https://example.com/hook">
+        <select data-api-token-events="${escHtml(token.id)}">
+          <option value="shopping"${events === "shopping" ? " selected" : ""}>Корзина</option>
+          <option value="meal_plan"${events === "meal_plan" ? " selected" : ""}>План</option>
+          <option value="both"${events === "both" ? " selected" : ""}>Корзина + план</option>
+        </select>
+        <button class="btn" data-api-token-save-webhook="${escHtml(token.id)}">Сохранить webhook</button>
+        ${token.callback_url ? `<button class="btn" data-api-token-test-webhook="${escHtml(token.id)}">Проверить</button>` : ""}
+      </div>
+      <div class="hint" style="font-size:11px;">${escHtml(delivery || "Webhook не настроен")}</div>`;
     return `<div class="api-token-row">
-      <div>
+      <div style="flex:1;min-width:0;">
         <div><b>${escHtml(token.name || "Токен")}</b> <code>${escHtml(token.prefix || "")}</code></div>
         <div class="hint" style="font-size:11px;">${escHtml(meta.join(" · "))}</div>
+        <div class="hint" style="font-size:11px;">События: ${escHtml(eventLabel)}</div>
+        ${webhook}
       </div>
       ${token.revoked_at ? "" : `<button class="btn" data-api-token-revoke="${escHtml(token.id)}">Отозвать</button>`}
     </div>`;

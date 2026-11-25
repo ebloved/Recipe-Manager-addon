@@ -150,6 +150,15 @@ class UserApiToken(Base):
     token_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     token_prefix: Mapped[str] = mapped_column(String(32))
     scopes: Mapped[str] = mapped_column(String(200), default="export")
+    callback_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    callback_events: Mapped[str] = mapped_column(String(32), default="shopping")
+    last_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    last_delivery_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_delivery_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_delivery_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )

@@ -32,6 +32,16 @@ class MealPlanStore:
                 changed = True
         return changed
 
+    @staticmethod
+    def _notify_webhooks(owner_id: str | None) -> None:
+        if not owner_id:
+            return
+        try:
+            from services.webhooks import webhook_manager
+            webhook_manager.schedule(owner_id, event="meal_plan")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[webhook] schedule failed: {type(exc).__name__}: {exc}")
+
     async def load(self) -> None:
         if not self.path.exists():
             return
@@ -70,6 +80,7 @@ class MealPlanStore:
         }
         self.entries.append(entry)
         await self.save()
+        self._notify_webhooks(owner_id)
         return entry
 
     async def add_many(
@@ -92,6 +103,7 @@ class MealPlanStore:
         except Exception:
             del self.entries[before:]
             raise
+        self._notify_webhooks(owner_id)
         return entries
 
     async def update(self, entry_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
@@ -100,27 +112,34 @@ class MealPlanStore:
                 updated = {**e, **patch}
                 self.entries[i] = updated
                 await self.save()
+                self._notify_webhooks(updated.get("owner_id"))
                 return updated
         return None
 
     async def delete(self, entry_id: str) -> bool:
-        before = len(self.entries)
+        removed = [e for e in self.entries if e.get("id") == entry_id]
+        if not removed:
+            return False
         self.entries = [e for e in self.entries if e.get("id") != entry_id]
-        if len(self.entries) < before:
-            await self.save()
-            return True
-        return False
+        await self.save()
+        for owner_id in {e.get("owner_id") for e in removed}:
+            self._notify_webhooks(owner_id)
+        return True
 
     async def delete_by_recipe(self, recipe_id: str) -> int:
-        before = len(self.entries)
+        removed = [
+            e for e in self.entries
+            if e.get("recipe_id") == recipe_id or e.get("side_for") == recipe_id
+        ]
         self.entries = [
             e for e in self.entries
             if e.get("recipe_id") != recipe_id and e.get("side_for") != recipe_id
         ]
-        removed = before - len(self.entries)
         if removed:
             await self.save()
-        return removed
+            for owner_id in {e.get("owner_id") for e in removed}:
+                self._notify_webhooks(owner_id)
+        return len(removed)
 
 
 meal_plan_store = MealPlanStore(MEAL_PLAN_FILE)

@@ -153,6 +153,7 @@ class ShoppingStore:
             )
             await session.commit()
         self._cache_update(item)
+        self._notify_webhooks(owner_id)
         return item
 
     async def add_or_merge(self, data: dict[str, Any], owner_id: str) -> tuple[dict[str, Any], bool]:
@@ -198,6 +199,14 @@ class ShoppingStore:
         return item, False
 
     @staticmethod
+    def _notify_webhooks(owner_id: str) -> None:
+        try:
+            from services.webhooks import webhook_manager
+            webhook_manager.schedule(owner_id, event="shopping")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[webhook] schedule failed: {type(exc).__name__}: {exc}")
+
+    @staticmethod
     def _merge_note(old: str | None, new: str | None) -> str | None:
         old = (old or "").strip()
         new = (new or "").strip()
@@ -226,6 +235,7 @@ class ShoppingStore:
             await session.commit()
             item = self._to_dict(row)
         self._cache_update(item)
+        self._notify_webhooks(owner_id)
         return item
 
     async def toggle(self, item_id: str, owner_id: str) -> dict[str, Any] | None:
@@ -248,6 +258,7 @@ class ShoppingStore:
             deleted = bool(result.rowcount)
         if deleted:
             self._cache_remove(item_id)
+            self._notify_webhooks(owner_id)
         return deleted
 
     async def clear_checked(self, owner_id: str) -> int:
@@ -265,6 +276,7 @@ class ShoppingStore:
                 i for i in self.items
                 if not (i.get("owner_id") == owner_id and i.get("checked"))
             ]
+            self._notify_webhooks(owner_id)
         return removed
 
     async def clear_all(self, owner_id: str) -> int:
@@ -278,6 +290,7 @@ class ShoppingStore:
             self.items = [
                 i for i in self.items if i.get("owner_id") != owner_id
             ]
+            self._notify_webhooks(owner_id)
         return removed
 
 

@@ -1,10 +1,12 @@
 """Управление персональными API-токенами (только из браузерной сессии)."""
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Body, HTTPException, Request
 
 from services.auth import get_current_user
-from stores.api_tokens import api_tokens, normalize_scopes
+from stores.api_tokens import api_tokens, normalize_events, normalize_scopes
 
 router = APIRouter(prefix="/api/me/api-tokens", tags=["api-tokens"])
 
@@ -38,6 +40,37 @@ async def create_token(request: Request, payload: dict = Body(...)):
         "item": item,
         "warning": "Токен показывается один раз. Сохраните его сейчас.",
     }
+
+
+@router.patch("/{token_id}")
+async def update_webhook(token_id: str, request: Request, payload: dict = Body(...)):
+    user = _user_or_401(request)
+    callback_url = str(payload.get("callback_url") or "").strip()[:1000]
+    if callback_url:
+        parsed = urlparse(callback_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise HTTPException(400, "callback_url must be http(s) URL")
+    events = normalize_events(payload.get("callback_events"))
+    item = await api_tokens.set_webhook(
+        user["id"],
+        token_id,
+        callback_url=callback_url,
+        callback_events=events,
+    )
+    if item is None:
+        raise HTTPException(404, "Token not found")
+    return {"item": item}
+
+
+@router.post("/{token_id}/test-webhook")
+async def test_webhook(token_id: str, request: Request):
+    user = _user_or_401(request)
+    from services.webhooks import webhook_manager
+
+    result = await webhook_manager.send_test(user["id"], token_id)
+    if result is None:
+        raise HTTPException(404, "Token not found or callback_url is empty")
+    return result
 
 
 @router.delete("/{token_id}")

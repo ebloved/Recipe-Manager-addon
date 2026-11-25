@@ -198,6 +198,24 @@ async def init_db() -> None:
             ))
             print("[db] user_store_settings.merchant_id added")
 
+        # v3.45.0: webhook-настройки персональных API-токенов.
+        token_cols = (await conn.execute(
+            text("PRAGMA table_info(user_api_tokens)")
+        )).all()
+        token_names = {str(c[1]) for c in token_cols}
+        for column, ddl in (
+            ("callback_url", "ALTER TABLE user_api_tokens ADD COLUMN callback_url TEXT"),
+            ("callback_events", "ALTER TABLE user_api_tokens ADD COLUMN callback_events VARCHAR(32) DEFAULT 'shopping'"),
+            ("last_ip", "ALTER TABLE user_api_tokens ADD COLUMN last_ip VARCHAR(64)"),
+            ("last_user_agent", "ALTER TABLE user_api_tokens ADD COLUMN last_user_agent VARCHAR(300)"),
+            ("last_delivery_at", "ALTER TABLE user_api_tokens ADD COLUMN last_delivery_at TIMESTAMP"),
+            ("last_delivery_status", "ALTER TABLE user_api_tokens ADD COLUMN last_delivery_status VARCHAR(32)"),
+            ("last_delivery_error", "ALTER TABLE user_api_tokens ADD COLUMN last_delivery_error TEXT"),
+        ):
+            if token_names and column not in token_names:
+                await conn.execute(text(ddl))
+                print(f"[db] user_api_tokens.{column} added")
+
     # Backfill revision для существующих shopping-позиций (phase 2b).
     try:
         from stores.db_models import RecipeChange, ShoppingItem
