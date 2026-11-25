@@ -367,6 +367,7 @@ class IngredientsStore:
                     target[item_id] = item
         if int(data.get("schema_version") or 0) > int(self.schema_version or 1):
             self.schema_version = int(data["schema_version"])
+        self._migrate_group_fields()
 
         return {"added": added, "updated": updated, "skipped": skipped, "removed": 0}
 
