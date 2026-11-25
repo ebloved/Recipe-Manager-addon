@@ -70,6 +70,25 @@
     return String(name || "").trim().toLowerCase().replace(/ё/g, "е");
   }
 
+  function joinIngredientLines(text) {
+    const out = [];
+    let buffer = "";
+    let depth = 0;
+    for (const raw of (text || "").split("\n")) {
+      const line = raw.trim();
+      if (!line && !buffer) continue;
+      buffer = buffer ? `${buffer} ${line}` : line;
+      depth += (line.match(/\(/g) || []).length;
+      depth -= (line.match(/\)/g) || []).length;
+      if (depth > 0) continue;
+      out.push(buffer);
+      buffer = "";
+      depth = 0;
+    }
+    if (buffer) out.push(buffer);
+    return out;
+  }
+
   // -----------------------------------------------------------------
   // Парсинг строки ингредиента (тот же формат, что и на бэкенде)
   // -----------------------------------------------------------------
@@ -82,12 +101,37 @@
       return { name: trimmed, is_heading: true };
     }
 
-    // "500 г муки" или "2 шт яйца" или "соль"
-    const m = trimmed.match(/^([\d.,/]+)\s+([а-яa-z]+\.?)\s+(.+)$/i);
+    // "1.5 ст. л. масло", "0.5 ч. л. паприка", "2 шт яйца", "соль"
+    const m = trimmed.match(
+      /^([\d.,/]+)\s+(ст\.?\s*л\.?|ч\.?\s*л\.?|ст\.?\s*ложк\w*|ч\.?\s*ложк\w*|стакан\w*|[а-яa-z]+\.?)\s+(.+)$/i
+    );
+    let amount = null;
+    let unit = null;
+    let name = trimmed;
     if (m) {
-      return { amount: m[1], unit: m[2], name: m[3].trim() };
+      amount = m[1];
+      unit = m[2].replace(/\s+/g, " ").trim();
+      name = m[3].trim();
     }
-    return { name: trimmed };
+
+    // Скобки в имени -> notes
+    let notes = null;
+    const paren = name.match(/\s*\(([^)]*)\)/);
+    if (paren) {
+      notes = paren[1].trim() || null;
+      name = name.replace(paren[0], "").trim();
+    }
+    name = name.replace(/[(\s]+$/, "").trim();
+
+    const optional = /(по вкусу|по желанию|опционально)/i.test(
+      `${notes || ""} ${name}`
+    );
+    if (optional && !notes) notes = "по вкусу";
+
+    const result = { amount, unit, name };
+    if (notes) result.notes = notes;
+    if (optional) result.optional = true;
+    return result;
   }
 
   // -----------------------------------------------------------------
@@ -273,7 +317,7 @@
     if (!ta || !container) return;
 
     // Парсим текущее содержимое textarea
-    const lines = ta.value.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = joinIngredientLines(ta.value);
     const items = [];
     for (const line of lines) {
       const parsed = parseIngredientLine(line);
@@ -380,7 +424,7 @@
   // Сбор данных формы
   // -----------------------------------------------------------------
   function collectForm() {
-    const lines = $("ed-ingredients").value.split("\n");
+    const lines = joinIngredientLines($("ed-ingredients").value);
     const ingredients = [];
     for (const line of lines) {
       const parsed = parseIngredientLine(line);
