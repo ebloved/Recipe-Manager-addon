@@ -70,6 +70,7 @@ async def record_observations(
     enriched: list[dict[str, Any]] = []
     feedback_items: list[dict[str, Any]] = []
     warnings: list[str] = []
+    group_seen = False
     observed = 0
 
     async with SessionLocal() as session:
@@ -95,6 +96,13 @@ async def record_observations(
                 price = None
             purchased_at = _clean(raw.get("purchased_at"), 64)
             store = _clean(raw.get("store"), 200)
+            group_key = _clean(raw.get("group_key") or raw.get("identity_key"), 300)
+            product_type = _clean(raw.get("product_type"), 200)
+            volume = _clean(raw.get("volume"), 64)
+            packaging = _clean(raw.get("packaging"), 64)
+            variant = _clean(raw.get("variant"), 64)
+            if any((group_key, product_type, volume, packaging, variant)):
+                group_seen = True
 
             product = None
             matched_by = None
@@ -103,8 +111,11 @@ async def record_observations(
                 if product:
                     matched_by = "barcode"
             if product is None:
-                product = ingredients_store.find_by_name(name)
-                if product:
+                by_name = ingredients_store.find_by_name(name)
+                # Не склеиваем разные GTIN только по названию: если у
+                # найденного продукта уже есть другой штрихкод, это вариант.
+                if by_name and (not barcode or not by_name.get("barcode")):
+                    product = by_name
                     matched_by = "name"
 
             product_id = product.get("id") if product else None
@@ -124,6 +135,20 @@ async def record_observations(
                     patch["category"] = category
                 if unit and not product.get("default_unit"):
                     patch["default_unit"] = unit
+                for key, value in (
+                    ("product_type", product_type),
+                    ("volume", volume),
+                    ("packaging", packaging),
+                    ("variant", variant),
+                ):
+                    if value and product.get(key) != value:
+                        patch[key] = value
+                if (
+                    group_key
+                    and not product.get("group_id")
+                    and product.get("identity_key") != group_key
+                ):
+                    patch["identity_key"] = group_key
                 if patch:
                     updated = await ingredients_store.update(product_id, patch)
                     if updated:
@@ -142,6 +167,11 @@ async def record_observations(
                     "category": category,
                     "unit": unit,
                     "source": "external",
+                    "identity_key": group_key,
+                    "product_type": product_type,
+                    "volume": volume,
+                    "packaging": packaging,
+                    "variant": variant,
                 }
                 if suggestion is None:
                     suggestion = ProductSuggestion(
@@ -200,6 +230,10 @@ async def record_observations(
                 })
         await session.commit()
 
+    group_created = 0
+    if group_seen:
+        group_created = len(await ingredients_store.create_group_suggestions())
+
     shopping = None
     if feedback_items:
         from services.shopping_feedback import apply_purchase_feedback
@@ -213,6 +247,7 @@ async def record_observations(
         "suggestions": suggestions,
         "enriched": enriched,
         "shopping": shopping,
+        "group_suggestions": group_created,
         "warnings": warnings,
     }
 
@@ -267,6 +302,11 @@ async def approve_suggestion(
                 "source": "external",
                 "kind": "manual",
                 "aliases": payload.get("aliases") or [],
+                "identity_key": payload.get("identity_key") or payload.get("group_key"),
+                "product_type": payload.get("product_type"),
+                "volume": payload.get("volume"),
+                "packaging": payload.get("packaging"),
+                "variant": payload.get("variant"),
             })
         row.status = "approved"
         row.product_id = product.get("id")
@@ -285,6 +325,7 @@ async def approve_suggestion(
                 obs.product_id = product.get("id")
                 obs.matched_by = "suggestion"
         await session.commit()
+        await ingredients_store.create_group_suggestions()
         return product
 
 

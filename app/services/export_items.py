@@ -115,6 +115,23 @@ def _component(
     suggestion = _suggestion(name, amount, unit, user_weights)
     if pantry is None:
         pantry = is_pantry_ingredient({"name": name}, product)
+    group = None
+    if product and product.get("id"):
+        try:
+            group = ingredients_store.group_for_product(str(product["id"]))
+        except Exception:  # noqa: BLE001
+            group = None
+    members = (group or {}).get("members") or []
+    variant_barcodes = sorted({
+        str(member.get("barcode"))
+        for member in members
+        if member.get("barcode")
+    })
+    variant_product_ids = sorted({
+        str(member.get("id"))
+        for member in members
+        if member.get("id")
+    })
     return {
         "source": source,
         "name": name,
@@ -129,6 +146,10 @@ def _component(
         "brand": (product or {}).get("brand") or None,
         "category": (product or {}).get("category") or None,
         "image_url": (product or {}).get("image_url") or None,
+        "group_id": (group or {}).get("id") or (product or {}).get("group_id"),
+        "identity_key": (product or {}).get("identity_key"),
+        "variant_barcodes": variant_barcodes,
+        "variant_product_ids": variant_product_ids,
         "pantry": bool(pantry),
         "essential": not bool(pantry),
         "shopping_item_id": shopping_item_id,
@@ -243,6 +264,8 @@ def _meal_plan_components(
 def _merge_key(component: dict[str, Any], index: int, merge: bool) -> tuple:
     if not merge:
         return ("row", index)
+    if component.get("group_id"):
+        return ("group", component["group_id"])
     if component.get("product_id"):
         return ("pid", component["product_id"])
     return (
@@ -280,6 +303,10 @@ def _merge_components(
                 "brand": component.get("brand"),
                 "category": component.get("category"),
                 "image_url": component.get("image_url"),
+                "group_id": component.get("group_id"),
+                "identity_key": component.get("identity_key"),
+                "variant_barcodes": list(component.get("variant_barcodes") or []),
+                "variant_product_ids": list(component.get("variant_product_ids") or []),
                 "pantry": bool(component.get("pantry")),
                 "essential": bool(component.get("essential", True)),
                 "shopping_item_ids": [],
@@ -302,6 +329,18 @@ def _merge_components(
             existing["brand"] = component.get("brand")
             existing["category"] = component.get("category")
             existing["image_url"] = component.get("image_url")
+        if not existing.get("group_id") and component.get("group_id"):
+            existing["group_id"] = component["group_id"]
+        if not existing.get("identity_key") and component.get("identity_key"):
+            existing["identity_key"] = component["identity_key"]
+        existing["variant_barcodes"] = sorted({
+            *(existing.get("variant_barcodes") or []),
+            *(component.get("variant_barcodes") or []),
+        })
+        existing["variant_product_ids"] = sorted({
+            *(existing.get("variant_product_ids") or []),
+            *(component.get("variant_product_ids") or []),
+        })
         existing["weight_unknown"] = bool(
             existing.get("weight_unknown") or component.get("weight_unknown")
         )

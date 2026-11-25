@@ -22,6 +22,7 @@ import aiofiles
 
 from config import BASE_PRODUCTS_FILE, INGREDIENTS_FILE
 from services.pantry import is_pantry_name
+from services.product_groups import group_fields
 
 
 # --- Детерминированные UUID ------------------------------------------------
@@ -81,11 +82,13 @@ def is_internal_barcode(barcode: str) -> bool:
 # --- Хранилище -------------------------------------------------------------
 
 class IngredientsStore:
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, path: Path = INGREDIENTS_FILE) -> None:
         self.path = path
         self.products: dict[str, dict[str, Any]] = {}
+        self.groups: dict[str, dict[str, Any]] = {}
+        self.group_suggestions: dict[str, dict[str, Any]] = {}
         # Публичные атрибуты, которые ожидает products.py
         self.schema_version: int = self.SCHEMA_VERSION
         self.installation_id: str = ""
@@ -117,6 +120,10 @@ class IngredientsStore:
         for p in self.products.values():
             self._with_pid(p)
 
+        migrated = self._migrate_group_fields()
+        if migrated:
+            await self._save_to_file()
+
         # Гарантируем installation_id
         if not self.installation_id:
             self.installation_id = new_installation_id()
@@ -146,6 +153,16 @@ class IngredientsStore:
                 p["id"] = pid
                 p["product_id"] = pid
                 self.products[pid] = p
+            self.groups = {
+                str(g.get("id")): g
+                for g in (data.get("groups") or [])
+                if isinstance(g, dict) and g.get("id")
+            }
+            self.group_suggestions = {
+                str(g.get("id")): g
+                for g in (data.get("group_suggestions") or [])
+                if isinstance(g, dict) and g.get("id")
+            }
         except Exception as exc:  # noqa: BLE001
             print(f"[ingredients] failed to load: {exc}")
             self.products = {}
@@ -197,10 +214,30 @@ class IngredientsStore:
             await self._save_to_file()
         return added
 
+    def _migrate_group_fields(self) -> bool:
+        """Дозаполняет group_id/identity_key у старых продуктов (schema v1)."""
+        changed = False
+        if int(self.schema_version or 1) < self.SCHEMA_VERSION:
+            self.schema_version = self.SCHEMA_VERSION
+            changed = True
+        for product in self.products.values():
+            if "group_id" not in product:
+                product["group_id"] = None
+                changed = True
+            fields = group_fields(product)
+            if not product.get("identity_key"):
+                product["identity_key"] = fields["identity_key"]
+                changed = True
+            for key in ("product_type", "volume", "packaging", "variant"):
+                if not product.get(key) and fields.get(key):
+                    product[key] = fields[key]
+                    changed = True
+        return changed
+
     def _base_item_to_product(self, item: dict[str, Any], now: str) -> dict[str, Any]:
         key = item["key"]
         pid = base_product_id(key)
-        return {
+        product = {
             "id": pid,
             "product_id": pid,
             "key": key,
@@ -221,7 +258,11 @@ class IngredientsStore:
             "created_at": now,
             "updated_at": now,
             "vectors": {},
+            "group_id": None,
+            "identity_key": "",
         }
+        product["identity_key"] = group_fields(product)["identity_key"]
+        return product
 
     async def _save_to_file(self) -> None:
         async with self._lock:
@@ -231,6 +272,8 @@ class IngredientsStore:
                 "schema_version": self.schema_version or self.SCHEMA_VERSION,
                 "installation_id": self.installation_id,
                 "products": list(self.products.values()),
+                "groups": list(self.groups.values()),
+                "group_suggestions": list(self.group_suggestions.values()),
             }
             async with aiofiles.open(tmp, "w", encoding="utf-8") as f:
                 await f.write(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -247,6 +290,8 @@ class IngredientsStore:
             "schema_version": self.schema_version or self.SCHEMA_VERSION,
             "installation_id": self.installation_id,
             "products": list(self.products.values()),
+            "groups": list(self.groups.values()),
+            "group_suggestions": list(self.group_suggestions.values()),
         }
 
     def merge_from(
@@ -301,6 +346,27 @@ class IngredientsStore:
                 updated += 1
             else:
                 skipped += 1
+
+        for key, target in (
+            ("groups", self.groups),
+            ("group_suggestions", self.group_suggestions),
+        ):
+            for item in data.get(key) or []:
+                if not isinstance(item, dict) or not item.get("id"):
+                    continue
+                item_id = str(item["id"])
+                existing = target.get(item_id)
+                if existing is None:
+                    target[item_id] = item
+                elif strategy == "remote-wins":
+                    target[item_id] = item
+                elif strategy == "last-write-wins" and (
+                    (item.get("updated_at") or item.get("created_at") or "")
+                    > (existing.get("updated_at") or existing.get("created_at") or "")
+                ):
+                    target[item_id] = item
+        if int(data.get("schema_version") or 0) > int(self.schema_version or 1):
+            self.schema_version = int(data["schema_version"])
 
         return {"added": added, "updated": updated, "skipped": skipped, "removed": 0}
 
@@ -439,7 +505,19 @@ class IngredientsStore:
             "created_at": now,
             "updated_at": now,
             "vectors": dict(data.get("vectors") or {}),
+            "group_id": data.get("group_id"),
+            "identity_key": data.get("identity_key") or data.get("group_key") or "",
+            "product_type": data.get("product_type"),
+            "volume": data.get("volume"),
+            "packaging": data.get("packaging"),
+            "variant": data.get("variant"),
         }
+        fields = group_fields(product)
+        if not product.get("identity_key"):
+            product["identity_key"] = fields["identity_key"]
+        for key in ("product_type", "volume", "packaging", "variant"):
+            if not product.get(key):
+                product[key] = fields[key]
         self.products[product_id] = product
         await self._save_to_file()
         return product
@@ -453,10 +531,26 @@ class IngredientsStore:
             "name", "category", "kind", "barcode", "brand", "aliases",
             "nutrition_per_100g", "serving_size_g", "default_unit",
             "image_url", "off_last_sync", "deleted", "vectors", "pantry",
+            "group_id", "identity_key", "product_type", "volume",
+            "packaging", "variant",
         }
+        touched_identity = any(
+            k in patch
+            for k in (
+                "name", "brand", "category", "product_type", "volume",
+                "packaging", "variant", "identity_key",
+            )
+        )
         for k, v in patch.items():
             if k in allowed:
                 p[k] = v
+        if touched_identity:
+            fields = group_fields(p)
+            if not patch.get("identity_key"):
+                p["identity_key"] = fields["identity_key"]
+            for key in ("product_type", "volume", "packaging", "variant"):
+                if not p.get(key):
+                    p[key] = fields[key]
         p["updated_at"] = _now()
         await self._save_to_file()
         return self._with_pid(p)
@@ -489,6 +583,229 @@ class IngredientsStore:
             return False
         p["deleted"] = False
         p["updated_at"] = _now()
+        await self._save_to_file()
+        return True
+
+    # --- Группы продуктов (логический продукт + GTIN-варианты) --------
+
+    @staticmethod
+    def _product_summary(product: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: product.get(key)
+            for key in (
+                "id", "name", "brand", "barcode", "category",
+                "default_unit", "image_url", "pantry", "group_id",
+                "identity_key", "source", "aliases", "deleted",
+            )
+        }
+
+    def get_group(self, group_id: str) -> dict[str, Any] | None:
+        group = self.groups.get(group_id)
+        if not group:
+            return None
+        members = [
+            self._product_summary(self.products[pid])
+            for pid in group.get("member_ids") or []
+            if pid in self.products and not self.products[pid].get("deleted")
+        ]
+        return {**group, "members": members}
+
+    def get_groups(self) -> list[dict[str, Any]]:
+        groups = [self.get_group(gid) for gid in self.groups]
+        return sorted(
+            [g for g in groups if g],
+            key=lambda g: (g.get("canonical_name") or "").lower(),
+        )
+
+    def group_for_product(self, product_id: str) -> dict[str, Any] | None:
+        product = self.products.get(product_id)
+        if not product or not product.get("group_id"):
+            return None
+        return self.get_group(str(product["group_id"]))
+
+    def get_group_suggestions(self, status: str | None = None) -> list[dict[str, Any]]:
+        rows = []
+        for suggestion in self.group_suggestions.values():
+            if status and suggestion.get("status") != status:
+                continue
+            products = [
+                self._product_summary(self.products[pid])
+                for pid in suggestion.get("product_ids") or []
+                if pid in self.products and not self.products[pid].get("deleted")
+            ]
+            rows.append({**suggestion, "products": products})
+        return sorted(rows, key=lambda s: s.get("created_at") or "", reverse=True)
+
+    async def create_group_suggestions(self) -> list[dict[str, Any]]:
+        by_key: dict[str, list[str]] = {}
+        for pid, product in self.products.items():
+            if product.get("deleted") or product.get("group_id"):
+                continue
+            key = str(product.get("identity_key") or "")
+            if not key:
+                key = group_fields(product)["identity_key"]
+                product["identity_key"] = key
+            if not key:
+                continue
+            by_key.setdefault(key, []).append(pid)
+
+        group_by_key = {
+            str(group.get("identity_key") or ""): group
+            for group in self.groups.values()
+            if group.get("identity_key")
+        }
+        existing = {
+            (
+                s.get("type") or "new_group",
+                tuple(sorted(s.get("product_ids") or [])),
+                s.get("group_id"),
+            )
+            for s in self.group_suggestions.values()
+            if s.get("status") == "pending"
+        }
+        created: list[dict[str, Any]] = []
+        now = _now()
+        for key, pids in by_key.items():
+            group = group_by_key.get(key)
+            if group:
+                for pid in pids:
+                    signature = ("add_to_group", (pid,), group.get("id"))
+                    if signature in existing:
+                        continue
+                    product = self.products.get(pid) or {}
+                    suggestion = {
+                        "id": str(uuid.uuid4()),
+                        "type": "add_to_group",
+                        "group_id": group.get("id"),
+                        "identity_key": key,
+                        "canonical_name": group.get("canonical_name") or product.get("name") or "",
+                        "product_ids": [pid],
+                        "status": "pending",
+                        "reason": "same_identity_key",
+                        "created_at": now,
+                    }
+                    self.group_suggestions[suggestion["id"]] = suggestion
+                    created.append(suggestion)
+                continue
+            if len(pids) < 2:
+                continue
+            signature = ("new_group", tuple(sorted(pids)), None)
+            if signature in existing:
+                continue
+            primary = self.products.get(pids[0]) or {}
+            suggestion = {
+                "id": str(uuid.uuid4()),
+                "type": "new_group",
+                "identity_key": key,
+                "canonical_name": primary.get("name") or "",
+                "product_ids": pids,
+                "status": "pending",
+                "reason": "same_identity_key",
+                "created_at": now,
+            }
+            self.group_suggestions[suggestion["id"]] = suggestion
+            created.append(suggestion)
+        if created:
+            await self._save_to_file()
+        return created
+
+    async def approve_group_suggestion(
+        self, suggestion_id: str, *, reviewed_by: str | None = None
+    ) -> dict[str, Any] | None:
+        suggestion = self.group_suggestions.get(suggestion_id)
+        if not suggestion or suggestion.get("status") != "pending":
+            return None
+        now = _now()
+        if suggestion.get("type") == "add_to_group":
+            group = self.groups.get(str(suggestion.get("group_id")))
+            if not group:
+                suggestion["status"] = "rejected"
+                suggestion["reviewed_at"] = now
+                suggestion["reviewed_by"] = reviewed_by
+                await self._save_to_file()
+                return None
+            member_ids = list(group.get("member_ids") or [])
+            for pid in suggestion.get("product_ids") or []:
+                product = self.products.get(pid)
+                if not product or product.get("deleted"):
+                    continue
+                product["group_id"] = group["id"]
+                product["updated_at"] = now
+                if pid not in member_ids:
+                    member_ids.append(pid)
+            group["member_ids"] = member_ids
+            group["updated_at"] = now
+            suggestion["status"] = "approved"
+            suggestion["reviewed_at"] = now
+            suggestion["reviewed_by"] = reviewed_by
+            await self._save_to_file()
+            return self.get_group(group["id"])
+
+        members = [
+            self.products[pid]
+            for pid in suggestion.get("product_ids") or []
+            if pid in self.products and not self.products[pid].get("deleted")
+        ]
+        if len(members) < 2:
+            suggestion["status"] = "rejected"
+            suggestion["reviewed_at"] = now
+            suggestion["reviewed_by"] = reviewed_by
+            await self._save_to_file()
+            return None
+        primary = members[0]
+        group = {
+            "id": str(uuid.uuid4()),
+            "identity_key": suggestion.get("identity_key") or primary.get("identity_key"),
+            "canonical_name": primary.get("name") or "",
+            "brand": primary.get("brand"),
+            "category": primary.get("category"),
+            "product_type": primary.get("product_type"),
+            "volume": primary.get("volume"),
+            "packaging": primary.get("packaging"),
+            "variant": primary.get("variant"),
+            "primary_product_id": primary.get("id"),
+            "member_ids": [p.get("id") for p in members],
+            "created_at": now,
+            "updated_at": now,
+        }
+        for member in members:
+            member["group_id"] = group["id"]
+            member["updated_at"] = now
+        self.groups[group["id"]] = group
+        suggestion["status"] = "approved"
+        suggestion["group_id"] = group["id"]
+        suggestion["reviewed_at"] = now
+        suggestion["reviewed_by"] = reviewed_by
+        await self._save_to_file()
+        return self.get_group(group["id"])
+
+    async def reject_group_suggestion(
+        self, suggestion_id: str, *, reviewed_by: str | None = None
+    ) -> bool:
+        suggestion = self.group_suggestions.get(suggestion_id)
+        if not suggestion or suggestion.get("status") != "pending":
+            return False
+        suggestion["status"] = "rejected"
+        suggestion["reviewed_at"] = _now()
+        suggestion["reviewed_by"] = reviewed_by
+        await self._save_to_file()
+        return True
+
+    async def dissolve_group(self, group_id: str) -> bool:
+        group = self.groups.get(group_id)
+        if not group:
+            return False
+        now = _now()
+        for pid in group.get("member_ids") or []:
+            product = self.products.get(pid)
+            if product:
+                product["group_id"] = None
+                product["updated_at"] = now
+        del self.groups[group_id]
+        for suggestion in self.group_suggestions.values():
+            if suggestion.get("group_id") == group_id:
+                suggestion["status"] = "dissolved"
+                suggestion["reviewed_at"] = now
         await self._save_to_file()
         return True
 

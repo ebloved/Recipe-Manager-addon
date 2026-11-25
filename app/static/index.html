@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=146">
+<link rel="stylesheet" href="static/css/style.css?v=147">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -240,6 +240,7 @@
           <button class="btn primary" id="products-add">+ Новый продукт</button>
           <button class="btn" id="products-lookup">📷 Найти по штрих-коду</button>
           <button class="btn" id="products-unlinked">⚠️ Несвязанные (<span id="unlinked-count">0</span>)</button>
+          <button class="btn" id="products-groups">🏷️ Группы (<span id="product-groups-count">0</span>)</button>
           <label class="products-show-deleted">
             <input type="checkbox" id="products-show-deleted">
             Показать удалённые
@@ -1169,6 +1170,27 @@
   </div>
 </div>
 
+<div class="product-editor-overlay" id="product-groups-overlay">
+  <div class="product-editor-panel" style="max-width: 820px;">
+    <div class="product-editor-header">
+      <h3>🏷️ Группы продуктов</h3>
+      <button class="product-editor-close" id="product-groups-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom: 12px;">
+        Один логический продукт может иметь несколько GTIN-вариантов из разных магазинов.
+        Recipe Manager не объединяет продукты автоматически — только предлагает, а вы подтверждаете.
+      </div>
+      <div class="status" id="product-groups-status"></div>
+      <div class="group-suggestions-toolbar">
+        <button class="btn primary" id="product-groups-scan">🔎 Найти группы</button>
+        <span class="hint" style="margin:0;">Проверяет продукты без группы по identity_key.</span>
+      </div>
+      <div id="product-groups-list" class="group-suggestions-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="product-editor-overlay" id="product-editor-overlay">
   <div class="product-editor-panel">
     <div class="product-editor-header">
@@ -1905,7 +1927,7 @@
 <script src="static/js/recipe-picker.js?v=121"></script>
 <script src="static/js/shopping.js?v=111"></script>
 <script src="static/js/stores.js?v=112"></script>
-<script src="static/js/products.js?v=110"></script>
+<script src="static/js/products.js?v=111"></script>
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=124"></script>
 <script src="static/js/meal-plan-generator.js?v=128"></script>

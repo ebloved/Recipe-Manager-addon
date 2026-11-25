@@ -35,6 +35,8 @@
   // Локальное состояние вкладки продуктов
   state.products = [];
   state.productsFilter = { q: "", category: "", showDeleted: false };
+  state.productGroups = [];
+  state.groupSuggestions = [];
 
   // Редактор продукта
   let editorState = null; // { product, isNew, aliases: [...] }
@@ -109,6 +111,20 @@
     const closeUnlinked = $("unlinked-close");
     if (closeUnlinked) closeUnlinked.addEventListener("click", () => $("unlinked-overlay").classList.remove("show"));
 
+    // Группы продуктов
+    const btnGroups = $("products-groups");
+    if (btnGroups) btnGroups.addEventListener("click", openGroups);
+    const closeGroups = $("product-groups-close");
+    if (closeGroups) closeGroups.addEventListener("click", () => {
+      $("product-groups-overlay").classList.remove("show");
+    });
+    const scanGroups = $("product-groups-scan");
+    if (scanGroups) scanGroups.addEventListener("click", scanProductGroups);
+    const groupsOverlay = $("product-groups-overlay");
+    if (groupsOverlay) groupsOverlay.addEventListener("click", (e) => {
+      if (e.target === groupsOverlay) groupsOverlay.classList.remove("show");
+    });
+
     // Модалка редактора
     $("product-editor-close").addEventListener("click", closeEditor);
     $("product-editor-cancel").addEventListener("click", closeEditor);
@@ -175,12 +191,158 @@
     try {
       const params = new URLSearchParams();
       params.set("include_deleted", String(state.productsFilter.showDeleted));
-      const data = await getJSON(`api/ingredients?${params.toString()}`);
+      const [data, groupData] = await Promise.all([
+        getJSON(`api/ingredients?${params.toString()}`),
+        getJSON("api/product-groups").catch((err) => {
+          console.warn("Product groups error:", err);
+          return { groups: [], suggestions: [] };
+        }),
+      ]);
       state.products = data.products || [];
+      state.productGroups = groupData.groups || [];
+      state.groupSuggestions = groupData.suggestions || [];
+      updateGroupsCount();
       await fillCategoryFilter();
       render();
     } catch (err) {
       container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>${escHtml(err.message)}</p></div>`;
+    }
+  }
+
+  async function refreshGroups() {
+    try {
+      const data = await getJSON("api/product-groups");
+      state.productGroups = data.groups || [];
+      state.groupSuggestions = data.suggestions || [];
+      updateGroupsCount();
+      renderGroupSuggestions();
+      render();
+    } catch (err) {
+      const status = $("product-groups-status");
+      if (status) setStatus(status, "Ошибка: " + err.message, "error");
+    }
+  }
+
+  function updateGroupsCount() {
+    const el = $("product-groups-count");
+    if (el) el.textContent = (state.groupSuggestions || []).length;
+  }
+
+  function openGroups() {
+    const overlay = $("product-groups-overlay");
+    if (!overlay) return;
+    clearStatus($("product-groups-status"));
+    renderGroupSuggestions();
+    overlay.classList.add("show");
+  }
+
+  function renderGroupSuggestions() {
+    const list = $("product-groups-list");
+    if (!list) return;
+    const suggestions = state.groupSuggestions || [];
+    if (!suggestions.length) {
+      list.innerHTML = `<div class="empty" style="padding:24px 0;">
+        <div class="icon">🏷️</div>
+        <p>Похожих продуктов не найдено.</p>
+        <p class="hint" style="margin-top:6px;">Нажмите «Найти группы», чтобы проверить базу.</p>
+      </div>`;
+      return;
+    }
+    list.innerHTML = suggestions.map((s) => suggestionRow(s)).join("");
+    list.querySelectorAll("[data-suggestion-action]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.suggestionId;
+        const action = btn.dataset.suggestionAction;
+        btn.disabled = true;
+        try {
+          if (action === "approve") {
+            await postJSON(`api/product-groups/suggestions/${id}/approve`, {});
+          } else {
+            await postJSON(`api/product-groups/suggestions/${id}/reject`, {});
+          }
+          state.groupSuggestions = (state.groupSuggestions || []).filter((x) => x.id !== id);
+          updateGroupsCount();
+          renderGroupSuggestions();
+          await load();
+        } catch (err) {
+          setStatus($("product-groups-status"), "Ошибка: " + err.message, "error");
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function suggestionRow(s) {
+    const products = s.products || [];
+    const members = products.map((p) => `
+      <div class="group-suggestion-member">
+        <span class="group-suggestion-name">${escHtml(p.name || "(без названия)")}</span>
+        <span class="group-suggestion-meta">
+          ${p.brand ? escHtml(p.brand) + " · " : ""}
+          ${p.barcode ? escHtml(p.barcode) : "без GTIN"}
+        </span>
+      </div>
+    `).join("");
+    const isAdd = s.type === "add_to_group";
+    return `<div class="group-suggestion" data-suggestion-id="${escHtml(s.id)}">
+      <div class="group-suggestion-head">
+        <div>
+          <div class="group-suggestion-title">
+            ${isAdd ? "Добавить вариант в группу" : "Похожи на один продукт"}:
+            <strong>${escHtml(s.canonical_name || "—")}</strong>
+          </div>
+          <div class="group-suggestion-key">${escHtml(s.identity_key || "")}</div>
+        </div>
+        <div class="group-suggestion-actions">
+          <button class="btn primary small" data-suggestion-action="approve" data-suggestion-id="${escHtml(s.id)}">
+            ${isAdd ? "Добавить" : "Объединить"}
+          </button>
+          <button class="btn small" data-suggestion-action="reject" data-suggestion-id="${escHtml(s.id)}">
+            Не объединять
+          </button>
+        </div>
+      </div>
+      <div class="group-suggestion-members">${members}</div>
+    </div>`;
+  }
+
+  async function scanProductGroups() {
+    const status = $("product-groups-status");
+    const btn = $("product-groups-scan");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Ищем…";
+    }
+    clearStatus(status);
+    try {
+      const data = await postJSON("api/product-groups/suggest", {});
+      await refreshGroups();
+      setStatus(
+        status,
+        data.created
+          ? `✓ Новых предложений: ${data.created}.`
+          : "Новых совпадений нет.",
+        "success"
+      );
+    } catch (err) {
+      setStatus(status, "Ошибка: " + err.message, "error");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "🔎 Найти группы";
+      }
+    }
+  }
+
+  async function dissolveGroup(groupId) {
+    if (!groupId) return;
+    if (!confirm("Разъединить группу? Все варианты снова станут отдельными продуктами.")) return;
+    try {
+      await postJSON(`api/product-groups/${groupId}/dissolve`, {});
+      await load();
+    } catch (err) {
+      alert("Ошибка: " + err.message);
     }
   }
 
@@ -201,28 +363,76 @@
     sel.value = cats.includes(current) ? current : "";
   }
 
+  function productMatches(p, f, q) {
+    if (f.category && p.category !== f.category) return false;
+    if (!q) return true;
+    if ((p.name || "").toLowerCase().includes(q)) return true;
+    for (const a of p.aliases || []) {
+      if (String(a).toLowerCase().includes(q)) return true;
+    }
+    if (p.brand && String(p.brand).toLowerCase().includes(q)) return true;
+    if (p.barcode && String(p.barcode).includes(q)) return true;
+    return false;
+  }
+
+  function groupMatches(group, f, q) {
+    const members = group.members || [];
+    if (f.category) {
+      const inCategory = members.some((m) => m.category === f.category)
+        || group.category === f.category;
+      if (!inCategory) return false;
+    }
+    if (!q) return true;
+    const haystack = [
+      group.canonical_name,
+      group.brand,
+      group.identity_key,
+      ...members.map((m) => m.name),
+      ...members.map((m) => m.brand),
+      ...members.map((m) => m.barcode),
+      ...members.flatMap((m) => m.aliases || []),
+    ].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(q);
+  }
+
+  function unitCategory(unit) {
+    if (unit.kind === "group") {
+      return unit.group.category || (unit.members[0] || {}).category || "Без категории";
+    }
+    return unit.product.category || "Без категории";
+  }
+
+  function unitLabel(unit) {
+    if (unit.kind === "group") {
+      return (unit.group.canonical_name || (unit.members[0] || {}).name || "").toLowerCase();
+    }
+    return (unit.product.name || "").toLowerCase();
+  }
+
   function render() {
     const container = $("products-container");
     const f = state.productsFilter;
+    const q = (f.q || "").toLowerCase();
 
-    let items = state.products.slice();
-    if (f.q) {
-      const q = f.q.toLowerCase();
-      items = items.filter((p) => {
-        if ((p.name || "").toLowerCase().includes(q)) return true;
-        for (const a of p.aliases || []) {
-          if (String(a).toLowerCase().includes(q)) return true;
-        }
-        if (p.brand && String(p.brand).toLowerCase().includes(q)) return true;
-        if (p.barcode && String(p.barcode).includes(q)) return true;
-        return false;
-      });
-    }
-    if (f.category) {
-      items = items.filter((p) => p.category === f.category);
+    const groupedIds = new Set();
+    for (const group of state.productGroups || []) {
+      for (const member of group.members || []) groupedIds.add(member.id);
     }
 
-    if (!items.length) {
+    const units = [];
+    for (const group of state.productGroups || []) {
+      const members = (group.members || []).filter((m) => !m.deleted);
+      if (!members.length) continue;
+      if (!groupMatches(group, f, q)) continue;
+      units.push({ kind: "group", group, members });
+    }
+    for (const p of state.products) {
+      if (p.group_id && groupedIds.has(p.id)) continue;
+      if (!productMatches(p, f, q)) continue;
+      units.push({ kind: "product", product: p });
+    }
+
+    if (!units.length) {
       container.innerHTML = `<div class="empty">
         <div class="icon">🧺</div>
         <p>${f.q || f.category ? "Ничего не найдено." : "Справочник пуст."}</p>
@@ -230,11 +440,16 @@
       return;
     }
 
+    units.sort((a, b) => {
+      const cat = unitCategory(a).localeCompare(unitCategory(b));
+      return cat || unitLabel(a).localeCompare(unitLabel(b));
+    });
+
     // Группируем по категориям
     const byCat = {};
-    for (const p of items) {
-      const cat = p.category || "Без категории";
-      (byCat[cat] || (byCat[cat] = [])).push(p);
+    for (const unit of units) {
+      const cat = unitCategory(unit);
+      (byCat[cat] || (byCat[cat] = [])).push(unit);
     }
     const sortedCats = Object.keys(byCat).sort();
 
@@ -242,12 +457,34 @@
     for (const cat of sortedCats) {
       html += `<div class="products-group-title">${escHtml(cat)} <span class="products-group-count">${byCat[cat].length}</span></div>`;
       html += `<div class="products-grid">`;
-      for (const p of byCat[cat]) html += productCard(p);
+      for (const unit of byCat[cat]) {
+        html += unit.kind === "group"
+          ? groupCard(unit.group, unit.members)
+          : productCard(unit.product);
+      }
       html += `</div>`;
     }
 
     container.innerHTML = html;
 
+    container.querySelectorAll("[data-group-id]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        const variant = e.target.closest("[data-variant-id]");
+        if (variant) {
+          e.stopPropagation();
+          const p = state.products.find((x) => x.id === variant.dataset.variantId);
+          if (p) openEditor(p);
+          return;
+        }
+        const dissolve = e.target.closest("[data-action='dissolve-group']");
+        if (dissolve) {
+          e.stopPropagation();
+          dissolveGroup(el.dataset.groupId);
+          return;
+        }
+        el.classList.toggle("expanded");
+      });
+    });
     container.querySelectorAll("[data-product-id]").forEach((el) => {
       el.addEventListener("click", () => {
         const id = el.dataset.productId;
@@ -285,6 +522,59 @@
           ${src}
           ${pantry}
           ${deleted}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function groupCard(group, members) {
+    const primary = members.find((m) => m.id === group.primary_product_id) || members[0] || {};
+    const img = primary.image_url
+      ? `<img class="product-thumb" src="${escHtml(primary.image_url)}" alt="" loading="lazy">`
+      : `<div class="product-thumb product-thumb-placeholder">🏷️</div>`;
+    const brandValue = group.brand || primary.brand;
+    const brand = brandValue ? `<div class="product-brand">${escHtml(brandValue)}</div>` : "";
+    const barcodes = Array.from(new Set(
+      members.map((m) => m.barcode).filter(Boolean)
+    ));
+    const barcodeChips = barcodes.slice(0, 3)
+      .map((b) => `<span class="product-chip barcode">${escHtml(b)}</span>`)
+      .join("");
+    const more = barcodes.length > 3
+      ? `<span class="product-chip">+${barcodes.length - 3}</span>`
+      : "";
+    const pantry = members.some((m) => m.pantry)
+      ? `<span class="product-chip pantry">запас</span>`
+      : "";
+    const variants = members.map((m) => `
+      <div class="product-variant" data-variant-id="${escHtml(m.id)}">
+        <div class="product-variant-main">
+          <div class="product-variant-name">${escHtml(m.name || "(без названия)")}</div>
+          <div class="product-variant-meta">
+            ${m.brand ? escHtml(m.brand) + " · " : ""}
+            ${m.barcode ? escHtml(m.barcode) : "без GTIN"}
+            ${m.default_unit ? " · " + escHtml(m.default_unit) : ""}
+          </div>
+        </div>
+        <span class="product-variant-edit">✏️</span>
+      </div>
+    `).join("");
+
+    return `<div class="product-card product-group-card" data-group-id="${escHtml(group.id)}">
+      ${img}
+      <div class="product-info">
+        <div class="product-name">${escHtml(group.canonical_name || primary.name || "(без названия)")}</div>
+        ${brand}
+        <div class="product-meta">
+          <span class="product-chip group-count">${members.length} вар.</span>
+          ${barcodeChips}
+          ${more}
+          ${pantry}
+        </div>
+        <div class="product-variants">
+          <div class="product-variants-title">Варианты GTIN</div>
+          ${variants}
+          <button class="btn small danger" data-action="dissolve-group">Разъединить группу</button>
         </div>
       </div>
     </div>`;

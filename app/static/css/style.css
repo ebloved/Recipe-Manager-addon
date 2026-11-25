@@ -1976,6 +1976,126 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   background: var(--elevated);
 }
 
+/* Логический продукт с несколькими GTIN-вариантами */
+.product-group-card {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.product-group-card .product-info { align-self: center; }
+.product-chip.group-count {
+  background: rgba(88,166,255,0.15);
+  color: #58a6ff;
+  font-family: inherit;
+  font-weight: 600;
+}
+.product-variants {
+  display: none;
+  flex-basis: 100%;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.product-group-card.expanded .product-variants { display: flex; }
+.product-variants-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.product-variant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--elevated);
+  cursor: pointer;
+}
+.product-variant:hover { outline: 1px solid var(--accent); }
+.product-variant-main { min-width: 0; }
+.product-variant-name {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-variant-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-variant-edit { font-size: 12px; opacity: 0.7; }
+
+/* Предложения объединения групп */
+.group-suggestions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.group-suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+.group-suggestion {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+.group-suggestion-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.group-suggestion-title { font-size: 14px; }
+.group-suggestion-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  word-break: break-all;
+}
+.group-suggestion-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.group-suggestion-members {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.group-suggestion-member {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.group-suggestion-name { min-width: 0; }
+.group-suggestion-meta {
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .product-thumb {
   width: 48px;
   height: 48px;
