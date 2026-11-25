@@ -19,6 +19,7 @@ async def export_shopping(
     include_checked: bool = False,
     merge: bool = True,
     include_recipes: bool = True,
+    include_pantry: bool = False,
     since: str | None = None,
 ):
     user = await get_api_user(request, scope="export")
@@ -31,6 +32,7 @@ async def export_shopping(
             include_checked=include_checked,
             merge=merge,
             include_recipes=include_recipes,
+            include_pantry=include_pantry,
             user=user,
         )
     except ValueError as exc:

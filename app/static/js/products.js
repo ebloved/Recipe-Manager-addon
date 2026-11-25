@@ -39,6 +39,23 @@
   // Редактор продукта
   let editorState = null; // { product, isNew, aliases: [...] }
 
+  const PANTRY_MARKERS = [
+    "сушён", "сушен", "специ", "приправ", "лавров", "мускатн",
+    "кориандр", "орегано", "паприк", "розмарин", "тимьян",
+  ];
+
+  function isPantryName(name) {
+    const text = String(name || "").toLowerCase().replace(/ё/g, "е");
+    if (!text) return false;
+    if (text.includes("свеж") || text.includes("болгар") || text.includes("сладк")) {
+      return false;
+    }
+    if (text.includes("соль")) return true;
+    if (PANTRY_MARKERS.some((word) => text.includes(word))) return true;
+    return text.includes("перец")
+      && ["черн", "молот", "красн", "горош"].some((word) => text.includes(word));
+  }
+
   // Сканер в модалке продукта
   let scanNativeStream = null;
   let scanNativeRaf = null;
@@ -244,6 +261,7 @@
       : p.source === "base"
         ? `<span class="product-chip source-base">база</span>`
         : "";
+    const pantry = p.pantry ? `<span class="product-chip pantry">запас</span>` : "";
     const kcalCls = kcal === "—" ? "product-kcal empty" : "product-kcal";
 
     return `<div class="product-card ${p.deleted ? "deleted" : ""}" data-product-id="${escHtml(p.id)}">
@@ -255,6 +273,7 @@
           <span class="${kcalCls}">${kcal} ккал</span>
           ${barcode}
           ${src}
+          ${pantry}
           ${deleted}
         </div>
       </div>
@@ -282,6 +301,9 @@
     $("product-editor-brand").value = p.brand || "";
     $("product-editor-category").value = p.category || "";
     $("product-editor-unit").value = p.default_unit || "г";
+    $("product-editor-pantry").checked = typeof p.pantry === "boolean"
+      ? p.pantry
+      : isPantryName(p.name);
     $("product-editor-cal").value = n.calories ?? "";
     $("product-editor-prot").value = n.protein ?? "";
     $("product-editor-fat").value = n.fat ?? "";
@@ -389,6 +411,7 @@
       brand: $("product-editor-brand").value.trim() || null,
       category: $("product-editor-category").value.trim() || null,
       default_unit: $("product-editor-unit").value || "г",
+      pantry: !!$("product-editor-pantry")?.checked,
       nutrition_per_100g: nutrition,
       image_url: $("product-editor-image").value.trim() || null,
       aliases: editorState.aliases,

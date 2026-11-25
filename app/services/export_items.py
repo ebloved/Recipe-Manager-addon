@@ -11,6 +11,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from services.pantry import is_pantry_ingredient
 from services.piece_weights import (
     get_default_weight,
     is_piece_unit,
@@ -108,8 +109,11 @@ def _component(
     checked: bool = False,
     recipe: dict[str, Any] | None = None,
     notes: str | None = None,
+    pantry: bool | None = None,
 ) -> dict[str, Any]:
     suggestion = _suggestion(name, amount, unit, user_weights)
+    if pantry is None:
+        pantry = is_pantry_ingredient({"name": name}, product)
     return {
         "source": source,
         "name": name,
@@ -124,6 +128,8 @@ def _component(
         "brand": (product or {}).get("brand") or None,
         "category": (product or {}).get("category") or None,
         "image_url": (product or {}).get("image_url") or None,
+        "pantry": bool(pantry),
+        "essential": not bool(pantry),
         **suggestion,
     }
 
@@ -170,9 +176,11 @@ def _meal_plan_components(
     end: str,
     *,
     user_weights: dict[str, Any],
-) -> tuple[list[dict[str, Any]], list[str]]:
+    include_pantry: bool = False,
+) -> tuple[list[dict[str, Any]], list[str], int]:
     components: list[dict[str, Any]] = []
     warnings: list[str] = []
+    pantry_excluded = 0
     entries = meal_plan_store.get_range(start, end)
     for entry in entries:
         recipe = recipe_store.get(entry.get("recipe_id") or "")
@@ -210,6 +218,10 @@ def _meal_plan_components(
             if not name or ing.get("is_heading") or name.startswith("#"):
                 continue
             product = _product_info(ing.get("product_id"))
+            pantry = is_pantry_ingredient(ing, product)
+            if pantry and not include_pantry:
+                pantry_excluded += 1
+                continue
             components.append(_component(
                 source="meal_plan",
                 name=name,
@@ -220,8 +232,9 @@ def _meal_plan_components(
                 checked=False,
                 recipe=recipe_ctx,
                 notes=ing.get("notes"),
+                pantry=pantry,
             ))
-    return components, warnings
+    return components, warnings, pantry_excluded
 
 
 def _merge_key(component: dict[str, Any], index: int, merge: bool) -> tuple:
@@ -264,6 +277,8 @@ def _merge_components(
                 "brand": component.get("brand"),
                 "category": component.get("category"),
                 "image_url": component.get("image_url"),
+                "pantry": bool(component.get("pantry")),
+                "essential": bool(component.get("essential", True)),
                 "checked": component.get("checked", False),
                 "sources": {component.get("source")},
                 "recipes": [],
@@ -286,6 +301,10 @@ def _merge_components(
         existing["weight_unknown"] = bool(
             existing.get("weight_unknown") or component.get("weight_unknown")
         )
+        existing["pantry"] = bool(
+            existing.get("pantry") and component.get("pantry")
+        )
+        existing["essential"] = not existing["pantry"]
         # Суммируем только количества в одной и той же единице.
         old_unit = (existing.get("unit") or "").strip().lower()
         new_unit = (component.get("unit") or "").strip().lower()
@@ -342,6 +361,7 @@ def build_export(
     include_checked: bool = False,
     merge: bool = True,
     include_recipes: bool = True,
+    include_pantry: bool = False,
     user: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source = (source or "both").strip().lower()
@@ -367,6 +387,7 @@ def build_export(
     user_weights = (user or {}).get("piece_weights") or {}
     components: list[dict[str, Any]] = []
     warnings: list[str] = []
+    pantry_excluded = 0
 
     if source in ("shopping", "both"):
         components.extend(_shopping_components(
@@ -375,8 +396,12 @@ def build_export(
             user_weights=user_weights,
         ))
     if source in ("meal_plan", "both"):
-        meal_components, meal_warnings = _meal_plan_components(
-            owner_id, start, end, user_weights=user_weights
+        meal_components, meal_warnings, pantry_excluded = _meal_plan_components(
+            owner_id,
+            start,
+            end,
+            user_weights=user_weights,
+            include_pantry=include_pantry,
         )
         components.extend(meal_components)
         warnings.extend(meal_warnings)
@@ -398,6 +423,7 @@ def build_export(
         "counts": {
             "shopping": sum(1 for c in components if c.get("source") == "shopping"),
             "meal_plan": sum(1 for c in components if c.get("source") == "meal_plan"),
+            "pantry_excluded": pantry_excluded,
             "total": len(items),
         },
     }
@@ -408,6 +434,7 @@ def build_export(
             "include_checked": include_checked,
             "merge": merge,
             "include_recipes": include_recipes,
+            "include_pantry": include_pantry,
             "items": items,
         },
         ensure_ascii=False,

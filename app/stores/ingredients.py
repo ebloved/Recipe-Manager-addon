@@ -21,6 +21,7 @@ from typing import Any
 import aiofiles
 
 from config import BASE_PRODUCTS_FILE, INGREDIENTS_FILE
+from services.pantry import is_pantry_name
 
 
 # --- Детерминированные UUID ------------------------------------------------
@@ -206,6 +207,7 @@ class IngredientsStore:
             "name": item.get("name", ""),
             "category": item.get("category"),
             "kind": item.get("kind", "weighted"),
+            "pantry": is_pantry_name(item.get("name", "")),
             "barcode": None,
             "brand": None,
             "aliases": list(item.get("aliases") or []),
@@ -419,6 +421,11 @@ class IngredientsStore:
             "name": (data.get("name") or "").strip(),
             "category": data.get("category"),
             "kind": data.get("kind", "manual"),
+            "pantry": (
+                bool(data.get("pantry"))
+                if data.get("pantry") is not None
+                else is_pantry_name(data.get("name"))
+            ),
             "barcode": (data.get("barcode") or "").strip() or None,
             "brand": data.get("brand"),
             "aliases": list(data.get("aliases") or []),
@@ -445,7 +452,7 @@ class IngredientsStore:
         allowed = {
             "name", "category", "kind", "barcode", "brand", "aliases",
             "nutrition_per_100g", "serving_size_g", "default_unit",
-            "image_url", "off_last_sync", "deleted", "vectors",
+            "image_url", "off_last_sync", "deleted", "vectors", "pantry",
         }
         for k, v in patch.items():
             if k in allowed:

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=145">
+<link rel="stylesheet" href="static/css/style.css?v=146">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -1226,6 +1226,13 @@
         </div>
       </div>
 
+      <div class="field" style="margin-top:8px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="product-editor-pantry">
+          Запас / специя — обычно уже есть
+        </label>
+      </div>
+
       <div class="editor-section-title">КБЖУ на 100 г</div>
       <div class="editor-three">
         <div class="field"><label for="product-editor-cal">Калории</label><input type="number" step="0.1" min="0" id="product-editor-cal"></div>
@@ -1896,9 +1903,9 @@
 <script src="static/js/plan-picker.js?v=108"></script>
 <script src="static/js/planner.js?v=131"></script>
 <script src="static/js/recipe-picker.js?v=121"></script>
-<script src="static/js/shopping.js?v=109"></script>
+<script src="static/js/shopping.js?v=110"></script>
 <script src="static/js/stores.js?v=112"></script>
-<script src="static/js/products.js?v=108"></script>
+<script src="static/js/products.js?v=109"></script>
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=124"></script>
 <script src="static/js/meal-plan-generator.js?v=128"></script>

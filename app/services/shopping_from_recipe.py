@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.pantry import is_pantry_ingredient
 from stores import ingredients_store, recipe_store, shopping_store
 
 
@@ -27,6 +28,7 @@ async def add_recipe_ingredients_to_shopping(
     owner_id: str,
     multiplier: float = 1.0,
     ingredient_indices: list[int] | None = None,
+    skip_pantry: bool = True,
 ) -> dict[str, int]:
     """Добавляет ингредиенты рецепта в покупки и объединяет дубли."""
     recipe_id = recipe.get("id")
@@ -60,14 +62,20 @@ async def add_recipe_ingredients_to_shopping(
 
     added = 0
     merged = 0
+    skipped = 0
     for _, ing in selected:
         name = (ing.get("name") or "").strip()
         if not name:
             continue
+        product = products_by_id.get(ing.get("product_id")) if ing.get("product_id") else None
+        # При автоматическом добавлении (не из модалки) специи/запасы
+        # не тащим в покупки: они обычно уже есть.
+        if ingredient_indices is None and skip_pantry and is_pantry_ingredient(ing, product):
+            skipped += 1
+            continue
         amount = ing.get("amount")
         if amount and multiplier != 1:
             amount = _scale_amount(amount, multiplier)
-        product = products_by_id.get(ing.get("product_id")) if ing.get("product_id") else None
         resolved_name = (product.get("name") or "").strip() if product else ""
         item_data: dict[str, Any] = {
             "name": resolved_name or name,
@@ -90,7 +98,7 @@ async def add_recipe_ingredients_to_shopping(
         else:
             added += 1
 
-    return {"added": added, "merged": merged, "total": added + merged}
+    return {"added": added, "merged": merged, "skipped": skipped, "total": added + merged}
 
 
 async def add_recipe_id_to_shopping(

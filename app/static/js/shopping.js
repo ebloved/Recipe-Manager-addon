@@ -8,6 +8,31 @@
   state.shoppingOnlyActive = false;
   state.recipeShopState = null;
 
+  const PANTRY_MARKERS = [
+    "сушён", "сушен", "специ", "приправ", "лавров", "мускатн",
+    "кориандр", "орегано", "паприк", "розмарин", "тимьян",
+  ];
+
+  function isPantryIngredient(ing) {
+    if (typeof ing === "string") ing = { name: ing };
+    if (!ing) return false;
+    if (typeof ing.pantry === "boolean") return ing.pantry;
+    const name = String(ing.name || "").toLowerCase().replace(/ё/g, "е");
+    if (!name) return false;
+    if (name.includes("свеж") || name.includes("болгар") || name.includes("сладк")) {
+      return false;
+    }
+    if (name.includes("соль")) return true;
+    if (PANTRY_MARKERS.some((word) => name.includes(word))) return true;
+    if (
+      name.includes("перец")
+      && ["черн", "молот", "красн", "горош"].some((word) => name.includes(word))
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   // Сканер
   let nativeStream = null;
   let nativeRaf = null;
@@ -535,8 +560,10 @@
       multiplier: multiplier || 1,
       selected: new Set(
         ingredients
-          .map((ing, idx) => (ing.is_heading || (ing.name || "").startsWith("#") ? -1 : idx))
-          .filter((i) => i >= 0)
+          .map((ing, idx) => (
+            ing.is_heading || (ing.name || "").startsWith("#") ? -1 : idx
+          ))
+          .filter((i) => i >= 0 && !isPantryIngredient(ingredients[i]))
       ),
     };
     $("recipe-shop-title").textContent = `Добавить из «${recipe.name}»`;
@@ -577,10 +604,12 @@
             : null;
           const amountStr = [amount, ing.unit].filter(Boolean).join(" ");
           const checked = st.selected.has(idx) ? "checked" : "";
-          return `<li class="rs-item">
+          const pantry = isPantryIngredient(ing);
+          return `<li class="rs-item${pantry ? " pantry" : ""}">
             <label>
               <input type="checkbox" ${checked} data-rs-idx="${idx}">
               <span class="rs-name">${escHtml(ing.name || "")}</span>
+              ${pantry ? '<span class="rs-pantry">запас</span>' : ""}
               ${amountStr ? `<span class="rs-amount">${escHtml(amountStr)}</span>` : ""}
             </label>
           </li>`;

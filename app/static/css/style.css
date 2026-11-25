@@ -1202,6 +1202,16 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 }
 .rs-name { flex: 1; }
 .rs-amount { color: var(--accent); font-weight: 600; font-size: 13px; }
+.rs-pantry {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rs-item.pantry .rs-name { color: var(--text-muted); }
 
 .recipe-shop-summary {
   margin-top: 12px; font-size: 12px; color: var(--text-secondary);
@@ -2042,6 +2052,11 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 .product-chip.deleted {
   background: rgba(214,69,69,0.15);
   color: var(--danger);
+  font-weight: 600;
+}
+.product-chip.pantry {
+  background: rgba(255, 193, 7, 0.15);
+  color: #b8860b;
   font-weight: 600;
 }
 

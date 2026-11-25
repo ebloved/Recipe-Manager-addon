@@ -30,7 +30,8 @@ from services.equipment_adapter import adapt_recipe_to_airfryer
 from recipe_manager.importer import parse_markdown_recipe
 from services.linker import link_recipe_ingredients
 from services.md_export import recipe_filename, recipe_to_md
-from stores import meal_plan_store, recipe_store
+from services.pantry import annotate_ingredients
+from stores import ingredients_store, meal_plan_store, recipe_store
 from services.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -285,6 +286,11 @@ async def create_recipe(request: Request, payload: dict[str, Any] = Body(...)):
 
         data = explicit
 
+    if isinstance(data.get("ingredients"), list):
+        annotate_ingredients(
+            data["ingredients"], product_getter=ingredients_store.get_active
+        )
+
     if user:
         data["owner_id"] = user["id"]
         data["owner_name"] = user.get("name", "User")
@@ -325,6 +331,11 @@ async def update_recipe(recipe_id: str, request: Request, patch: dict[str, Any] 
             patch = {**patch, "ingredients": wrapper.get("ingredients", patch["ingredients"])}
         except Exception as e:  # noqa: BLE001
             logger.warning("Linker упал при обновлении рецепта: %s", exc)
+
+    if isinstance(patch.get("ingredients"), list):
+        annotate_ingredients(
+            patch["ingredients"], product_getter=ingredients_store.get_active
+        )
 
     recipe = await recipe_store.update(recipe_id, patch)
     if not recipe:
@@ -560,6 +571,10 @@ async def import_recipe_md(recipe_id: str, payload: dict[str, Any] = Body(...)):
         logger.warning("Linker упал при import-md: %s", exc)
 
     parsed.pop("_linker_stats", None)
+    if isinstance(parsed.get("ingredients"), list):
+        annotate_ingredients(
+            parsed["ingredients"], product_getter=ingredients_store.get_active
+        )
 
     # Какие поля были явно заданы во front matter? Если поле не указано,
     # сохраняем текущее значение, а не затираем его пустым.
@@ -629,6 +644,10 @@ async def create_from_markdown(payload: dict[str, Any] = Body(...)):
         logger.warning("Linker упал при create-from-markdown: %s", exc)
 
     parsed.pop("_linker_stats", None)
+    if isinstance(parsed.get("ingredients"), list):
+        annotate_ingredients(
+            parsed["ingredients"], product_getter=ingredients_store.get_active
+        )
 
     recipe = await recipe_store.add(parsed)
     return {"recipe": recipe}
