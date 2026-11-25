@@ -45,6 +45,7 @@ _EXCLUDE_PREFIXES = (
     "/api/admin/audit",
     "/api/v1/shopping",
     "/api/v1/export",
+    "/api/v1/products",
 )
 _EXCLUDE_EXACT = {
     "/api/health",

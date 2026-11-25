@@ -65,6 +65,7 @@ async def record_observations(
 ) -> dict[str, Any]:
     matched: list[dict[str, Any]] = []
     suggestions: list[dict[str, Any]] = []
+    enriched: list[dict[str, Any]] = []
     warnings: list[str] = []
     observed = 0
 
@@ -105,6 +106,28 @@ async def record_observations(
 
             product_id = product.get("id") if product else None
             suggestion_id = None
+            if product and product_id:
+                patch: dict[str, Any] = {}
+                if barcode and product.get("barcode") and str(product["barcode"]) != barcode:
+                    warnings.append(
+                        f"[{name}] у продукта уже другой штрихкод "
+                        f"{product.get('barcode')} — не перезаписываю"
+                    )
+                if barcode and not product.get("barcode"):
+                    patch["barcode"] = barcode
+                if brand and not product.get("brand"):
+                    patch["brand"] = brand
+                if category and not product.get("category"):
+                    patch["category"] = category
+                if unit and not product.get("default_unit"):
+                    patch["default_unit"] = unit
+                if patch:
+                    updated = await ingredients_store.update(product_id, patch)
+                    if updated:
+                        enriched.append({
+                            "product_id": product_id,
+                            "fields": sorted(patch.keys()),
+                        })
             if not product_id:
                 suggestion = await _find_pending_suggestion(
                     session, barcode=barcode, name=name, brand=brand
@@ -175,6 +198,7 @@ async def record_observations(
         "observed": observed,
         "matched": matched,
         "suggestions": suggestions,
+        "enriched": enriched,
         "warnings": warnings,
     }
 
