@@ -100,7 +100,8 @@ async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...))
         recipe_id: str
         ingredient_indices: list[int] | None
             Если не указан — берём все не-заголовки.
-        multiplier: float = 1
+
+    Количество всегда берётся как в рецепте: без масштабирования по порциям.
     """
     from services.shopping_from_recipe import add_recipe_ingredients_to_shopping
 
@@ -115,7 +116,7 @@ async def add_from_recipe(request: Request, payload: dict[str, Any] = Body(...))
     return await add_recipe_ingredients_to_shopping(
         recipe,
         owner_id=get_current_user(request)["id"],
-        multiplier=float(payload.get("multiplier") or 1),
+        multiplier=1.0,
         ingredient_indices=payload.get("ingredient_indices"),
     )
 

@@ -216,13 +216,16 @@ def _meal_plan_components(
         recipe_servings = _num(recipe.get("servings"))
         entry_servings = _num(entry.get("servings"))
         multiplier = 1.0
-        if entry_servings and recipe_servings:
-            multiplier = entry_servings / recipe_servings
-        elif entry_servings and not recipe_servings:
-            warnings.append(
-                f"[{recipe.get('name') or entry.get('recipe_id')}] "
-                "у рецепта не указаны порции — количество не масштабировано"
-            )
+        # Ручные записи плана всегда считаются «как в рецепте».
+        # Масштаб применяем только к сгенерированному меню.
+        if str(entry.get("source") or "").startswith("generated"):
+            if entry_servings and recipe_servings:
+                multiplier = entry_servings / recipe_servings
+            elif entry_servings and not recipe_servings:
+                warnings.append(
+                    f"[{recipe.get('name') or entry.get('recipe_id')}] "
+                    "у рецепта не указаны порции — количество не масштабировано"
+                )
         recipe_ctx = {
             "id": recipe.get("id"),
             "name": recipe.get("name"),

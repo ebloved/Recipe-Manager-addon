@@ -17,19 +17,12 @@
       state.pickerWeekStart = addDays(state.pickerWeekStart, 7);
       loadAndRenderPicker();
     });
-    $("plan-picker-servings").addEventListener("change", (e) => {
-      const v = parseInt(e.target.value, 10);
-      state.pickerServings = (v && v > 0) ? v : 1;
-      e.target.value = state.pickerServings;
-    });
   }
 
   async function open(recipe) {
     state.pickerRecipe = recipe;
-    state.pickerServings = 1;
     state.pickerWeekStart = getMonday(new Date());
     $("plan-picker-title").textContent = `Добавить «${recipe.name}» в план`;
-    $("plan-picker-servings").value = state.pickerServings;
     $("plan-picker").classList.add("show");
     await loadAndRenderPicker();
   }
@@ -93,7 +86,6 @@
         recipe_id: state.pickerRecipe.id,
         date,
         meal_type: meal,
-        servings: state.pickerServings,
       });
       close();
       // Обновляем планировщик, если открыт

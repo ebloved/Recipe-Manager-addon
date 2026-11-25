@@ -556,7 +556,7 @@
     $("tbtn-cook").addEventListener("click", () => RM.cooking.start(r));
     $("tbtn-plan").addEventListener("click", () => RM.planPicker.open(r));
     $("tbtn-shop").addEventListener("click", () => {
-      RM.shopping.openRecipeShop(r, state.servingMult);
+      RM.shopping.openRecipeShop(r);
     });
     const personalCloneBtn = $("btn-personal-clone");
     if (personalCloneBtn) {
@@ -682,7 +682,7 @@
           const ings = normalizedIngredients(r);
           const ing = ings[idx];
           if (ing) {
-            RM.shopping.addIngredient(ing, r, state.servingMult);
+            RM.shopping.addIngredient(ing, r);
             cartBtn.textContent = "✓";
             setTimeout(() => { cartBtn.textContent = "🛒"; }, 900);
           }

@@ -1,6 +1,6 @@
 "use strict";
 (function (RM) {
-  const { $, escHtml, setStatus, clearStatus, scaleAmount } = RM.utils;
+  const { $, escHtml, setStatus, clearStatus } = RM.utils;
   const { getJSON, postJSON, patchJSON, del } = RM.api;
   const state = RM.state;
 
@@ -561,13 +561,12 @@
   // ====================================================================
   // Add from recipe
   // ====================================================================
-  function openRecipeShop(recipe, multiplier) {
+  function openRecipeShop(recipe) {
     const ingredients = (recipe.ingredients || []).map((ing) =>
       typeof ing === "string" ? { name: ing } : ing
     );
     state.recipeShopState = {
       recipe,
-      multiplier: multiplier || 1,
       selected: new Set(
         ingredients
           .map((ing, idx) => (
@@ -599,9 +598,6 @@
     }
 
     body.innerHTML = `
-      <div class="recipe-shop-scale">
-        Масштаб порций: ×${st.multiplier}
-      </div>
       <ul class="recipe-shop-list">
         ${ingredients.map((ing, idx) => {
           const isHeading = ing.is_heading || (ing.name || "").startsWith("#");
@@ -609,9 +605,7 @@
             const name = (ing.name || "").replace(/^#\s*/, "");
             return `<li class="rs-heading">${escHtml(name)}</li>`;
           }
-          const amount = ing.amount
-            ? scaleAmount(ing.amount, st.multiplier)
-            : null;
+          const amount = ing.amount || null;
           const amountStr = [amount, ing.unit].filter(Boolean).join(" ");
           const checked = st.selected.has(idx) ? "checked" : "";
           const pantry = isPantryIngredient(ing);
@@ -675,7 +669,6 @@
       const data = await postJSON("api/shopping/from-recipe", {
         recipe_id: st.recipe.id,
         ingredient_indices: [...st.selected],
-        multiplier: st.multiplier,
       });
       closeRecipeShop();
       if (!$("panel-shopping").classList.contains("active")) {
@@ -694,10 +687,10 @@
   // ====================================================================
   // Быстрое добавление одного ингредиента из detail-view
   // ====================================================================
-  async function addIngredient(ing, recipe, multiplier) {
+  async function addIngredient(ing, recipe) {
     const name = (ing.name || "").trim();
     if (!name) return;
-    const amount = ing.amount ? scaleAmount(ing.amount, multiplier || 1) : null;
+    const amount = ing.amount || null;
     try {
       const data = await postJSON("api/shopping", {
         name,

@@ -407,17 +407,6 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.plan-picker-servings {
-  display: flex; align-items: center; gap: 8px;
-  justify-content: center; margin: 14px 0 4px;
-  font-size: 13px; color: var(--text-secondary);
-}
-.plan-picker-servings input {
-  width: 70px; background: var(--elevated);
-  border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); padding: 6px 10px; font-size: 14px;
-  text-align: center;
-}
 .recipe-picker-panel { max-width: 560px; }
 .recipe-picker-subtitle {
   font-size: 12px;
@@ -1176,10 +1165,6 @@ button.btn.small { padding: 6px 10px; font-size: 13px; }
 .recipe-shop-body {
   max-height: 60vh; overflow-y: auto;
   padding: 4px 2px;
-}
-.recipe-shop-scale {
-  font-size: 12px; color: var(--text-secondary);
-  margin-bottom: 10px;
 }
 .recipe-shop-list { list-style: none; padding: 0; margin: 0; }
 .recipe-shop-list .rs-heading {

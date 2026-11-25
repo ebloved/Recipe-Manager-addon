@@ -26,7 +26,6 @@
     $("recipe-picker-title").textContent = `Добавить в ${label}`;
     $("recipe-picker-subtitle").textContent = formatDateFull(date);
     $("recipe-picker-search").value = "";
-    $("recipe-picker-servings").value = "1";
 
     $("recipe-picker-overlay").classList.add("show");
     setTimeout(() => $("recipe-picker-search").focus(), 60);
@@ -105,15 +104,12 @@
   }
 
   async function pick(recipeId) {
-    const sVal = parseInt($("recipe-picker-servings").value, 10);
-    const servings = (sVal && sVal > 0) ? sVal : 1;
     if (!currentDate || !currentMeal) return;
     try {
       await postJSON("api/meal-plan", {
         recipe_id: recipeId,
         date: currentDate,
         meal_type: currentMeal,
-        servings: servings,
       });
       close();
       if ($("panel-planner").classList.contains("active")) {

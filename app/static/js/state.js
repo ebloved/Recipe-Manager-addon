@@ -10,7 +10,6 @@
     plannerEntries: [],
     pickerWeekStart: null,
     pickerRecipe: null,
-    pickerServings: 2,
     profileFilterActive: false,
   };
 

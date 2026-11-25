@@ -61,7 +61,8 @@
   }
 
   // --- Подсчёт итогов по дням -----------------------------------------
-  // nutrition в рецепте — на 1 порцию. Калораж блюда = nutrition × запланированных порций.
+  // nutrition в рецепте — на 1 порцию. Для ручных записей плана берём
+  // весь рецепт (recipe_servings), для сгенерированных — их servings.
   function computeDayTotals(monday) {
     const days = {};
     for (let i = 0; i < 7; i++) {
@@ -74,7 +75,10 @@
       if (!day) continue;
 
       const n = e.recipe_nutrition || {};
-      const servings = parseFloat(e.servings) || 1;
+      const isGenerated = String(e.source || "").startsWith("generated");
+      const servings = (isGenerated && parseFloat(e.servings))
+        || parseFloat(e.recipe_servings)
+        || 1;
 
       const cal = (parseFloat(n.calories) || 0) * servings;
       const prot = (parseFloat(n.protein) || 0) * servings;
