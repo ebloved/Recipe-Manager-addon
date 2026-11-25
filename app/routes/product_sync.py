@@ -29,7 +29,12 @@ async def observations(request: Request, payload: dict = Body(...)):
         raise HTTPException(400, "items[] is required")
     if len(items) > 500:
         raise HTTPException(400, "Too many items (max 500)")
-    return await record_observations(user["id"], items)
+    shopping_mode = str(payload.get("shopping_mode") or "check").strip().lower()
+    if shopping_mode not in ("check", "delete"):
+        raise HTTPException(400, "shopping_mode must be 'check' or 'delete'")
+    return await record_observations(
+        user["id"], items, shopping_mode=shopping_mode
+    )
 
 
 @router.get("/lookup")

@@ -35,6 +35,7 @@ from . import (
     export,
     api_tokens,
     product_sync,
+    shopping_feedback,
 )
 
 api_router = APIRouter()
@@ -71,5 +72,6 @@ api_router.include_router(voice_recipe.router)
 api_router.include_router(export.router)
 api_router.include_router(api_tokens.router)
 api_router.include_router(product_sync.router)
+api_router.include_router(shopping_feedback.router)
 
 __all__ = ["api_router"]

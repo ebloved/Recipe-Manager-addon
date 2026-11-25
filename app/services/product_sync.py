@@ -62,10 +62,13 @@ async def _find_pending_suggestion(
 async def record_observations(
     owner_id: str,
     items: list[dict[str, Any]],
+    *,
+    shopping_mode: str = "check",
 ) -> dict[str, Any]:
     matched: list[dict[str, Any]] = []
     suggestions: list[dict[str, Any]] = []
     enriched: list[dict[str, Any]] = []
+    feedback_items: list[dict[str, Any]] = []
     warnings: list[str] = []
     observed = 0
 
@@ -167,6 +170,9 @@ async def record_observations(
                     "status": "pending",
                 })
 
+            if raw.get("shopping_item_id") or raw.get("purchased") is not None:
+                feedback_items.append(raw)
+
             observation = ProductObservation(
                 id=uuid.uuid4().hex,
                 owner_id=str(owner_id),
@@ -194,11 +200,19 @@ async def record_observations(
                 })
         await session.commit()
 
+    shopping = None
+    if feedback_items:
+        from services.shopping_feedback import apply_purchase_feedback
+        shopping = await apply_purchase_feedback(
+            owner_id, feedback_items, mode=shopping_mode
+        )
+
     return {
         "observed": observed,
         "matched": matched,
         "suggestions": suggestions,
         "enriched": enriched,
+        "shopping": shopping,
         "warnings": warnings,
     }
 

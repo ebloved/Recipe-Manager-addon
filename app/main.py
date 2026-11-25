@@ -438,7 +438,11 @@ async def auth_guard(request: Request, call_next):
     # не нужна, проверка токена и scope выполняется в самом роутере.
     auth_header = (request.headers.get("authorization") or "").strip().lower()
     if (
-        (path.startswith("/api/v1/export/") or path.startswith("/api/v1/products/"))
+        (
+            path.startswith("/api/v1/export/")
+            or path.startswith("/api/v1/products/")
+            or path.startswith("/api/v1/shopping/")
+        )
         and auth_header.startswith("bearer rm_")
     ):
         return await call_next(request)

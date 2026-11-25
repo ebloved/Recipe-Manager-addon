@@ -110,6 +110,7 @@ def _component(
     recipe: dict[str, Any] | None = None,
     notes: str | None = None,
     pantry: bool | None = None,
+    shopping_item_id: str | None = None,
 ) -> dict[str, Any]:
     suggestion = _suggestion(name, amount, unit, user_weights)
     if pantry is None:
@@ -130,6 +131,7 @@ def _component(
         "image_url": (product or {}).get("image_url") or None,
         "pantry": bool(pantry),
         "essential": not bool(pantry),
+        "shopping_item_id": shopping_item_id,
         **suggestion,
     }
 
@@ -166,6 +168,7 @@ def _shopping_components(
             checked=bool(item.get("checked")),
             recipe=recipe,
             notes=item.get("note"),
+            shopping_item_id=item.get("id"),
         ))
     return components
 
@@ -279,6 +282,7 @@ def _merge_components(
                 "image_url": component.get("image_url"),
                 "pantry": bool(component.get("pantry")),
                 "essential": bool(component.get("essential", True)),
+                "shopping_item_ids": [],
                 "checked": component.get("checked", False),
                 "sources": {component.get("source")},
                 "recipes": [],
@@ -341,6 +345,16 @@ def _merge_components(
             recipes.append(recipe)
         item["recipes"] = recipes
         item["sources"] = sorted(item["sources"])
+        item["shopping_item_ids"] = sorted({
+            c.get("shopping_item_id")
+            for c in item["components"]
+            if c.get("shopping_item_id")
+        })
+        item["shopping_item_id"] = (
+            item["shopping_item_ids"][0]
+            if len(item["shopping_item_ids"]) == 1
+            else None
+        )
         item["components"] = item["components"]
         notes = [
             c.get("notes") for c in item["components"]
