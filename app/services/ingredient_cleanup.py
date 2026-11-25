@@ -61,6 +61,8 @@ def _clean_notes(notes: Any) -> str | None:
     missing = text.count("(") - text.count(")")
     if missing > 0:
         text += ")" * missing
+    # Обрывки после «;» обычно пришли из середины фразы — с маленькой буквы.
+    text = re.sub(r"(?<=;\s)([А-ЯЁ])(?=[а-яё])", lambda m: m.group(1).lower(), text)
     return text or None
 
 
