@@ -726,11 +726,10 @@
 
     let productHtml = "";
     if (productId && product) {
-      // Связка есть — только компактная иконка, без длинного названия.
-      const title = `${product.name || ""}${product.brand ? " (" + product.brand + ")" : ""}`;
+      // Связка есть — только компактная иконка, без названия и бренда.
       productHtml = `
         <button class="ing-status-btn matched" data-ing-idx="${idx}"
-                title="Связан: ${escHtml(title)} — изменить/отвязать">✅</button>`;
+                title="Связан с продуктом — изменить/отвязать">✅</button>`;
     } else if (productId) {
       productHtml = `
         <button class="ing-status-btn missing" data-ing-idx="${idx}"
