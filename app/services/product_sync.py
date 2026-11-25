@@ -14,10 +14,19 @@ from typing import Any
 from sqlalchemy import select
 
 from db import SessionLocal
+from services.product_filter import non_food_reason
 from stores import ingredients_store
 from stores.db_models import ProductObservation, ProductSuggestion
 
 _BARCODE_RE = re.compile(r"\D+")
+
+
+class NonFoodProductError(Exception):
+    """Suggestion относится к явно непищевому товару."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 def normalize_barcode(value: Any) -> str | None:
@@ -70,6 +79,7 @@ async def record_observations(
     enriched: list[dict[str, Any]] = []
     feedback_items: list[dict[str, Any]] = []
     warnings: list[str] = []
+    ignored: list[dict[str, Any]] = []
     group_seen = False
     observed = 0
 
@@ -103,6 +113,19 @@ async def record_observations(
             variant = _clean(raw.get("variant"), 64)
             if any((group_key, product_type, volume, packaging, variant)):
                 group_seen = True
+
+            non_food = non_food_reason(
+                name=name, brand=brand, category=category
+            )
+            if non_food:
+                ignored.append({
+                    "external_id": external_id,
+                    "name": name,
+                    "brand": brand,
+                    "category": category,
+                    "reason": non_food,
+                })
+                continue
 
             product = None
             matched_by = None
@@ -248,6 +271,7 @@ async def record_observations(
         "enriched": enriched,
         "shopping": shopping,
         "group_suggestions": group_created,
+        "ignored": ignored,
         "warnings": warnings,
     }
 
@@ -284,6 +308,15 @@ async def approve_suggestion(
         row = await session.get(ProductSuggestion, suggestion_id)
         if row is None or row.status != "pending":
             return None
+        reason = non_food_reason(
+            name=row.name, brand=row.brand, category=row.category
+        )
+        if reason:
+            row.status = "rejected"
+            row.reviewed_at = datetime.now(timezone.utc)
+            row.reviewed_by = str(admin_id)
+            await session.commit()
+            raise NonFoodProductError(reason)
         product = None
         if row.barcode:
             product = ingredients_store.find_by_barcode(row.barcode)

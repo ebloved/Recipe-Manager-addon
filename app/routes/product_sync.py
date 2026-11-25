@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from services.api_auth import get_api_user
 from services.product_sync import (
+    NonFoodProductError,
     approve_suggestion,
     list_suggestions,
     normalize_barcode,
@@ -83,7 +84,12 @@ async def suggestions(
 async def approve(suggestion_id: str, request: Request):
     user = await get_api_user(request, scope="products:write")
     _admin(user)
-    product = await approve_suggestion(suggestion_id, admin_id=user["id"])
+    try:
+        product = await approve_suggestion(suggestion_id, admin_id=user["id"])
+    except NonFoodProductError as exc:
+        raise HTTPException(
+            409, f"Non-food product ignored: {exc.reason}"
+        ) from exc
     if product is None:
         raise HTTPException(404, "Suggestion not found or already reviewed")
     return {"status": "approved", "product": product}
