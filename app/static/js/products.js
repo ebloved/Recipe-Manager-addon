@@ -37,6 +37,7 @@
   state.productsFilter = { q: "", category: "", showDeleted: false };
   state.productGroups = [];
   state.groupSuggestions = [];
+  state.productSuggestions = [];
 
   // Редактор продукта
   let editorState = null; // { product, isNew, aliases: [...] }
@@ -110,6 +111,18 @@
     if (btnUnlinked) btnUnlinked.addEventListener("click", openUnlinked);
     const closeUnlinked = $("unlinked-close");
     if (closeUnlinked) closeUnlinked.addEventListener("click", () => $("unlinked-overlay").classList.remove("show"));
+
+    // Заявки из внешних покупок
+    const btnSuggestions = $("products-suggestions");
+    if (btnSuggestions) btnSuggestions.addEventListener("click", openProductSuggestions);
+    const closeSuggestions = $("product-suggestions-close");
+    if (closeSuggestions) closeSuggestions.addEventListener("click", () => {
+      $("product-suggestions-overlay").classList.remove("show");
+    });
+    const suggestionsOverlay = $("product-suggestions-overlay");
+    if (suggestionsOverlay) suggestionsOverlay.addEventListener("click", (e) => {
+      if (e.target === suggestionsOverlay) suggestionsOverlay.classList.remove("show");
+    });
 
     // Группы продуктов
     const btnGroups = $("products-groups");
@@ -191,17 +204,23 @@
     try {
       const params = new URLSearchParams();
       params.set("include_deleted", String(state.productsFilter.showDeleted));
-      const [data, groupData] = await Promise.all([
+      const [data, groupData, suggestionData] = await Promise.all([
         getJSON(`api/ingredients?${params.toString()}`),
         getJSON("api/product-groups").catch((err) => {
           console.warn("Product groups error:", err);
           return { groups: [], suggestions: [] };
         }),
+        getJSON("api/products/suggestions?status=pending").catch((err) => {
+          console.warn("Product suggestions error:", err);
+          return { items: [] };
+        }),
       ]);
       state.products = data.products || [];
       state.productGroups = groupData.groups || [];
       state.groupSuggestions = groupData.suggestions || [];
+      state.productSuggestions = suggestionData.items || [];
       updateGroupsCount();
+      updateProductSuggestionsCount();
       await fillCategoryFilter();
       render();
     } catch (err) {
@@ -226,6 +245,78 @@
   function updateGroupsCount() {
     const el = $("product-groups-count");
     if (el) el.textContent = (state.groupSuggestions || []).length;
+  }
+
+  function updateProductSuggestionsCount() {
+    const el = $("product-suggestions-count");
+    if (el) el.textContent = (state.productSuggestions || []).length;
+  }
+
+  function openProductSuggestions() {
+    const overlay = $("product-suggestions-overlay");
+    if (!overlay) return;
+    clearStatus($("product-suggestions-status"));
+    renderProductSuggestions();
+    overlay.classList.add("show");
+  }
+
+  function renderProductSuggestions() {
+    const list = $("product-suggestions-list");
+    if (!list) return;
+    const items = state.productSuggestions || [];
+    if (!items.length) {
+      list.innerHTML = `<div class="empty" style="padding:24px 0;">
+        <div class="icon">📥</div>
+        <p>Новых товаров из покупок нет.</p>
+        <p class="hint" style="margin-top:6px;">Когда внешний сервис пришлёт чек, товары появятся здесь.</p>
+      </div>`;
+      return;
+    }
+    list.innerHTML = items.map((s) => `
+      <div class="group-suggestion" data-product-suggestion-id="${escHtml(s.id)}">
+        <div class="group-suggestion-head">
+          <div>
+            <div class="group-suggestion-title">
+              <strong>${escHtml(s.name || "(без названия)")}</strong>
+            </div>
+            <div class="group-suggestion-key">
+              ${s.brand ? escHtml(s.brand) + " · " : ""}
+              ${s.category ? escHtml(s.category) + " · " : ""}
+              ${s.barcode ? escHtml(s.barcode) : "без GTIN"}
+              ${s.created_at ? " · " + escHtml(String(s.created_at).slice(0, 10)) : ""}
+            </div>
+          </div>
+          <div class="group-suggestion-actions">
+            <button class="btn primary small" data-product-suggestion-action="approve" data-product-suggestion-id="${escHtml(s.id)}">
+              Добавить в продукты
+            </button>
+            <button class="btn small" data-product-suggestion-action="reject" data-product-suggestion-id="${escHtml(s.id)}">
+              Отклонить
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+
+    list.querySelectorAll("[data-product-suggestion-action]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.productSuggestionId;
+        const action = btn.dataset.productSuggestionAction;
+        btn.disabled = true;
+        try {
+          await postJSON(`api/products/suggestions/${id}/${action}`, {});
+          state.productSuggestions = (state.productSuggestions || [])
+            .filter((x) => x.id !== id);
+          updateProductSuggestionsCount();
+          renderProductSuggestions();
+          await load();
+        } catch (err) {
+          setStatus($("product-suggestions-status"), "Ошибка: " + err.message, "error");
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   function openGroups() {
@@ -626,6 +717,9 @@
     }
 
     clearStatus($("product-editor-status"));
+    const saveBtn = $("product-editor-save");
+    saveBtn.disabled = false;
+    saveBtn.textContent = "💾 Сохранить";
     $("product-editor-scanner").style.display = "none";
     $("product-editor-overlay").classList.add("show");
   }
@@ -633,6 +727,11 @@
   function closeEditor() {
     stopScanner();
     $("product-editor-overlay").classList.remove("show");
+    const saveBtn = $("product-editor-save");
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "💾 Сохранить";
+    }
     editorState = null;
   }
 

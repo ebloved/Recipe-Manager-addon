@@ -239,7 +239,8 @@
         <div class="products-actions">
           <button class="btn primary" id="products-add">+ Новый продукт</button>
           <button class="btn" id="products-lookup">📷 Найти по штрих-коду</button>
-          <button class="btn" id="products-unlinked">⚠️ Несвязанные (<span id="unlinked-count">0</span>)</button>
+          <button class="btn" id="products-unlinked">⚠️ Без продукта (<span id="unlinked-count">0</span>)</button>
+          <button class="btn" id="products-suggestions">📥 Заявки (<span id="product-suggestions-count">0</span>)</button>
           <button class="btn" id="products-groups">🏷️ Группы (<span id="product-groups-count">0</span>)</button>
           <label class="products-show-deleted">
             <input type="checkbox" id="products-show-deleted">
@@ -1149,13 +1150,13 @@
 <div class="product-editor-overlay" id="unlinked-overlay">
   <div class="product-editor-panel" style="max-width: 700px;">
     <div class="product-editor-header">
-      <h3>Несвязанные ингредиенты</h3>
+      <h3>Ингредиенты без продукта</h3>
       <button class="product-editor-close" id="unlinked-close">×</button>
     </div>
     <div class="product-editor-body">
       <div class="hint" style="margin-bottom: 12px;">
         Эти ингредиенты встречаются в ваших рецептах, но не привязаны к базе продуктов.
-        Откройте рецепт, чтобы связать их.
+        Откройте рецепт, чтобы связать их. Новые товары из покупок — во вкладке «📥 Заявки».
       </div>
       <div id="unlinked-list" class="unlinked-list"></div>
     </div>
@@ -1179,6 +1180,23 @@
         <span class="hint" style="margin:0;">Проверяет продукты без группы по identity_key.</span>
       </div>
       <div id="product-groups-list" class="group-suggestions-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="product-editor-overlay" id="product-suggestions-overlay">
+  <div class="product-editor-panel" style="max-width: 820px;">
+    <div class="product-editor-header">
+      <h3>📥 Новые товары из покупок</h3>
+      <button class="product-editor-close" id="product-suggestions-close">×</button>
+    </div>
+    <div class="product-editor-body">
+      <div class="hint" style="margin-bottom: 12px;">
+        Эти товары пришли из внешних чеков. Recipe Manager не добавляет их
+        в справочник автоматически — подтвердите нужные.
+      </div>
+      <div class="status" id="product-suggestions-status"></div>
+      <div id="product-suggestions-list" class="group-suggestions-list"></div>
     </div>
   </div>
 </div>
@@ -1919,7 +1937,7 @@
 <script src="static/js/recipe-picker.js?v=122"></script>
 <script src="static/js/shopping.js?v=112"></script>
 <script src="static/js/stores.js?v=112"></script>
-<script src="static/js/products.js?v=111"></script>
+<script src="static/js/products.js?v=112"></script>
 <script src="static/js/product-picker.js?v=108"></script>
 <script src="static/js/generator.js?v=124"></script>
 <script src="static/js/meal-plan-generator.js?v=128"></script>
