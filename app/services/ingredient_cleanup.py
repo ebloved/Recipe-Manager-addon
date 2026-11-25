@@ -152,7 +152,10 @@ def clean_ingredients(
         if _is_fragment(name, amount, unit):
             previous = result[-1] if result else None
             if isinstance(previous, dict) and not previous.get("is_heading"):
-                previous["notes"] = _merge_note(previous.get("notes"), name)
+                fragment = name
+                if fragment and fragment[0].isupper() and not fragment.isupper():
+                    fragment = fragment[0].lower() + fragment[1:]
+                previous["notes"] = _merge_note(previous.get("notes"), fragment)
                 changes.append({
                     "type": "merged_fragment",
                     "recipe_ingredient": original.get("name"),
