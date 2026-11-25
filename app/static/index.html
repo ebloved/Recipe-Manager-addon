@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="static/favicon.ico">
 <title>Recipe Manager</title>
-<link rel="stylesheet" href="static/css/style.css?v=143">
+<link rel="stylesheet" href="static/css/style.css?v=144">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
@@ -925,8 +925,34 @@
         </div>
       </div>
 
+      <div class="card" id="cabinet-api-tokens">
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px;">🔑 API-токены</div>
+        <div class="hint" style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+          Персональные токены для внешних сервисов: выгрузка списка покупок
+          и загрузка наблюдений о товарах. Токен показывается один раз.
+        </div>
+        <div class="row" style="margin-top:12px;align-items:flex-end;">
+          <div class="field">
+            <label for="api-token-name">Название</label>
+            <input type="text" id="api-token-name" placeholder="например, home-server">
+          </div>
+          <div class="field" style="display:flex;flex-direction:column;gap:4px;justify-content:flex-end;padding-bottom:10px;">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;">
+              <input type="checkbox" id="api-token-scope-export" checked> Чтение списка
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;">
+              <input type="checkbox" id="api-token-scope-products"> Загрузка продуктов
+            </label>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn primary" id="api-token-create">Создать токен</button>
+        </div>
+        <div id="api-token-created" style="display:none;margin-top:12px;"></div>
+        <div id="api-token-list" style="margin-top:12px;"></div>
+      </div>
 
-            <div class="card" id="cabinet-profiles">
+      <div class="card" id="cabinet-profiles">
         <div class="hint" style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-size:14px; font-weight:600; margin-bottom:4px">Профили генерации</div>
@@ -1878,7 +1904,7 @@
 <script src="static/js/meal-plan-generator.js?v=128"></script>
 <script src="static/js/profiles.js?v=133"></script>
 <script src="static/js/quiz.js?v=141"></script>
-<script src="static/js/cabinet.js?v=144"></script>
+<script src="static/js/cabinet.js?v=145"></script>
 <script src="static/js/help.js?v=123"></script>
 <script src="static/js/remote.js?v=108"></script>
 <script src="static/js/sync.js?v=108"></script>

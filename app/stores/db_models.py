@@ -139,6 +139,77 @@ class UserStoreSetting(Base):
     )
 
 
+class UserApiToken(Base):
+    """Персональные API-токены для внешних коннекторов."""
+
+    __tablename__ = "user_api_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    token_prefix: Mapped[str] = mapped_column(String(32))
+    scopes: Mapped[str] = mapped_column(String(200), default="export")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class ProductObservation(Base):
+    """Наблюдение товара из внешнего источника (чек, покупка)."""
+
+    __tablename__ = "product_observations"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(128), index=True)
+    external_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    name: Mapped[str] = mapped_column(String(500))
+    barcode: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    brand: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    amount: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    store: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    purchased_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    product_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    matched_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    raw_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+
+
+class ProductSuggestion(Base):
+    """Предложение нового товара в общий справочник."""
+
+    __tablename__ = "product_suggestions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(128), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(500))
+    brand: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    product_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+
 class UserLLMConfig(Base):
     """Персональные LLM-ключи, зашифрованные в SQLite."""
 

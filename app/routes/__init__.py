@@ -32,6 +32,9 @@ from . import (
     media,
     voice,
     voice_recipe,
+    export,
+    api_tokens,
+    product_sync,
 )
 
 api_router = APIRouter()
@@ -65,5 +68,8 @@ api_router.include_router(remote.router)
 api_router.include_router(media.router)
 api_router.include_router(voice.router)
 api_router.include_router(voice_recipe.router)
+api_router.include_router(export.router)
+api_router.include_router(api_tokens.router)
+api_router.include_router(product_sync.router)
 
 __all__ = ["api_router"]

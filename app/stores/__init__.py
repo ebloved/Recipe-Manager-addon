@@ -21,6 +21,7 @@ from .gen_profiles import (
 from .suggestions import suggestions_store, SuggestionsStore
 from .jobs import jobs_store, JobsStore
 from .store_settings import store_settings, StoreSettingsRepository
+from .api_tokens import api_tokens, ApiTokenRepository
 
 __all__ = [
     # Recipes
@@ -44,4 +45,6 @@ __all__ = [
     "jobs_store", "JobsStore",
     # Store settings
     "store_settings", "StoreSettingsRepository",
+    # API tokens
+    "api_tokens", "ApiTokenRepository",
 ]

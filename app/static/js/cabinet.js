@@ -56,6 +56,7 @@
     try { await loadProgress(); } catch (e) { console.error("loadProgress", e); }
     try { await loadSettings(); } catch (e) { console.error("loadSettings", e); }
     try { await loadAdmin(); } catch (e) { console.error("loadAdmin", e); }
+    try { await loadApiTokens(); } catch (e) { console.error("loadApiTokens", e); }
     try { await loadApify(); } catch (e) { console.error("loadApify", e); }
     try { await loadLLMForm(); } catch (e) { console.error("loadLLMForm", e); }
     if (RM.sync) {
@@ -63,6 +64,109 @@
     }
     try { await loadVersion(); } catch (e) { console.error("loadVersion", e); }
     try { await loadPendingWeights(); } catch (e) { console.error("loadPendingWeights", e); }
+  }
+
+  async function loadApiTokens() {
+    const list = $("api-token-list");
+    if (!list) return;
+    const create = $("api-token-create");
+    if (create && !create.dataset.bound) {
+      create.dataset.bound = "1";
+      create.onclick = createApiToken;
+    }
+    if (!list.dataset.bound) {
+      list.dataset.bound = "1";
+      list.onclick = async (e) => {
+        const btn = e.target.closest("[data-api-token-revoke]");
+        if (!btn) return;
+        if (!confirm("Отозвать токен? Внешний сервис сразу потеряет доступ.")) return;
+        try {
+          await del(`api/me/api-tokens/${btn.dataset.apiTokenRevoke}`);
+          await loadApiTokens();
+        } catch (err) {
+          alert("Ошибка: " + err.message);
+        }
+      };
+    }
+    try {
+      const data = await getJSON("api/me/api-tokens");
+      const items = data.items || [];
+      list.innerHTML = items.length
+        ? items.map(apiTokenRow).join("")
+        : '<div class="hint" style="font-size:12px;">Пока нет токенов.</div>';
+    } catch (e) {
+      list.innerHTML = `<div class="hint" style="color:var(--danger);font-size:12px;">Ошибка: ${escHtml(e.message)}</div>`;
+    }
+  }
+
+  function apiTokenRow(token) {
+    const scopeLabels = (token.scopes || []).map((scope) => {
+      if (scope === "export") return "чтение списка";
+      if (scope === "products:write") return "загрузка продуктов";
+      return scope;
+    });
+    const meta = [];
+    if (scopeLabels.length) meta.push(`Права: ${scopeLabels.join(", ")}`);
+    if (token.last_used_at) {
+      meta.push(`Использован: ${new Date(token.last_used_at).toLocaleString("ru-RU")}`);
+    }
+    if (token.revoked_at) meta.push("Отозван");
+    return `<div class="api-token-row">
+      <div>
+        <div><b>${escHtml(token.name || "Токен")}</b> <code>${escHtml(token.prefix || "")}</code></div>
+        <div class="hint" style="font-size:11px;">${escHtml(meta.join(" · "))}</div>
+      </div>
+      ${token.revoked_at ? "" : `<button class="btn" data-api-token-revoke="${escHtml(token.id)}">Отозвать</button>`}
+    </div>`;
+  }
+
+  async function createApiToken() {
+    const name = ($("api-token-name")?.value || "API token").trim() || "API token";
+    const scopes = [];
+    if ($("api-token-scope-export")?.checked) scopes.push("export");
+    if ($("api-token-scope-products")?.checked) scopes.push("products:write");
+    if (!scopes.length) {
+      alert("Выберите хотя бы одно право для токена.");
+      return;
+    }
+    const btn = $("api-token-create");
+    if (btn) btn.disabled = true;
+    try {
+      const data = await postJSON("api/me/api-tokens", { name, scopes });
+      if ($("api-token-name")) $("api-token-name").value = "";
+      const box = $("api-token-created");
+      if (box) {
+        box.style.display = "block";
+        box.innerHTML = `
+          <div class="hint" style="font-size:12px;color:var(--danger);">
+            Скопируйте токен сейчас — он показывается один раз.
+          </div>
+          <div class="store-address-row" style="margin-top:8px;">
+            <input id="api-token-value" type="text" readonly value="${escHtml(data.token)}">
+            <button class="btn" id="api-token-copy">Копировать</button>
+          </div>`;
+        const copy = $("api-token-copy");
+        const value = $("api-token-value");
+        if (copy && value) {
+          copy.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(value.value);
+              copy.textContent = "Скопировано";
+              setTimeout(() => { copy.textContent = "Копировать"; }, 2000);
+            } catch (_) {
+              value.focus();
+              value.select();
+              try { document.execCommand("copy"); } catch (__) { /* ignore */ }
+            }
+          };
+        }
+      }
+      await loadApiTokens();
+    } catch (e) {
+      alert("Ошибка создания токена: " + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function loadApify() {
