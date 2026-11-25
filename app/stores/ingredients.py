@@ -636,6 +636,22 @@ class IngredientsStore:
             rows.append({**suggestion, "products": products})
         return sorted(rows, key=lambda s: s.get("created_at") or "", reverse=True)
 
+    def _supersede_group_suggestions(
+        self,
+        product_ids: list[str],
+        *,
+        exclude_id: str | None = None,
+        now: str | None = None,
+    ) -> None:
+        touched = set(product_ids)
+        stamp = now or _now()
+        for suggestion_id, suggestion in self.group_suggestions.items():
+            if suggestion_id == exclude_id or suggestion.get("status") != "pending":
+                continue
+            if touched & set(suggestion.get("product_ids") or []):
+                suggestion["status"] = "superseded"
+                suggestion["reviewed_at"] = stamp
+
     async def create_group_suggestions(self) -> list[dict[str, Any]]:
         by_key: dict[str, list[str]] = {}
         for pid, product in self.products.items():
@@ -668,6 +684,15 @@ class IngredientsStore:
         for key, pids in by_key.items():
             group = group_by_key.get(key)
             if group:
+                # Продукты этого ключа уже в группе: pending new_group больше не нужен.
+                for suggestion in self.group_suggestions.values():
+                    if (
+                        suggestion.get("status") == "pending"
+                        and suggestion.get("type") == "new_group"
+                        and suggestion.get("identity_key") == key
+                    ):
+                        suggestion["status"] = "superseded"
+                        suggestion["reviewed_at"] = now
                 for pid in pids:
                     signature = ("add_to_group", (pid,), group.get("id"))
                     if signature in existing:
@@ -689,9 +714,22 @@ class IngredientsStore:
                 continue
             if len(pids) < 2:
                 continue
-            signature = ("new_group", tuple(sorted(pids)), None)
-            if signature in existing:
+            pending_same = [
+                suggestion
+                for suggestion in self.group_suggestions.values()
+                if suggestion.get("status") == "pending"
+                and suggestion.get("type") == "new_group"
+                and suggestion.get("identity_key") == key
+            ]
+            if any(
+                set(suggestion.get("product_ids") or []) == set(pids)
+                for suggestion in pending_same
+            ):
                 continue
+            # Оставляем только одно актуальное предложение на ключ.
+            for suggestion in pending_same:
+                suggestion["status"] = "superseded"
+                suggestion["reviewed_at"] = now
             primary = self.products.get(pids[0]) or {}
             suggestion = {
                 "id": str(uuid.uuid4()),
@@ -738,6 +776,9 @@ class IngredientsStore:
             suggestion["status"] = "approved"
             suggestion["reviewed_at"] = now
             suggestion["reviewed_by"] = reviewed_by
+            self._supersede_group_suggestions(
+                member_ids, exclude_id=suggestion_id, now=now
+            )
             await self._save_to_file()
             return self.get_group(group["id"])
 
@@ -776,6 +817,9 @@ class IngredientsStore:
         suggestion["group_id"] = group["id"]
         suggestion["reviewed_at"] = now
         suggestion["reviewed_by"] = reviewed_by
+        self._supersede_group_suggestions(
+            group["member_ids"], exclude_id=suggestion_id, now=now
+        )
         await self._save_to_file()
         return self.get_group(group["id"])
 
