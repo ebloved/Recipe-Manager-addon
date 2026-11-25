@@ -19,10 +19,10 @@
     if (typeof ing.pantry === "boolean") return ing.pantry;
     const name = String(ing.name || "").toLowerCase().replace(/ё/g, "е");
     if (!name) return false;
-    if (name.includes("свеж") || name.includes("болгар") || name.includes("сладк")) {
+    if (/\bсвеж(ий|ая|ие|их|ее|им)\b/.test(name) || name.includes("болгар") || name.includes("сладк")) {
       return false;
     }
-    if (name.includes("соль")) return true;
+    if (name.split(/[^a-zа-яё0-9]+/i).includes("соль")) return true;
     if (name === "перец") return true;
     if (
       name === "сахар"

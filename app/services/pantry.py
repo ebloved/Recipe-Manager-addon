@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 _PANTRY_EXACT = {
@@ -42,7 +43,7 @@ _PANTRY_CONTAINS = (
     "сушён", "сушен", "специ", "приправ", "лавров", "мускатн",
     "кориандр", "орегано", "паприк", "розмарин", "тимьян", "кориц",
 )
-_FRESH_MARKERS = ("свеж", "свежий", "свежая", "свежие")
+_FRESH_MARKERS = ("свежий", "свежая", "свежие", "свежих", "свежее", "свежим")
 _BELL_PEPPER_MARKERS = ("болгар", "сладк", "стручков")
 
 
@@ -58,7 +59,7 @@ def is_pantry_name(name: str | None) -> bool:
         return True
     if any(marker in text for marker in _PANTRY_CONTAINS):
         return True
-    if "соль" in text:
+    if re.search(r"(?<![а-яёa-z])соль(?![а-яёa-z])", text):
         return True
     if "перец" in text and any(
         marker in text

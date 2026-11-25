@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from services.pantry import is_pantry_ingredient, is_pantry_name
+from services.pantry import is_pantry_name
 from services.recipe_standard import normalize_unit
 
 _UNIT_PREFIX_RE = re.compile(
@@ -171,16 +171,7 @@ def clean_ingredients(
             or unit != original.get("unit")
             or notes != original.get("notes")
         )
-        product = None
-        product_id = ingredient.get("product_id")
-        if product_id and product_getter is not None:
-            try:
-                product = product_getter(str(product_id))
-            except Exception:  # noqa: BLE001
-                product = None
-        pantry = is_pantry_ingredient({"name": name}, product)
-        if is_pantry_name(name):
-            pantry = True
+        pantry = is_pantry_name(name)
         if _is_sugar(name):
             pantry = True
         updated["pantry"] = pantry

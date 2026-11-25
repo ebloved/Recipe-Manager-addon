@@ -47,10 +47,10 @@
   function isPantryName(name) {
     const text = String(name || "").toLowerCase().replace(/ё/g, "е");
     if (!text) return false;
-    if (text.includes("свеж") || text.includes("болгар") || text.includes("сладк")) {
+    if (/\bсвеж(ий|ая|ие|их|ее|им)\b/.test(text) || text.includes("болгар") || text.includes("сладк")) {
       return false;
     }
-    if (text.includes("соль")) return true;
+    if (text.split(/[^a-zа-яё0-9]+/i).includes("соль")) return true;
     if (text === "перец") return true;
     if (
       text === "сахар"
